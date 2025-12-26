@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Database
+backend/*.db
+
+# Uploads (optional - uncomment if you don't want to track uploaded images)
+# backend/uploads/
+
+# Build output
+frontend/dist/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+

@@ -1,0 +1,235 @@
+﻿Recipe Manager – Product Specification 
+Recipe Manager 
+Product Specification Document 
+Version 1.0 – December 2025 
+Executive Summary 
+Recipe Manager is a web application designed for home cooks who want a simple, elegant way to create, store, and manage their personal recipe collection. The app prioritizes ease of recipe entry with a clean, distraction-free interface that makes writing recipes feel natural and enjoyable. 
+The core philosophy: writing a recipe should be as simple as jotting it down on paper, but with the organizational power of a digital tool. 
+Project Goal 
+The primary goal is to deploy this web application to a server and make it publicly accessible via a custom domain. Anyone with the link will be able to use the app to manage their recipes. 
+Deployment Strategy 
+• Custom Domain: A dedicated domain will be purchased for easy access and professional branding 
+• Hosting Preference: Self-hosted on a local machine that remains always-online, with cloud hosting (e.g., Vercel, Netlify, DigitalOcean) as a fallback option • Public Access: The app will be available to anyone via the domain link—no login required for basic usage 
+• Data Persistence: Backend database will be required to store recipes across sessions and users 
+Product Vision 
+Target Users 
+Home cooks who want to digitize family recipes, experiment with cooking, or simply keep their recipe collection organized. Users range from occasional cooks to passionate home chefs who create and modify recipes frequently. 
+Core Value Proposition 
+• Frictionless recipe creation – Add ingredients and steps with minimal clicks • Visual recipe documentation – Attach photos to individual cooking stages • Quick access dashboard – See recent activity and jump into new recipes instantly • Clean, focused interface – No clutter, no ads, just your recipes 
+Page 1
+Recipe Manager – Product Specification 
+Application Structure 
+The application consists of two primary views: the Home Dashboard and the Recipe Editor. Navigation is minimal and intuitive. 
+Home Dashboard 
+The landing page that users see upon opening the app. It serves as both a quick-start point for creating new recipes and a hub for recent activity. 
+Layout Components 
+1. App Header: Logo/app name on the left, user menu on the right 
+2. Add Recipe Button: Prominent call-to-action button, visually emphasized 3. Search Bar: Search recipes by name or tag. Shows matching count when filtering. 4. Recent Activity Feed: Grid or list of recently created/edited recipes with thumbnails 
+5. Quick Stats: Total recipes count (shows filtered/total when searching) 
+User Interactions 
+• Clicking "Add Recipe" navigates to an empty Recipe Editor 
+• Clicking a recent recipe opens it in View Mode 
+• Search: Type in search bar to filter recipes by name or tag in real-time • Duplicate: Click the copy icon on a recipe card to create a duplicate with "(copy)" appended to the name 
+• Delete: Click the trash icon on a recipe card. A confirmation dialog appears to prevent accidental deletion. 
+Recipe View & Editor 
+The recipe page has two modes: View Mode and Edit Mode. Clicking a recipe from the dashboard opens it in View Mode. Users must click the Edit button to make changes. 
+View Mode 
+A clean, distraction-free presentation of the recipe optimized for reading and cooking. Features include: 
+• Hero banner: Full-width image with recipe title and description overlaid • Meta section: Servings count and tags displayed elegantly 
+• Ingredients list: Clean two-column layout with ingredient names and amounts • Instructions: Numbered steps with clear typography 
+• Edit button: Located in the header to switch to Edit Mode 
+• Cook button: Launches full-screen Cooking Mode presentation 
+Cooking Mode 
+A full-screen presentation mode optimized for cooking. Large, clear text that's easy to read from across the kitchen. The recipe is presented as slides: 
+6. Title Slide: Recipe name, description, banner image, and overview (servings, ingredient count, step count) 
+7. Ingredients Slide: Complete ingredients list with large, readable text 8. Step Slides: Each cooking step on its own slide with step number and instructions 
+Navigation: Previous/Next buttons, clickable progress dots, keyboard arrows (← →), spacebar to advance, Escape to exit. Voice control planned for future release. 
+Page 2
+Recipe Manager – Product Specification 
+Edit Mode 
+The editing interface where users create and modify recipe content. Accessed by clicking Edit in View Mode or by creating a new recipe. 
+Section 1: Recipe Header 
+Element 
+	Description
+	Banner Image 
+	Optional hero image for the recipe. The recipe name and description are overlaid on top of the banner with a gradient for readability. Click the + button or empty area to upload. Shows as thumbnail on dashboard cards.
+	Recipe Name 
+	Large text input overlaid on the banner image. Placeholder: "Recipe name..." Text has shadow for readability on images.
+	Description 
+	Multi-line text area below the name, also overlaid on banner. Placeholder: "A short description..." Optional but encouraged.
+	Servings 
+	Numeric input indicating how many servings/portions the recipe yields. Default value: 4.
+	Tags 
+	Free-form tagging system for categorization and filtering. Users can type custom tags or select from suggestions. Tags appear as pills that can be removed with × button.
+	
+
+
+
+Tagging System Details 
+The tagging system is a core feature for recipe organization and discovery. It uses free-form input with smart autocomplete suggestions. 
+• Input behavior: Users type in a text field. Pressing Enter adds the tag. Backspace on empty field removes the last tag. 
+• Autocomplete: As users type, a dropdown appears showing tags that START WITH the typed characters (e.g., typing "veg" shows "Vegetarian" and "Vegan"). • Suggestion list: Vegetarian, Vegan, Gluten-Free, Dairy-Free, Quick, Easy, Dessert, Breakfast, Lunch, Dinner, Snack, Israeli, Italian, Asian, Mexican, Healthy, Comfort Food, Kid-Friendly, Spicy, Soup, Salad, Pasta, Meat, Fish, Chicken, Baking, Holiday, Shabbat, Passover 
+• Custom tags: Users can create any tag—not limited to suggestions. Custom tags are saved and appear in future autocomplete. 
+• Display: Tags appear as colored pills with × buttons for removal 
+Section 2: Ingredients 
+A dynamic list where users add ingredients one at a time. Each ingredient entry appears as a row with structured fields. 
+Field 
+	Description
+	Ingredient Name 
+	Text input for the ingredient (e.g., "flour", "olive oil")
+	Amount 
+	Numeric input for quantity (e.g., "2", "1.5", "250")
+	Unit 
+	Dropdown selector: g, kg, ml, L, cup, tbsp, tsp, oz, lb, piece, pinch, to taste
+	Image (optional) 
+	Click to upload an image or animated GIF of the ingredient. Displays as a thumbnail in view mode and cooking mode.
+	
+
+
+
+Interaction: Clicking the "+" button adds a new empty ingredient row. Each row has a delete button (×) to remove it. Each ingredient can optionally have an image or animated GIF attached. 
+Page 3
+Recipe Manager – Product Specification 
+Section 3: Cooking Stages 
+Step-by-step instructions with optional image attachments for each stage. 
+Element 
+	Description
+	Stage Number 
+	Auto-generated sequential number displayed on the left
+	Instructions 
+	Multi-line text area for describing this step
+	Image Upload 
+	Optional. Button to add a photo or animated GIF. Shows preview when uploaded. Displays in view mode and cooking mode.
+	
+
+
+
+Interaction: Clicking "+" adds a new stage at the bottom. Each stage has a delete button. Stages auto-renumber when one is deleted. Images and animated GIFs can be attached to illustrate the step. 
+User Interface Specifications 
+Design Principles 
+1. Simplicity first: Every screen should feel calm and uncluttered 
+2. Touch-friendly: Large tap targets, works well on tablets in the kitchen 3. Responsive: Adapts gracefully from mobile to desktop 
+4. Warm and inviting: Color palette inspired by fresh ingredients and natural materials 
+Color Palette (Dark Mode) 
+Role 
+	Color 
+	Usage
+	Background 
+	Near Black (#0D0D0D) 
+	Page background
+	Surface 
+	Dark Gray (#1A1A1A) 
+	Cards, input fields
+	Primary 
+	Green (#4ADE80) 
+	Buttons, accents, tags
+	Text 
+	Off-White (#F5F5F5) 
+	Headings, body text
+	Text Muted 
+	Gray (#888888) 
+	Labels, secondary text
+	Danger 
+	Red (#EF4444) 
+	Delete buttons
+	
+
+
+
+Typography 
+• Headings: Playfair Display or similar serif – warm, editorial feel 
+• Body: Inter or system sans-serif – clean and readable 
+• Recipe Names: Large (24-32px), serif font 
+Data Model 
+The following structure represents a single recipe in the system: 
+Recipe Object: 
+id: string (UUID) 
+name: string 
+description: string (optional) 
+servings: number (default: 4) 
+tags: string[] (array of tag names) 
+Page 4
+Recipe Manager – Product Specification 
+bannerImage: string (optional, base64 or URL) 
+createdAt: timestamp 
+updatedAt: timestamp 
+ingredients: Ingredient[] 
+stages: Stage[] 
+Ingredient Object: 
+id: string (UUID) 
+name: string 
+amount: number 
+unit: enum (g, kg, ml, L, cup, tbsp, tsp, oz, lb, piece, pinch, to_taste) imageUrl: string (optional, supports static images and animated GIFs) 
+Stage Object: 
+id: string (UUID) 
+order: number 
+instructions: string 
+imageUrl: string (optional, supports static images and animated GIFs) 
+Technical Requirements for Deployment 
+To transform the current mockup into a fully functional, publicly accessible web application, the following technical components are required: 
+Frontend 
+• React Application: Build production-ready React app using Vite or Create React App 
+• Responsive Design: Ensure the UI works well on desktop, tablet, and mobile devices 
+• Image Optimization: Compress and resize uploaded images for fast loading 
+Backend 
+• API Server: Node.js/Express or similar to handle recipe CRUD operations • Database: PostgreSQL, MongoDB, or SQLite for recipe storage 
+• Image Storage: Local file system or cloud storage (S3, Cloudinary) for recipe images 
+Hosting Options 
+Option A: Self-Hosted (Preferred) 
+• Dedicated machine (e.g., Raspberry Pi, old laptop, home server) running 24/7 • Dynamic DNS service (e.g., DuckDNS, No-IP) if IP address changes • Reverse proxy (Nginx, Caddy) for HTTPS and domain routing 
+• Port forwarding on router (port 80/443) 
+Option B: Cloud Hosting (Fallback) 
+• Vercel/Netlify: Free tier for frontend, easy deployment from Git 
+• Railway/Render: Backend + database hosting with free/low-cost tiers • DigitalOcean/Linode: Full VPS control, ~$5-10/month 
+Page 5
+Recipe Manager – Product Specification 
+Domain Setup 
+• Purchase domain from registrar (Namecheap, Cloudflare, Google Domains) • Configure DNS A record to point to server IP 
+• SSL certificate via Let's Encrypt (free) for HTTPS 
+Future Enhancements 
+The following features are planned for future releases, pending user feedback and priorities: 
+1. Voice Control: Hands-free navigation in Cooking Mode using voice commands 2. Collections/Folders: Organize recipes into custom categories 
+3. Advanced Filtering: Filter by ingredient, cooking time, or multiple tags simultaneously 
+4. Serving Size Scaling: Auto-calculate ingredient amounts for different portions 5. Recipe Import: Paste URL to import recipes from the web 
+6. Inline Timers: Clickable timers within cooking stages 
+7. Sharing: Share individual recipes via link or export as PDF 
+8. User Accounts: Optional login to save personal recipe collections separately 9. Offline Support (PWA): Access recipes without internet connection 
+Next Steps for Deployment 
+The interactive mockup (recipe-app-mockup.jsx) contains a complete frontend implementation. The following steps are required to turn it into a deployable application: 
+What's Already Implemented 
+• Dashboard with search, recipe cards, duplicate and delete (with confirmation modals) 
+• View mode with banner image, ingredients, and steps (with optional images/GIFs) • Edit mode with all fields, tag autocomplete, image uploads for 
+banner/ingredients/steps 
+• Cooking mode with stylish card-based ingredients slide and step-by-step presentation 
+• Keyboard navigation in cooking mode (arrows, spacebar, escape) 
+Step 1: Set Up React Project 
+• Create a new Vite project: npm create vite@latest recipe-app -- --template react 
+• Copy the mockup component into src/App.jsx 
+• Test locally: npm run dev 
+Step 2: Add Backend API 
+• Create Express.js server (server.js) 
+• Set up SQLite database with tables for recipes, ingredients, and stages • Create REST API endpoints: GET /api/recipes, POST /api/recipes, PUT /api/recipes/:id, DELETE /api/recipes/:id 
+• Add image upload endpoint that saves files to /uploads directory 
+Step 3: Connect Frontend to Backend 
+Page 6
+Recipe Manager – Product Specification 
+• Replace React useState with API calls (fetch or axios) 
+• Load recipes from API on dashboard mount 
+• Save/update recipes via POST/PUT when user clicks Save 
+• Upload images to server instead of storing as base64 in state 
+Step 4: Deploy 
+For Self-Hosting: 
+• Build frontend: npm run build 
+• Serve static files from Express 
+• Set up Nginx or Caddy as reverse proxy with SSL (Let's Encrypt) 
+• Configure router port forwarding (80/443) 
+• Point domain DNS to your IP (use Dynamic DNS if IP changes) 
+For Cloud Hosting: 
+• Deploy to Railway, Render, or DigitalOcean App Platform 
+• Configure environment variables for database path 
+• Connect custom domain in provider's dashboard 
+Summary 
+Recipe Manager v1.0 focuses on delivering an exceptional recipe creation experience. By keeping the initial scope tight—home dashboard plus recipe editor with ingredients and stages—we can ship quickly, gather feedback, and iterate toward the features users actually need. 
+The ultimate goal is to deploy this application to a server and make it accessible to anyone via a custom domain. Whether self-hosted on a local always-on machine or deployed to cloud infrastructure, the app will serve as a practical, everyday tool for managing recipes. 
+The measure of success: users should feel that writing a recipe in this app is faster and more pleasant than any alternative. 
+Page 7
