@@ -382,24 +382,11 @@ export default function App() {
   if (currentView === 'dashboard') {
     return (
       <div style={styles.page}>
-        <header style={styles.header}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ 
-              width: 44, 
-              height: 44, 
-              borderRadius: 12, 
-              background: 'linear-gradient(135deg, var(--accent-green-dark), var(--accent-green))', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              fontSize: 22,
-              boxShadow: '0 4px 15px rgba(74, 222, 128, 0.3)'
-            }}>🍳</div>
-            <h1 style={{ fontSize: 26, fontWeight: 600, margin: 0, letterSpacing: '-0.5px' }}>Cheffinator</h1>
-          </div>
+        <header style={{ ...styles.header, justifyContent: 'center', position: 'relative' }}>
+          <h1 style={{ fontSize: 32, fontWeight: 600, margin: 0, letterSpacing: '-0.5px' }}>Cheffinator</h1>
           <button
             onClick={toggleFullscreen}
-            style={{ ...styles.btn, padding: '10px' }}
+            style={{ ...styles.btn, padding: '10px', position: 'absolute', right: 24 }}
             title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
           >
             <Icon type={isFullscreen ? 'exitFullscreen' : 'fullscreen'} />
@@ -407,23 +394,27 @@ export default function App() {
         </header>
         
         <main style={styles.main}>
-          <button 
-            onClick={openNew} 
-            style={{ 
-              ...styles.btnPrimary, 
-              width: '100%', 
-              padding: 26, 
-              fontSize: 18, 
-              marginBottom: 48, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              gap: 14,
-              borderRadius: 16
-            }}
-          >
-            <Icon type="plus" /> Create New Recipe
-          </button>
+          <div style={{ marginBottom: 48 }}>
+            <button 
+              onClick={openNew} 
+              style={{ 
+                ...styles.btnPrimary, 
+                width: 40, 
+                height: 40, 
+                padding: 0, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                borderRadius: 10
+              }}
+              title="Create New Recipe"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
+          </div>
           
           <h2 style={{ 
             fontSize: 12, 
