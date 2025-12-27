@@ -171,6 +171,41 @@ export default function App() {
     }
   };
 
+  // Fullscreen helpers
+  const enterFullscreen = () => {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) {
+      elem.msRequestFullscreen();
+    }
+  };
+
+  const exitFullscreen = () => {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+  };
+
+  const startCookingMode = () => {
+    setCookingSlide(0);
+    setCurrentView('cooking');
+    enterFullscreen();
+  };
+
+  const exitCookingMode = () => {
+    setCurrentView('view');
+    if (document.fullscreenElement) {
+      exitFullscreen();
+    }
+  };
+
   // Keyboard navigation for cooking mode
   useEffect(() => {
     if (currentView !== 'cooking') return;
@@ -183,7 +218,7 @@ export default function App() {
         e.preventDefault(); 
         setCookingSlide(s => Math.max(0, s - 1)); 
       }
-      if (e.key === 'Escape') setCurrentView('view');
+      if (e.key === 'Escape') exitCookingMode();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -575,7 +610,7 @@ export default function App() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', background: 'rgba(0,0,0,0.5)' }}>
           <span style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>{cookingSlide + 1} / {totalSlides}</span>
           <button 
-            onClick={() => setCurrentView('view')} 
+            onClick={exitCookingMode} 
             style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}
           >
             <Icon type="close" />
@@ -756,7 +791,7 @@ export default function App() {
             {(filteredIngredients.length > 0 || filteredStages.length > 0) && (
               <button 
                 style={{ ...styles.btn, color: 'var(--accent-green)', borderColor: 'var(--accent-green)' }} 
-                onClick={() => { setCookingSlide(0); setCurrentView('cooking'); }}
+                onClick={startCookingMode}
               >
                 <Icon type="play" /> Cook
               </button>
