@@ -124,3 +124,5 @@ The app features a dark theme with vibrant green accents, elegant typography, an
 Made with ❤️ for home cooks everywhere
 
 
+
+

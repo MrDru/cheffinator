@@ -9,8 +9,8 @@
   --accent-green: #4ADE80;
   --accent-green-dark: #22C55E;
   --accent-red: #EF4444;
-  --font-display: 'Roboto Slab', Georgia, serif;
-  --font-sans: 'Roboto', system-ui, sans-serif;
+  --font-display: 'Heebo', 'Roboto Slab', Georgia, serif;
+  --font-sans: 'Heebo', 'Roboto', system-ui, sans-serif;
 }
 
 * {
