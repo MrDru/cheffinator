@@ -25,6 +25,8 @@ const Icon = ({ type }) => {
     copy: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
     search: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
     chef: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6V13.87Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>,
+    fullscreen: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>,
+    exitFullscreen: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>,
   };
   return icons[type] || null;
 };
@@ -135,6 +137,7 @@ export default function App() {
   const [dupName, setDupName] = useState('');
   const [dupDesc, setDupDesc] = useState('');
   const [customTags, setCustomTags] = useState([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const filteredIngredients = ingredients.filter(i => i.name.trim());
   const filteredStages = stages.filter(s => s.text.trim());
@@ -192,6 +195,27 @@ export default function App() {
       document.msExitFullscreen();
     }
   };
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      exitFullscreen();
+    } else {
+      enterFullscreen();
+    }
+  };
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   const startCookingMode = () => {
     setCookingSlide(0);
@@ -373,6 +397,13 @@ export default function App() {
             }}>🍳</div>
             <h1 style={{ fontSize: 26, fontWeight: 600, margin: 0, letterSpacing: '-0.5px' }}>Cheffinator</h1>
           </div>
+          <button
+            onClick={toggleFullscreen}
+            style={{ ...styles.btn, padding: '10px' }}
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            <Icon type={isFullscreen ? 'exitFullscreen' : 'fullscreen'} />
+          </button>
         </header>
         
         <main style={styles.main}>
