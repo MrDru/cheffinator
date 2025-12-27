@@ -39,10 +39,20 @@ const DEFAULT_TAGS = [
 ];
 
 // PostgreSQL connection
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is not set!');
+  console.error('Please add DATABASE_URL to your environment variables.');
+  if (isProduction) {
+    process.exit(1);
+  }
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/cheffinator',
   ssl: isProduction ? { rejectUnauthorized: false } : false
 });
+
+console.log('📦 Connecting to database...');
 
 // Initialize database tables
 async function initDatabase() {
