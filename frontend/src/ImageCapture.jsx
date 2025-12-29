@@ -547,39 +547,72 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
             This may take a few seconds
           </p>
           
-          {/* Progress bar */}
+          {/* Animated progress bar */}
           <div style={{
-            width: 200,
-            height: 8,
+            width: 220,
+            height: 10,
             background: 'var(--bg-tertiary)',
-            borderRadius: 4,
+            borderRadius: 5,
             overflow: 'hidden',
-            margin: '0 auto'
+            margin: '0 auto',
+            position: 'relative'
           }}>
+            {/* Animated shimmer effect */}
             <div style={{
-              width: `${processingProgress}%`,
-              height: '100%',
-              background: 'linear-gradient(90deg, var(--accent-green-dark), var(--accent-green))',
-              borderRadius: 4,
-              transition: 'width 0.3s ease'
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(90deg, transparent 0%, var(--accent-green-dark) 50%, transparent 100%)',
+              animation: 'shimmer 1.5s ease-in-out infinite'
             }} />
+            {/* Actual progress if available */}
+            {processingProgress > 0 && (
+              <div style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: `${processingProgress}%`,
+                background: 'linear-gradient(90deg, var(--accent-green-dark), var(--accent-green))',
+                borderRadius: 5,
+                transition: 'width 0.3s ease'
+              }} />
+            )}
           </div>
           
-          <p style={{ 
-            color: 'var(--accent-green)', 
-            fontSize: 14, 
-            margin: '12px 0 0',
-            fontWeight: 600,
-            fontFamily: 'var(--font-sans)'
+          {/* Animated dots */}
+          <div style={{ 
+            marginTop: 20,
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 8
           }}>
-            {processingProgress}%
-          </p>
+            {[0, 1, 2].map(i => (
+              <div 
+                key={i}
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  background: 'var(--accent-green)',
+                  animation: `dot 1.4s ease-in-out ${i * 0.2}s infinite`
+                }}
+              />
+            ))}
+          </div>
         </div>
         
         <style>{`
           @keyframes bounce {
             0%, 100% { transform: translateY(0) rotate(-5deg); }
             50% { transform: translateY(-10px) rotate(5deg); }
+          }
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+          @keyframes dot {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
           }
         `}</style>
       </div>
