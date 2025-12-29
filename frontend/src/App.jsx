@@ -29,6 +29,44 @@ const MOCK_RECIPES = [
       { id: 2, text: 'Add crushed tomatoes and spices, simmer for 10 minutes' },
       { id: 3, text: 'Make wells and crack eggs, cover and cook until set' }
     ],
+    variations: [
+      {
+        id: 'mock-1-v1',
+        name: 'Original',
+        description: 'A delicious Middle Eastern dish of poached eggs in spiced tomato sauce',
+        servings: 4,
+        tags: ['Israeli', 'Breakfast', 'Vegetarian', 'Easy'],
+        ingredients: [
+          { id: 1, name: 'Tomatoes', amount: '400', unit: 'g' },
+          { id: 2, name: 'Eggs', amount: '4', unit: 'piece' },
+          { id: 3, name: 'Onion', amount: '1', unit: 'piece' },
+          { id: 4, name: 'Cumin', amount: '1', unit: 'tsp' }
+        ],
+        stages: [
+          { id: 1, text: 'Sauté diced onion until golden' },
+          { id: 2, text: 'Add crushed tomatoes and spices, simmer for 10 minutes' },
+          { id: 3, text: 'Make wells and crack eggs, cover and cook until set' }
+        ]
+      },
+      {
+        id: 'mock-1-v2',
+        name: 'Spicy',
+        description: 'Shakshuka with extra heat from jalapeños and harissa',
+        servings: 4,
+        tags: ['Israeli', 'Breakfast', 'Vegetarian', 'Spicy'],
+        ingredients: [
+          { id: 1, name: 'Tomatoes', amount: '400', unit: 'g' },
+          { id: 2, name: 'Eggs', amount: '4', unit: 'piece' },
+          { id: 3, name: 'Jalapeño', amount: '2', unit: 'piece' },
+          { id: 4, name: 'Harissa paste', amount: '2', unit: 'tbsp' }
+        ],
+        stages: [
+          { id: 1, text: 'Sauté jalapeños until softened' },
+          { id: 2, text: 'Add tomatoes, harissa, and spices - simmer 10 minutes' },
+          { id: 3, text: 'Make wells, crack eggs, cover and cook until set' }
+        ]
+      }
+    ],
     updated: 'Dec 2024',
     isMock: true
   },
@@ -48,6 +86,26 @@ const MOCK_RECIPES = [
       { id: 1, text: 'Cook pasta according to package directions' },
       { id: 2, text: 'Sauté vegetables until tender-crisp' },
       { id: 3, text: 'Add cream and parmesan, toss with pasta' }
+    ],
+    variations: [
+      {
+        id: 'mock-2-v1',
+        name: 'Original',
+        description: 'Fresh vegetables in a light cream sauce over pasta',
+        servings: 6,
+        tags: ['Italian', 'Pasta', 'Vegetarian', 'Dinner'],
+        ingredients: [
+          { id: 1, name: 'Penne pasta', amount: '500', unit: 'g' },
+          { id: 2, name: 'Heavy cream', amount: '250', unit: 'ml' },
+          { id: 3, name: 'Mixed vegetables', amount: '300', unit: 'g' },
+          { id: 4, name: 'Parmesan', amount: '100', unit: 'g' }
+        ],
+        stages: [
+          { id: 1, text: 'Cook pasta according to package directions' },
+          { id: 2, text: 'Sauté vegetables until tender-crisp' },
+          { id: 3, text: 'Add cream and parmesan, toss with pasta' }
+        ]
+      }
     ],
     updated: 'Dec 2024',
     isMock: true
@@ -70,6 +128,27 @@ const MOCK_RECIPES = [
       { id: 2, text: 'Whisk eggs and sugar, fold in chocolate mixture and flour' },
       { id: 3, text: 'Bake at 200°C for 12 minutes until edges are set' }
     ],
+    variations: [
+      {
+        id: 'mock-3-v1',
+        name: 'Original',
+        description: 'Decadent individual chocolate cakes with molten centers',
+        servings: 4,
+        tags: ['Dessert', 'Baking', 'Easy'],
+        ingredients: [
+          { id: 1, name: 'Dark chocolate', amount: '200', unit: 'g' },
+          { id: 2, name: 'Butter', amount: '100', unit: 'g' },
+          { id: 3, name: 'Eggs', amount: '4', unit: 'piece' },
+          { id: 4, name: 'Sugar', amount: '100', unit: 'g' },
+          { id: 5, name: 'Flour', amount: '50', unit: 'g' }
+        ],
+        stages: [
+          { id: 1, text: 'Melt chocolate and butter together' },
+          { id: 2, text: 'Whisk eggs and sugar, fold in chocolate mixture and flour' },
+          { id: 3, text: 'Bake at 200°C for 12 minutes until edges are set' }
+        ]
+      }
+    ],
     updated: 'Dec 2024',
     isMock: true
   }
@@ -91,6 +170,7 @@ const Icon = ({ type }) => {
     chef: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6V13.87Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>,
     fullscreen: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>,
     exitFullscreen: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>,
+    more: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>,
   };
   return icons[type] || null;
 };
@@ -197,11 +277,15 @@ export default function App() {
   const [cookingSlide, setCookingSlide] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteModal, setDeleteModal] = useState(null);
-  const [duplicateModal, setDuplicateModal] = useState(null);
-  const [dupName, setDupName] = useState('');
-  const [dupDesc, setDupDesc] = useState('');
+  const [variationModal, setVariationModal] = useState(null);
+  const [newVariationName, setNewVariationName] = useState('');
   const [customTags, setCustomTags] = useState([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  
+  // Variations state
+  const [variations, setVariations] = useState([]);
+  const [currentVariationIndex, setCurrentVariationIndex] = useState(0);
 
   const filteredIngredients = ingredients.filter(i => i.name.trim());
   const filteredStages = stages.filter(s => s.text.trim());
@@ -292,6 +376,14 @@ export default function App() {
     };
   }, []);
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!openMenuId) return;
+    const handleClickOutside = () => setOpenMenuId(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [openMenuId]);
+
   const startCookingMode = () => {
     setCookingSlide(0);
     setCurrentView('cooking');
@@ -333,6 +425,8 @@ export default function App() {
     setStages([{ id: 1, text: '', image: null }]);
     setBannerImage(null); 
     setEditingId(null);
+    setVariations([]);
+    setCurrentVariationIndex(0);
   };
 
   const openNew = () => { 
@@ -340,17 +434,78 @@ export default function App() {
     setCurrentView('edit'); 
   };
 
-  const openExisting = (r) => {
+  // Load a specific variation's data into the form fields
+  const loadVariationData = (variation) => {
+    setDescription(variation.description || '');
+    setServings(String(variation.servings || 4)); 
+    setTags(variation.tags || []);
+    setIngredients(variation.ingredients?.length ? variation.ingredients.map((ing, i) => ({ ...ing, id: ing.id || i + 1 })) : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+    setStages(variation.stages?.length ? variation.stages.map((st, i) => ({ ...st, id: st.id || i + 1 })) : [{ id: 1, text: '', image: null }]);
+    setBannerImage(variation.bannerImage || null);
+  };
+
+  const openExisting = (r, variationIndex = 0) => {
     setEditingId(r.id); 
-    setRecipeName(r.name); 
-    setDescription(r.description || '');
-    setServings(String(r.servings || 4)); 
-    setTags(r.tags || []);
-    setIngredients(r.ingredients?.length ? r.ingredients.map((ing, i) => ({ ...ing, id: ing.id || i + 1 })) : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
-    setStages(r.stages?.length ? r.stages.map((st, i) => ({ ...st, id: st.id || i + 1 })) : [{ id: 1, text: '', image: null }]);
-    setBannerImage(r.bannerImage || null); 
+    setRecipeName(r.name);
+    
+    // If this is a search result pointing to a specific variation
+    const startIndex = r.openVariationIndex !== undefined ? r.openVariationIndex : variationIndex;
+    
+    // Set up variations
+    if (r.variations && r.variations.length > 0) {
+      setVariations(r.variations);
+      setCurrentVariationIndex(startIndex);
+      loadVariationData(r.variations[startIndex]);
+    } else {
+      // Legacy recipe without variations - create a default "Original" variation
+      const defaultVariation = {
+        id: null,
+        name: 'Original',
+        description: r.description || '',
+        servings: r.servings || 4,
+        tags: r.tags || [],
+        bannerImage: r.bannerImage || null,
+        ingredients: r.ingredients || [],
+        stages: r.stages || []
+      };
+      setVariations([defaultVariation]);
+      setCurrentVariationIndex(0);
+      loadVariationData(defaultVariation);
+    }
+    
     setCurrentView('view');
   };
+
+  // Switch to a different variation
+  const switchVariation = (index) => {
+    // Save current variation data first
+    const updatedVariations = [...variations];
+    updatedVariations[currentVariationIndex] = {
+      ...updatedVariations[currentVariationIndex],
+      description,
+      servings: parseInt(servings) || 4,
+      tags,
+      bannerImage,
+      ingredients: filteredIngredients.length > 0 ? filteredIngredients : ingredients,
+      stages: filteredStages.length > 0 ? filteredStages : stages
+    };
+    setVariations(updatedVariations);
+    
+    // Load new variation
+    setCurrentVariationIndex(index);
+    loadVariationData(updatedVariations[index]);
+  };
+
+  // Get current variation with updated form data
+  const getCurrentVariationData = () => ({
+    ...variations[currentVariationIndex],
+    description,
+    servings: parseInt(servings) || 4,
+    tags,
+    bannerImage,
+    ingredients: filteredIngredients,
+    stages: filteredStages
+  });
 
   const saveRecipe = async () => {
     if (!recipeName.trim()) { 
@@ -359,25 +514,54 @@ export default function App() {
       return; 
     }
     
+    // Update current variation with form data before saving
+    const updatedVariations = [...variations];
+    if (updatedVariations.length > 0) {
+      updatedVariations[currentVariationIndex] = {
+        ...updatedVariations[currentVariationIndex],
+        description: description.trim(),
+        servings: parseInt(servings) || 4,
+        tags,
+        bannerImage,
+        ingredients: filteredIngredients,
+        stages: filteredStages
+      };
+    }
+    
+    // For new recipes or recipes without variations, create default variation
+    const variationsToSave = updatedVariations.length > 0 ? updatedVariations : [{
+      id: null,
+      name: 'Original',
+      description: description.trim(),
+      servings: parseInt(servings) || 4,
+      tags,
+      bannerImage,
+      ingredients: filteredIngredients,
+      stages: filteredStages
+    }];
+    
     const data = { 
-      name: recipeName.trim(), 
-      description: description.trim(), 
-      servings: parseInt(servings) || 4, 
-      tags, 
-      ingredients: filteredIngredients, 
-      stages: filteredStages, 
-      bannerImage 
+      name: recipeName.trim(),
+      variations: variationsToSave
     };
     
     try {
       if (editingId) {
         await api.updateRecipe(editingId, data);
       } else {
-        const result = await api.createRecipe(data);
+        const result = await api.createRecipe({
+          name: recipeName.trim(),
+          description: description.trim(),
+          servings: parseInt(servings) || 4,
+          tags,
+          bannerImage,
+          ingredients: filteredIngredients,
+          stages: filteredStages
+        });
         setEditingId(result.id);
       }
       await loadRecipes();
-      await loadCustomTags(); // Reload tags in case new custom tags were added
+      await loadCustomTags();
       setSaveMessage('Saved!'); 
       setTimeout(() => { 
         setSaveMessage(''); 
@@ -398,23 +582,47 @@ export default function App() {
   
   const removeTag = (t) => setTags(tags.filter(x => x !== t));
 
-  const handleDuplicate = (r) => {
-    setDupName(`${r.name} (copy)`);
-    setDupDesc(r.description || '');
-    setDuplicateModal(r);
+  // Add a new variation to the current recipe
+  const handleAddVariation = () => {
+    setNewVariationName('');
+    setVariationModal(true);
   };
 
-  const confirmDuplicate = async () => {
-    if (!duplicateModal) return;
-    try {
-      await api.duplicateRecipe(duplicateModal.id, dupName.trim() || `${duplicateModal.name} (copy)`, dupDesc.trim());
-      await loadRecipes();
-      setDuplicateModal(null);
-      setDupName('');
-      setDupDesc('');
-    } catch (error) {
-      console.error('Failed to duplicate recipe:', error);
-    }
+  const confirmAddVariation = async () => {
+    if (!newVariationName.trim()) return;
+    
+    // Save current variation data first
+    const updatedVariations = [...variations];
+    updatedVariations[currentVariationIndex] = {
+      ...updatedVariations[currentVariationIndex],
+      description,
+      servings: parseInt(servings) || 4,
+      tags,
+      bannerImage,
+      ingredients: filteredIngredients.length > 0 ? filteredIngredients : ingredients,
+      stages: filteredStages.length > 0 ? filteredStages : stages
+    };
+    
+    // Create new variation as a copy of current one
+    const currentVar = updatedVariations[currentVariationIndex];
+    const newVariation = {
+      id: null, // Will be assigned by backend
+      name: newVariationName.trim(),
+      description: currentVar.description,
+      servings: currentVar.servings,
+      tags: [...(currentVar.tags || [])],
+      bannerImage: currentVar.bannerImage,
+      ingredients: (currentVar.ingredients || []).map(ing => ({ ...ing, id: null })),
+      stages: (currentVar.stages || []).map(st => ({ ...st, id: null }))
+    };
+    
+    updatedVariations.push(newVariation);
+    setVariations(updatedVariations);
+    setCurrentVariationIndex(updatedVariations.length - 1);
+    loadVariationData(newVariation);
+    
+    setVariationModal(null);
+    setNewVariationName('');
   };
 
   const handleDelete = (r) => {
@@ -447,11 +655,53 @@ export default function App() {
     }
   };
 
-  const filteredRecipes = recipes.filter(r => {
-    if (!searchQuery.trim()) return true;
+  // Build search results - can include variations as separate entries
+  const filteredRecipes = React.useMemo(() => {
+    if (!searchQuery.trim()) return recipes;
+    
     const q = searchQuery.toLowerCase();
-    return r.name.toLowerCase().includes(q) || r.tags?.some(t => t.toLowerCase().includes(q));
-  });
+    const results = [];
+    
+    for (const r of recipes) {
+      // Check if recipe name matches
+      const nameMatches = r.name.toLowerCase().includes(q);
+      
+      // Check if original/first variation matches
+      const firstVariation = r.variations?.[0];
+      const originalTagsMatch = firstVariation?.tags?.some(t => t.toLowerCase().includes(q)) || 
+                                r.tags?.some(t => t.toLowerCase().includes(q));
+      
+      if (nameMatches || originalTagsMatch) {
+        // Original matches - show the recipe normally
+        results.push(r);
+      } else {
+        // Check other variations (not the first/original)
+        const matchingVariations = r.variations?.slice(1).filter(v => 
+          v.tags?.some(t => t.toLowerCase().includes(q)) ||
+          v.name.toLowerCase().includes(q)
+        ) || [];
+        
+        // Add each matching variation as a "virtual" recipe entry
+        for (const v of matchingVariations) {
+          results.push({
+            ...r,
+            // Override display data with variation data
+            displayVariation: v,
+            description: v.description,
+            servings: v.servings,
+            tags: v.tags,
+            bannerImage: v.bannerImage,
+            ingredients: v.ingredients,
+            stages: v.stages,
+            // Mark which variation to open
+            openVariationIndex: r.variations.indexOf(v)
+          });
+        }
+      }
+    }
+    
+    return results;
+  }, [recipes, searchQuery]);
 
   // DASHBOARD VIEW
   if (currentView === 'dashboard') {
@@ -554,9 +804,9 @@ export default function App() {
                   No recipes match your search.
                 </div>
               ) : (
-                filteredRecipes.map(r => (
+                filteredRecipes.map((r, idx) => (
               <div 
-                key={r.id} 
+                key={r.displayVariation ? `${r.id}-${r.displayVariation.id}` : r.id} 
                 style={styles.card} 
                 onClick={() => openExisting(r)}
                 onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-green)'}
@@ -578,17 +828,30 @@ export default function App() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8 }}>
                     {r.name}
-                    {r.isMock && (
+                    {r.displayVariation ? (
                       <span style={{ 
-                        fontSize: 10, 
-                        fontWeight: 600, 
-                        background: 'var(--bg-tertiary)', 
-                        color: 'var(--text-muted)', 
-                        padding: '2px 6px', 
-                        borderRadius: 4, 
-                        textTransform: 'uppercase',
+                        fontSize: 11, 
+                        fontWeight: 500, 
+                        background: 'rgba(74, 222, 128, 0.15)', 
+                        color: 'var(--accent-green)', 
+                        padding: '3px 10px', 
+                        borderRadius: 10, 
                         fontFamily: 'var(--font-sans)'
-                      }}>Sample</span>
+                      }}>
+                        {r.displayVariation.name}
+                      </span>
+                    ) : r.variations && r.variations.length > 1 && !searchQuery.trim() && (
+                      <span style={{ 
+                        fontSize: 11, 
+                        fontWeight: 500, 
+                        background: 'rgba(74, 222, 128, 0.15)', 
+                        color: 'var(--accent-green)', 
+                        padding: '3px 10px', 
+                        borderRadius: 10, 
+                        fontFamily: 'var(--font-sans)'
+                      }}>
+                        {r.variations.length} variations
+                      </span>
                     )}
                   </div>
                   <div>
@@ -596,21 +859,73 @@ export default function App() {
                     <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>{r.updated}</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 4 }}>
+                <div style={{ position: 'relative' }}>
                   <button 
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', opacity: 0.6, cursor: 'pointer', padding: 8, borderRadius: 6 }} 
-                    onClick={(e) => { e.stopPropagation(); if (!r.isMock) handleDuplicate(r); }}
-                    title="Duplicate"
+                    style={{ 
+                      background: openMenuId === r.id ? 'var(--bg-tertiary)' : 'transparent', 
+                      border: 'none', 
+                      color: 'var(--text-secondary)', 
+                      opacity: 0.7, 
+                      cursor: 'pointer', 
+                      padding: 8, 
+                      borderRadius: 6,
+                      transition: 'all 0.15s ease'
+                    }} 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      setOpenMenuId(openMenuId === r.id ? null : r.id); 
+                    }}
+                    title="More options"
                   >
-                    <Icon type="copy" />
+                    <Icon type="more" />
                   </button>
-                  <button 
-                    style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', opacity: 0.6, cursor: 'pointer', padding: 8, borderRadius: 6 }} 
-                    onClick={(e) => { e.stopPropagation(); if (!r.isMock) handleDelete(r); }}
-                    title="Delete"
-                  >
-                    <Icon type="trash" />
-                  </button>
+                  {openMenuId === r.id && (
+                    <div 
+                      style={{ 
+                        position: 'absolute', 
+                        top: '100%', 
+                        right: 0, 
+                        marginTop: 4,
+                        background: 'var(--bg-secondary)', 
+                        border: '1px solid var(--border-color)', 
+                        borderRadius: 12, 
+                        padding: 6,
+                        minWidth: 140,
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                        zIndex: 50
+                      }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <button
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: 8,
+                          color: 'var(--accent-red)',
+                          fontSize: 14,
+                          fontFamily: 'var(--font-sans)',
+                          cursor: r.isMock ? 'not-allowed' : 'pointer',
+                          opacity: r.isMock ? 0.4 : 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          textAlign: 'left'
+                        }}
+                        onClick={() => { 
+                          if (!r.isMock) {
+                            handleDelete(r); 
+                            setOpenMenuId(null);
+                          }
+                        }}
+                        onMouseEnter={e => !r.isMock && (e.currentTarget.style.background = 'rgba(239,68,68,0.1)')}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <Icon type="trash" /> Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
                 ))
@@ -650,72 +965,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Duplicate Modal */}
-        {duplicateModal && (
-          <div 
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }} 
-            onClick={() => setDuplicateModal(null)}
-          >
-            <div 
-              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 480, width: '90%', border: '1px solid var(--border-color)' }} 
-              onClick={e => e.stopPropagation()}
-            >
-              <h3 style={{ margin: '0 0 28px', fontSize: 22, fontWeight: 600 }}>Duplicate Recipe</h3>
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, fontFamily: 'var(--font-sans)' }}>
-                  Recipe Name
-                </label>
-                <input 
-                  style={{ 
-                    background: 'var(--bg-secondary)', 
-                    border: '1px solid var(--border-color)', 
-                    borderRadius: 12, 
-                    width: '100%', 
-                    fontSize: 16, 
-                    padding: '14px 18px', 
-                    boxSizing: 'border-box', 
-                    color: 'var(--text-primary)', 
-                    outline: 'none', 
-                    fontFamily: 'var(--font-display)' 
-                  }} 
-                  value={dupName} 
-                  onChange={e => setDupName(e.target.value)} 
-                  placeholder="Enter recipe name..."
-                  autoFocus
-                />
-              </div>
-              <div style={{ marginBottom: 28 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, fontFamily: 'var(--font-sans)' }}>
-                  Description (optional)
-                </label>
-                <textarea 
-                  style={{ 
-                    background: 'var(--bg-secondary)', 
-                    border: '1px solid var(--border-color)', 
-                    borderRadius: 12, 
-                    width: '100%', 
-                    fontSize: 15, 
-                    padding: '14px 18px', 
-                    boxSizing: 'border-box', 
-                    color: 'var(--text-primary)', 
-                    outline: 'none', 
-                    fontFamily: 'var(--font-display)', 
-                    resize: 'none', 
-                    minHeight: 90, 
-                    lineHeight: 1.5 
-                  }} 
-                  value={dupDesc} 
-                  onChange={e => setDupDesc(e.target.value)} 
-                  placeholder="A short description..."
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                <button style={styles.btn} onClick={() => setDuplicateModal(null)}>Cancel</button>
-                <button style={styles.btnPrimary} onClick={confirmDuplicate}>Create Duplicate</button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -900,6 +1149,8 @@ export default function App() {
 
   // VIEW MODE
   if (currentView === 'view') {
+    const currentVariation = variations[currentVariationIndex] || {};
+    
     return (
       <div style={styles.page}>
         <header style={{ 
@@ -927,6 +1178,59 @@ export default function App() {
             </button>
           </div>
         </header>
+        
+        {/* Variation Tabs */}
+        {variations.length > 0 && (
+          <div style={{ 
+            display: 'flex', 
+            gap: 0, 
+            padding: '0 24px', 
+            maxWidth: 680, 
+            margin: '0 auto',
+            borderBottom: '1px solid var(--border-color)',
+            overflowX: 'auto'
+          }}>
+            {variations.map((v, i) => (
+              <button
+                key={v.id || i}
+                onClick={() => switchVariation(i)}
+                style={{
+                  padding: '14px 20px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: i === currentVariationIndex ? '2px solid var(--accent-green)' : '2px solid transparent',
+                  color: i === currentVariationIndex ? 'var(--accent-green)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 14,
+                  fontWeight: i === currentVariationIndex ? 600 : 400,
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {v.name}
+              </button>
+            ))}
+            <button
+              onClick={handleAddVariation}
+              style={{
+                padding: '14px 16px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 14,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+              title="Add variation"
+            >
+              <Icon type="plus" /> Add
+            </button>
+          </div>
+        )}
         
         <main style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 80px' }}>
           <div style={{ 
@@ -1042,6 +1346,58 @@ export default function App() {
             </div>
           )}
         </main>
+
+        {/* Add Variation Modal */}
+        {variationModal && (
+          <div 
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }} 
+            onClick={() => setVariationModal(null)}
+          >
+            <div 
+              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 400, width: '90%', border: '1px solid var(--border-color)' }} 
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 style={{ margin: '0 0 24px', fontSize: 22, fontWeight: 600 }}>New Variation</h3>
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, fontFamily: 'var(--font-sans)' }}>
+                  Variation Name
+                </label>
+                <input 
+                  style={{ 
+                    background: 'var(--bg-secondary)', 
+                    border: '1px solid var(--border-color)', 
+                    borderRadius: 12, 
+                    width: '100%', 
+                    fontSize: 16, 
+                    padding: '14px 18px', 
+                    boxSizing: 'border-box', 
+                    color: 'var(--text-primary)', 
+                    outline: 'none', 
+                    fontFamily: 'var(--font-display)' 
+                  }} 
+                  value={newVariationName} 
+                  onChange={e => setNewVariationName(e.target.value)} 
+                  placeholder="e.g., Low-carb, Spicy, Vegan..."
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && newVariationName.trim() && confirmAddVariation()}
+                />
+              </div>
+              <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.5 }}>
+                This will create a copy of the current variation that you can customize.
+              </p>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <button style={styles.btn} onClick={() => setVariationModal(null)}>Cancel</button>
+                <button 
+                  style={{ ...styles.btnPrimary, opacity: newVariationName.trim() ? 1 : 0.5 }} 
+                  onClick={confirmAddVariation}
+                  disabled={!newVariationName.trim()}
+                >
+                  Create Variation
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1081,6 +1437,59 @@ export default function App() {
           </button>
         </div>
       </header>
+      
+      {/* Variation Tabs in Edit Mode */}
+      {editingId && variations.length > 0 && (
+        <div style={{ 
+          display: 'flex', 
+          gap: 0, 
+          padding: '0 24px', 
+          maxWidth: 680 + 48, 
+          margin: '0 auto',
+          borderBottom: '1px solid var(--border-color)',
+          overflowX: 'auto'
+        }}>
+          {variations.map((v, i) => (
+            <button
+              key={v.id || i}
+              onClick={() => switchVariation(i)}
+              style={{
+                padding: '14px 20px',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: i === currentVariationIndex ? '2px solid var(--accent-green)' : '2px solid transparent',
+                color: i === currentVariationIndex ? 'var(--accent-green)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 14,
+                fontWeight: i === currentVariationIndex ? 600 : 400,
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {v.name}
+            </button>
+          ))}
+          <button
+            onClick={handleAddVariation}
+            style={{
+              padding: '14px 16px',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              fontSize: 14,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4
+            }}
+            title="Add variation"
+          >
+            <Icon type="plus" /> Add
+          </button>
+        </div>
+      )}
       
       <main style={{ ...styles.main, maxWidth: 680 }}>
         {/* Banner Image Section */}
@@ -1279,29 +1688,10 @@ export default function App() {
         </div>
 
         {/* Ingredients Section */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+        <div style={{ marginBottom: 18 }}>
           <h2 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 2, margin: 0, fontFamily: 'var(--font-sans)' }}>
             Ingredients
           </h2>
-          <button 
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 6, 
-              padding: '8px 16px', 
-              background: 'rgba(74,222,128,0.15)', 
-              border: 'none', 
-              borderRadius: 8, 
-              color: 'var(--accent-green)', 
-              fontSize: 13, 
-              fontWeight: 600, 
-              cursor: 'pointer', 
-              fontFamily: 'var(--font-sans)' 
-            }} 
-            onClick={() => setIngredients([...ingredients, { id: Date.now(), name: '', amount: '', unit: 'g', image: null }])}
-          >
-            <Icon type="plus" /> Add
-          </button>
         </div>
         
         {ingredients.map(ing => (
@@ -1311,7 +1701,18 @@ export default function App() {
                 style={{ ...styles.input, flex: 2, fontSize: 15 }} 
                 placeholder="Ingredient" 
                 value={ing.name} 
-                onChange={e => setIngredients(ingredients.map(x => x.id === ing.id ? { ...x, name: e.target.value } : x))} 
+                onChange={e => setIngredients(ingredients.map(x => x.id === ing.id ? { ...x, name: e.target.value } : x))}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const newId = Date.now();
+                    setIngredients([...ingredients, { id: newId, name: '', amount: '', unit: 'g', image: null }]);
+                    setTimeout(() => {
+                      const inputs = document.querySelectorAll('input[placeholder="Ingredient"]');
+                      inputs[inputs.length - 1]?.focus();
+                    }, 10);
+                  }
+                }}
               />
               <input 
                 style={{ 
@@ -1415,31 +1816,40 @@ export default function App() {
             </div>
           </div>
         ))}
+        
+        <button 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            gap: 6, 
+            padding: '14px 20px', 
+            background: 'transparent', 
+            border: '1px dashed var(--border-color)', 
+            borderRadius: 12, 
+            color: 'var(--text-secondary)', 
+            fontSize: 14, 
+            cursor: 'pointer', 
+            fontFamily: 'var(--font-sans)',
+            width: '100%',
+            marginTop: 4
+          }} 
+          onClick={() => {
+            setIngredients([...ingredients, { id: Date.now(), name: '', amount: '', unit: 'g', image: null }]);
+            setTimeout(() => {
+              const inputs = document.querySelectorAll('input[placeholder="Ingredient"]');
+              inputs[inputs.length - 1]?.focus();
+            }, 10);
+          }}
+        >
+          <Icon type="plus" /> Add Ingredient
+        </button>
 
         {/* Cooking Steps Section */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 44, marginBottom: 18 }}>
+        <div style={{ marginTop: 44, marginBottom: 18 }}>
           <h2 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 2, margin: 0, fontFamily: 'var(--font-sans)' }}>
             Cooking Steps
           </h2>
-          <button 
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 6, 
-              padding: '8px 16px', 
-              background: 'rgba(74,222,128,0.15)', 
-              border: 'none', 
-              borderRadius: 8, 
-              color: 'var(--accent-green)', 
-              fontSize: 13, 
-              fontWeight: 600, 
-              cursor: 'pointer', 
-              fontFamily: 'var(--font-sans)' 
-            }} 
-            onClick={() => setStages([...stages, { id: Date.now(), text: '', image: null }])}
-          >
-            <Icon type="plus" /> Add Step
-          </button>
         </div>
         
         {stages.map((stage, i) => (
@@ -1465,7 +1875,18 @@ export default function App() {
                 style={{ ...styles.input, flex: 1, fontSize: 15, lineHeight: 1.7, resize: 'none', minHeight: 80 }} 
                 placeholder="Describe this step..." 
                 value={stage.text} 
-                onChange={e => setStages(stages.map(x => x.id === stage.id ? { ...x, text: e.target.value } : x))} 
+                onChange={e => setStages(stages.map(x => x.id === stage.id ? { ...x, text: e.target.value } : x))}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const newId = Date.now();
+                    setStages([...stages, { id: newId, text: '', image: null }]);
+                    setTimeout(() => {
+                      const textareas = document.querySelectorAll('textarea[placeholder="Describe this step..."]');
+                      textareas[textareas.length - 1]?.focus();
+                    }, 10);
+                  }
+                }}
               />
               <button 
                 style={{ 
@@ -1537,7 +1958,87 @@ export default function App() {
             </div>
           </div>
         ))}
+        
+        <button 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            gap: 6, 
+            padding: '14px 20px', 
+            background: 'transparent', 
+            border: '1px dashed var(--border-color)', 
+            borderRadius: 12, 
+            color: 'var(--text-secondary)', 
+            fontSize: 14, 
+            cursor: 'pointer', 
+            fontFamily: 'var(--font-sans)',
+            width: '100%',
+            marginTop: 4
+          }} 
+          onClick={() => {
+            setStages([...stages, { id: Date.now(), text: '', image: null }]);
+            setTimeout(() => {
+              const textareas = document.querySelectorAll('textarea[placeholder="Describe this step..."]');
+              textareas[textareas.length - 1]?.focus();
+            }, 10);
+          }}
+        >
+          <Icon type="plus" /> Add Step
+        </button>
       </main>
+
+      {/* Add Variation Modal in Edit Mode */}
+      {variationModal && (
+        <div 
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }} 
+          onClick={() => setVariationModal(null)}
+        >
+          <div 
+            style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 400, width: '90%', border: '1px solid var(--border-color)' }} 
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 24px', fontSize: 22, fontWeight: 600 }}>New Variation</h3>
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, fontFamily: 'var(--font-sans)' }}>
+                Variation Name
+              </label>
+              <input 
+                style={{ 
+                  background: 'var(--bg-secondary)', 
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: 12, 
+                  width: '100%', 
+                  fontSize: 16, 
+                  padding: '14px 18px', 
+                  boxSizing: 'border-box', 
+                  color: 'var(--text-primary)', 
+                  outline: 'none', 
+                  fontFamily: 'var(--font-display)' 
+                }} 
+                value={newVariationName} 
+                onChange={e => setNewVariationName(e.target.value)} 
+                placeholder="e.g., Low-carb, Spicy, Vegan..."
+                autoFocus
+                onKeyDown={e => e.key === 'Enter' && newVariationName.trim() && confirmAddVariation()}
+              />
+            </div>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.5 }}>
+              This will create a copy of the current variation that you can customize.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button style={styles.btn} onClick={() => setVariationModal(null)}>Cancel</button>
+              <button 
+                style={{ ...styles.btnPrimary, opacity: newVariationName.trim() ? 1 : 0.5 }} 
+                onClick={confirmAddVariation}
+                disabled={!newVariationName.trim()}
+              >
+                Create Variation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

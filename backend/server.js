@@ -58,6 +58,7 @@ console.log('📦 Connecting to database...');
 async function initDatabase() {
   const client = await pool.connect();
   try {
+    // Main recipes table (container for variations)
     await client.query(`
       CREATE TABLE IF NOT EXISTS recipes (
         id TEXT PRIMARY KEY,
@@ -71,10 +72,28 @@ async function initDatabase() {
       )
     `);
     
+    // Recipe variations table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS recipe_variations (
+        id TEXT PRIMARY KEY,
+        recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        description TEXT,
+        servings INTEGER DEFAULT 4,
+        tags TEXT,
+        banner_image TEXT,
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Ingredients now reference variations
     await client.query(`
       CREATE TABLE IF NOT EXISTS ingredients (
         id TEXT PRIMARY KEY,
-        recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+        recipe_id TEXT REFERENCES recipes(id) ON DELETE CASCADE,
+        variation_id TEXT REFERENCES recipe_variations(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
         amount TEXT,
         unit TEXT DEFAULT 'g',
@@ -83,10 +102,12 @@ async function initDatabase() {
       )
     `);
     
+    // Cooking steps now reference variations
     await client.query(`
       CREATE TABLE IF NOT EXISTS cooking_steps (
         id TEXT PRIMARY KEY,
-        recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+        recipe_id TEXT REFERENCES recipes(id) ON DELETE CASCADE,
+        variation_id TEXT REFERENCES recipe_variations(id) ON DELETE CASCADE,
         step_text TEXT NOT NULL,
         image TEXT,
         sort_order INTEGER DEFAULT 0
@@ -100,6 +121,56 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Migration: Add variation_id column if it doesn't exist
+    const colCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'ingredients' AND column_name = 'variation_id'
+    `);
+    
+    if (colCheck.rows.length === 0) {
+      console.log('Running migration: adding variation support...');
+      
+      // Add variation_id columns
+      await client.query(`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS variation_id TEXT`);
+      await client.query(`ALTER TABLE cooking_steps ADD COLUMN IF NOT EXISTS variation_id TEXT`);
+      
+      // Migrate existing recipes to have a default "Original" variation
+      const existingRecipes = await client.query('SELECT * FROM recipes');
+      
+      for (const recipe of existingRecipes.rows) {
+        // Check if this recipe already has variations
+        const existingVariations = await client.query(
+          'SELECT id FROM recipe_variations WHERE recipe_id = $1',
+          [recipe.id]
+        );
+        
+        if (existingVariations.rows.length === 0) {
+          const variationId = uuidv4();
+          
+          // Create the "Original" variation
+          await client.query(
+            `INSERT INTO recipe_variations (id, recipe_id, name, description, servings, tags, banner_image, sort_order, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [variationId, recipe.id, 'Original', recipe.description, recipe.servings, recipe.tags, recipe.banner_image, 0, recipe.created_at, recipe.updated_at]
+          );
+          
+          // Update existing ingredients to reference the variation
+          await client.query(
+            'UPDATE ingredients SET variation_id = $1 WHERE recipe_id = $2 AND variation_id IS NULL',
+            [variationId, recipe.id]
+          );
+          
+          // Update existing cooking steps to reference the variation
+          await client.query(
+            'UPDATE cooking_steps SET variation_id = $1 WHERE recipe_id = $2 AND variation_id IS NULL',
+            [variationId, recipe.id]
+          );
+        }
+      }
+      
+      console.log('Migration complete: variation support added');
+    }
     
     console.log('Database tables initialized');
   } finally {
@@ -151,36 +222,59 @@ app.get('/api/recipes', async (req, res) => {
     );
     
     const recipes = await Promise.all(recipesResult.rows.map(async (recipe) => {
-      const ingredientsResult = await pool.query(
-        'SELECT * FROM ingredients WHERE recipe_id = $1 ORDER BY sort_order',
+      // Get all variations for this recipe
+      const variationsResult = await pool.query(
+        'SELECT * FROM recipe_variations WHERE recipe_id = $1 ORDER BY sort_order',
         [recipe.id]
       );
       
-      const stepsResult = await pool.query(
-        'SELECT * FROM cooking_steps WHERE recipe_id = $1 ORDER BY sort_order',
-        [recipe.id]
-      );
+      const variations = await Promise.all(variationsResult.rows.map(async (variation) => {
+        const ingredientsResult = await pool.query(
+          'SELECT * FROM ingredients WHERE variation_id = $1 ORDER BY sort_order',
+          [variation.id]
+        );
+        
+        const stepsResult = await pool.query(
+          'SELECT * FROM cooking_steps WHERE variation_id = $1 ORDER BY sort_order',
+          [variation.id]
+        );
+        
+        return {
+          id: variation.id,
+          name: variation.name,
+          description: variation.description || '',
+          servings: variation.servings,
+          tags: variation.tags ? JSON.parse(variation.tags) : [],
+          bannerImage: variation.banner_image,
+          ingredients: ingredientsResult.rows.map(ing => ({
+            id: ing.id,
+            name: ing.name,
+            amount: ing.amount || '',
+            unit: ing.unit || 'g',
+            image: ing.image
+          })),
+          stages: stepsResult.rows.map(step => ({
+            id: step.id,
+            text: step.step_text,
+            image: step.image
+          }))
+        };
+      }));
+      
+      // Use first variation's data for backward compatibility in list view
+      const firstVariation = variations[0] || {};
       
       return {
         id: recipe.id,
         name: recipe.name,
-        description: recipe.description || '',
-        servings: recipe.servings,
-        tags: recipe.tags ? JSON.parse(recipe.tags) : [],
-        bannerImage: recipe.banner_image,
+        description: firstVariation.description || recipe.description || '',
+        servings: firstVariation.servings || recipe.servings,
+        tags: firstVariation.tags || (recipe.tags ? JSON.parse(recipe.tags) : []),
+        bannerImage: firstVariation.bannerImage || recipe.banner_image,
         updated: timeAgo(recipe.updated_at),
-        ingredients: ingredientsResult.rows.map(ing => ({
-          id: ing.id,
-          name: ing.name,
-          amount: ing.amount || '',
-          unit: ing.unit || 'g',
-          image: ing.image
-        })),
-        stages: stepsResult.rows.map(step => ({
-          id: step.id,
-          text: step.step_text,
-          image: step.image
-        }))
+        variations: variations,
+        ingredients: firstVariation.ingredients || [],
+        stages: firstVariation.stages || []
       };
     }));
     
@@ -205,36 +299,58 @@ app.get('/api/recipes/:id', async (req, res) => {
     
     const recipe = recipeResult.rows[0];
     
-    const ingredientsResult = await pool.query(
-      'SELECT * FROM ingredients WHERE recipe_id = $1 ORDER BY sort_order',
+    // Get all variations
+    const variationsResult = await pool.query(
+      'SELECT * FROM recipe_variations WHERE recipe_id = $1 ORDER BY sort_order',
       [recipe.id]
     );
     
-    const stepsResult = await pool.query(
-      'SELECT * FROM cooking_steps WHERE recipe_id = $1 ORDER BY sort_order',
-      [recipe.id]
-    );
+    const variations = await Promise.all(variationsResult.rows.map(async (variation) => {
+      const ingredientsResult = await pool.query(
+        'SELECT * FROM ingredients WHERE variation_id = $1 ORDER BY sort_order',
+        [variation.id]
+      );
+      
+      const stepsResult = await pool.query(
+        'SELECT * FROM cooking_steps WHERE variation_id = $1 ORDER BY sort_order',
+        [variation.id]
+      );
+      
+      return {
+        id: variation.id,
+        name: variation.name,
+        description: variation.description || '',
+        servings: variation.servings,
+        tags: variation.tags ? JSON.parse(variation.tags) : [],
+        bannerImage: variation.banner_image,
+        ingredients: ingredientsResult.rows.map(ing => ({
+          id: ing.id,
+          name: ing.name,
+          amount: ing.amount || '',
+          unit: ing.unit || 'g',
+          image: ing.image
+        })),
+        stages: stepsResult.rows.map(step => ({
+          id: step.id,
+          text: step.step_text,
+          image: step.image
+        }))
+      };
+    }));
+    
+    const firstVariation = variations[0] || {};
     
     res.json({
       id: recipe.id,
       name: recipe.name,
-      description: recipe.description || '',
-      servings: recipe.servings,
-      tags: recipe.tags ? JSON.parse(recipe.tags) : [],
-      bannerImage: recipe.banner_image,
+      description: firstVariation.description || recipe.description || '',
+      servings: firstVariation.servings || recipe.servings,
+      tags: firstVariation.tags || (recipe.tags ? JSON.parse(recipe.tags) : []),
+      bannerImage: firstVariation.bannerImage || recipe.banner_image,
       updated: timeAgo(recipe.updated_at),
-      ingredients: ingredientsResult.rows.map(ing => ({
-        id: ing.id,
-        name: ing.name,
-        amount: ing.amount || '',
-        unit: ing.unit || 'g',
-        image: ing.image
-      })),
-      stages: stepsResult.rows.map(step => ({
-        id: step.id,
-        text: step.step_text,
-        image: step.image
-      }))
+      variations: variations,
+      ingredients: firstVariation.ingredients || [],
+      stages: firstVariation.stages || []
     });
   } catch (error) {
     console.error('Error fetching recipe:', error);
@@ -249,48 +365,57 @@ app.post('/api/recipes', async (req, res) => {
     await client.query('BEGIN');
     
     const { name, description, servings, tags, bannerImage, ingredients, stages } = req.body;
-    const id = uuidv4();
+    const recipeId = uuidv4();
+    const variationId = uuidv4();
     const now = new Date();
     
     // Save any custom tags
     await saveCustomTags(tags);
     
+    // Create the recipe container
     await client.query(
-      `INSERT INTO recipes (id, name, description, servings, tags, banner_image, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [id, name, description || '', servings || 4, JSON.stringify(tags || []), bannerImage || null, now, now]
+      `INSERT INTO recipes (id, name, created_at, updated_at)
+       VALUES ($1, $2, $3, $4)`,
+      [recipeId, name, now, now]
     );
     
-    // Insert ingredients
+    // Create the first variation (Original)
+    await client.query(
+      `INSERT INTO recipe_variations (id, recipe_id, name, description, servings, tags, banner_image, sort_order, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [variationId, recipeId, 'Original', description || '', servings || 4, JSON.stringify(tags || []), bannerImage || null, 0, now, now]
+    );
+    
+    // Insert ingredients for the variation
     if (ingredients && ingredients.length > 0) {
       for (let i = 0; i < ingredients.length; i++) {
         const ing = ingredients[i];
         if (ing.name && ing.name.trim()) {
           await client.query(
-            `INSERT INTO ingredients (id, recipe_id, name, amount, unit, image, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [uuidv4(), id, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]
+            `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [uuidv4(), recipeId, variationId, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]
           );
         }
       }
     }
     
-    // Insert cooking steps
+    // Insert cooking steps for the variation
     if (stages && stages.length > 0) {
       for (let i = 0; i < stages.length; i++) {
         const step = stages[i];
         if (step.text && step.text.trim()) {
           await client.query(
-            `INSERT INTO cooking_steps (id, recipe_id, step_text, image, sort_order)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [uuidv4(), id, step.text, step.image || null, i]
+            `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [uuidv4(), recipeId, variationId, step.text, step.image || null, i]
           );
         }
       }
     }
     
     await client.query('COMMIT');
-    res.status(201).json({ id, message: 'Recipe created successfully' });
+    res.status(201).json({ id: recipeId, message: 'Recipe created successfully' });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating recipe:', error);
@@ -300,13 +425,13 @@ app.post('/api/recipes', async (req, res) => {
   }
 });
 
-// Update recipe
+// Update recipe (and its variations)
 app.put('/api/recipes/:id', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     
-    const { name, description, servings, tags, bannerImage, ingredients, stages } = req.body;
+    const { name, variations } = req.body;
     const { id } = req.params;
     
     // Check if recipe exists
@@ -316,47 +441,87 @@ app.put('/api/recipes/:id', async (req, res) => {
       return res.status(404).json({ error: 'Recipe not found' });
     }
     
-    // Save any custom tags
-    await saveCustomTags(tags);
-    
     const now = new Date();
     
-    // Update recipe
+    // Update recipe name and timestamp
     await client.query(
-      `UPDATE recipes 
-       SET name = $1, description = $2, servings = $3, tags = $4, banner_image = $5, updated_at = $6
-       WHERE id = $7`,
-      [name, description || '', servings || 4, JSON.stringify(tags || []), bannerImage || null, now, id]
+      `UPDATE recipes SET name = $1, updated_at = $2 WHERE id = $3`,
+      [name, now, id]
     );
     
-    // Delete existing ingredients and steps
-    await client.query('DELETE FROM ingredients WHERE recipe_id = $1', [id]);
-    await client.query('DELETE FROM cooking_steps WHERE recipe_id = $1', [id]);
-    
-    // Insert new ingredients
-    if (ingredients && ingredients.length > 0) {
-      for (let i = 0; i < ingredients.length; i++) {
-        const ing = ingredients[i];
-        if (ing.name && ing.name.trim()) {
-          await client.query(
-            `INSERT INTO ingredients (id, recipe_id, name, amount, unit, image, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [uuidv4(), id, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]
-          );
+    // Handle variations
+    if (variations && variations.length > 0) {
+      // Get existing variation IDs
+      const existingVars = await client.query(
+        'SELECT id FROM recipe_variations WHERE recipe_id = $1',
+        [id]
+      );
+      const existingVarIds = existingVars.rows.map(v => v.id);
+      const newVarIds = variations.map(v => v.id).filter(Boolean);
+      
+      // Delete variations that are no longer present
+      for (const existingId of existingVarIds) {
+        if (!newVarIds.includes(existingId)) {
+          await client.query('DELETE FROM ingredients WHERE variation_id = $1', [existingId]);
+          await client.query('DELETE FROM cooking_steps WHERE variation_id = $1', [existingId]);
+          await client.query('DELETE FROM recipe_variations WHERE id = $1', [existingId]);
         }
       }
-    }
-    
-    // Insert new cooking steps
-    if (stages && stages.length > 0) {
-      for (let i = 0; i < stages.length; i++) {
-        const step = stages[i];
-        if (step.text && step.text.trim()) {
+      
+      // Update or create each variation
+      for (let vIndex = 0; vIndex < variations.length; vIndex++) {
+        const variation = variations[vIndex];
+        let variationId = variation.id;
+        
+        // Save any custom tags
+        await saveCustomTags(variation.tags);
+        
+        if (variationId && existingVarIds.includes(variationId)) {
+          // Update existing variation
           await client.query(
-            `INSERT INTO cooking_steps (id, recipe_id, step_text, image, sort_order)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [uuidv4(), id, step.text, step.image || null, i]
+            `UPDATE recipe_variations 
+             SET name = $1, description = $2, servings = $3, tags = $4, banner_image = $5, sort_order = $6, updated_at = $7
+             WHERE id = $8`,
+            [variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, now, variationId]
           );
+          
+          // Delete and re-insert ingredients/steps for this variation
+          await client.query('DELETE FROM ingredients WHERE variation_id = $1', [variationId]);
+          await client.query('DELETE FROM cooking_steps WHERE variation_id = $1', [variationId]);
+        } else {
+          // Create new variation
+          variationId = uuidv4();
+          await client.query(
+            `INSERT INTO recipe_variations (id, recipe_id, name, description, servings, tags, banner_image, sort_order, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [variationId, id, variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, now, now]
+          );
+        }
+        
+        // Insert ingredients for this variation
+        const ingredients = variation.ingredients || [];
+        for (let i = 0; i < ingredients.length; i++) {
+          const ing = ingredients[i];
+          if (ing.name && ing.name.trim()) {
+            await client.query(
+              `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              [uuidv4(), id, variationId, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]
+            );
+          }
+        }
+        
+        // Insert cooking steps for this variation
+        const stages = variation.stages || [];
+        for (let i = 0; i < stages.length; i++) {
+          const step = stages[i];
+          if (step.text && step.text.trim()) {
+            await client.query(
+              `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [uuidv4(), id, variationId, step.text, step.image || null, i]
+            );
+          }
         }
       }
     }
@@ -387,74 +552,88 @@ app.delete('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// Duplicate recipe
-app.post('/api/recipes/:id/duplicate', async (req, res) => {
+// Add variation to recipe (copies from an existing variation)
+app.post('/api/recipes/:id/variations', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name, sourceVariationId } = req.body;
     
-    const originalResult = await client.query('SELECT * FROM recipes WHERE id = $1', [id]);
-    if (originalResult.rows.length === 0) {
+    // Check recipe exists
+    const recipeResult = await client.query('SELECT * FROM recipes WHERE id = $1', [id]);
+    if (recipeResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Recipe not found' });
     }
     
-    const original = originalResult.rows[0];
-    const newId = uuidv4();
-    const now = new Date();
-    
-    await client.query(
-      `INSERT INTO recipes (id, name, description, servings, tags, banner_image, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [
-        newId,
-        name || `${original.name} (copy)`,
-        description !== undefined ? description : original.description,
-        original.servings,
-        original.tags,
-        original.banner_image,
-        now,
-        now
-      ]
+    // Get the source variation to copy from
+    const sourceResult = await client.query(
+      'SELECT * FROM recipe_variations WHERE id = $1 AND recipe_id = $2',
+      [sourceVariationId, id]
     );
     
-    // Copy ingredients
-    const ingredientsResult = await client.query(
-      'SELECT * FROM ingredients WHERE recipe_id = $1 ORDER BY sort_order',
+    if (sourceResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Source variation not found' });
+    }
+    
+    const source = sourceResult.rows[0];
+    const newVariationId = uuidv4();
+    const now = new Date();
+    
+    // Get the next sort order
+    const countResult = await client.query(
+      'SELECT COUNT(*) FROM recipe_variations WHERE recipe_id = $1',
       [id]
+    );
+    const sortOrder = parseInt(countResult.rows[0].count);
+    
+    // Create the new variation
+    await client.query(
+      `INSERT INTO recipe_variations (id, recipe_id, name, description, servings, tags, banner_image, sort_order, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [newVariationId, id, name, source.description, source.servings, source.tags, source.banner_image, sortOrder, now, now]
+    );
+    
+    // Copy ingredients from source variation
+    const ingredientsResult = await client.query(
+      'SELECT * FROM ingredients WHERE variation_id = $1 ORDER BY sort_order',
+      [sourceVariationId]
     );
     
     for (const ing of ingredientsResult.rows) {
       await client.query(
-        `INSERT INTO ingredients (id, recipe_id, name, amount, unit, image, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [uuidv4(), newId, ing.name, ing.amount, ing.unit, ing.image, ing.sort_order]
+        `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [uuidv4(), id, newVariationId, ing.name, ing.amount, ing.unit, ing.image, ing.sort_order]
       );
     }
     
-    // Copy steps
+    // Copy steps from source variation
     const stepsResult = await client.query(
-      'SELECT * FROM cooking_steps WHERE recipe_id = $1 ORDER BY sort_order',
-      [id]
+      'SELECT * FROM cooking_steps WHERE variation_id = $1 ORDER BY sort_order',
+      [sourceVariationId]
     );
     
     for (const step of stepsResult.rows) {
       await client.query(
-        `INSERT INTO cooking_steps (id, recipe_id, step_text, image, sort_order)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [uuidv4(), newId, step.step_text, step.image, step.sort_order]
+        `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [uuidv4(), id, newVariationId, step.step_text, step.image, step.sort_order]
       );
     }
     
+    // Update recipe's updated_at
+    await client.query('UPDATE recipes SET updated_at = $1 WHERE id = $2', [now, id]);
+    
     await client.query('COMMIT');
-    res.status(201).json({ id: newId, message: 'Recipe duplicated successfully' });
+    res.status(201).json({ id: newVariationId, message: 'Variation added successfully' });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Error duplicating recipe:', error);
-    res.status(500).json({ error: 'Failed to duplicate recipe' });
+    console.error('Error adding variation:', error);
+    res.status(500).json({ error: 'Failed to add variation' });
   } finally {
     client.release();
   }

@@ -3,7 +3,7 @@
 ## 🚀 Planned Features
 
 ### High Priority
-- [ ] **Seamless ingredient/step entry** - Pressing Enter when filling ingredients or cooking steps creates a new row automatically for faster, seamless writing
+- [ ] _Add your features here_
 
 ### Medium Priority
 - [ ] _Add your features here_
@@ -20,12 +20,16 @@
 - [x] Tag system with autocomplete
 - [x] Search recipes by name or tag
 - [x] Cooking mode (fullscreen presentation)
-- [x] Duplicate and delete recipes
 - [x] PostgreSQL database (persistent storage)
 - [x] Persistent disk for images
 - [x] Roboto font family
 - [x] Fullscreen button on dashboard
 - [x] Deployed on Render
+- [x] **Seamless ingredient/step entry** - Press Enter to create new rows automatically
+- [x] **Recipe variations** - Multiple variations of the same recipe with tabs (e.g., Original, Spicy, Low-carb)
+- [x] **Three-dots menu** - Expandable options menu on recipe cards (currently: Delete)
+- [x] **Variations indicator** - Shows number of variations on recipe cards in dashboard
+- [x] **"Add Recipe" card** - Dashboard shows an "Add Recipe" card instead of a button
 
 ---
 

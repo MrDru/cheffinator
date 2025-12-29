@@ -42,13 +42,13 @@ export async function deleteRecipe(id) {
   return response.json();
 }
 
-export async function duplicateRecipe(id, name, description) {
-  const response = await fetch(`${API_BASE}/recipes/${id}/duplicate`, {
+export async function addVariation(recipeId, name, sourceVariationId) {
+  const response = await fetch(`${API_BASE}/recipes/${recipeId}/variations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, description })
+    body: JSON.stringify({ name, sourceVariationId })
   });
-  if (!response.ok) throw new Error('Failed to duplicate recipe');
+  if (!response.ok) throw new Error('Failed to add variation');
   return response.json();
 }
 
