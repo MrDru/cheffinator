@@ -13,6 +13,15 @@
 
 ---
 
+## 🔄 In Progress (Preview Branch: `camera-use`)
+- [ ] **Mobile Camera/GIF Capture** - On mobile/tablet, users can:
+  - 📁 Upload from gallery
+  - 📷 Take a photo with camera
+  - 🎬 Record 5-sec video → auto-convert to looping GIF
+  - Includes animated cooking loader while processing GIF
+
+---
+
 ## ✅ Completed Features
 - [x] Recipe creation and editing
 - [x] Ingredients with amounts and units
@@ -23,13 +32,17 @@
 - [x] PostgreSQL database (persistent storage)
 - [x] Persistent disk for images
 - [x] Roboto font family
-- [x] Fullscreen button on dashboard
 - [x] Deployed on Render
 - [x] **Seamless ingredient/step entry** - Press Enter to create new rows automatically
 - [x] **Recipe variations** - Multiple variations of the same recipe with tabs (e.g., Original, Spicy, Low-carb)
 - [x] **Three-dots menu** - Expandable options menu on recipe cards (currently: Delete)
 - [x] **Variations indicator** - Shows number of variations on recipe cards in dashboard
 - [x] **"Add Recipe" card** - Dashboard shows an "Add Recipe" card instead of a button
+- [x] **Enhanced search** - Search includes variation tags; variations appear as separate results when matching
+- [x] **Multi-user system** - Access code login, per-user recipe isolation, user indicator in header
+- [x] **User whitelist** - Only approved codes can access the app (hardcoded in server.js)
+- [x] **Responsive header** - Mobile-friendly header with scaled title and avatar-only user indicator
+- [x] **Responsive cooking mode** - Fully responsive across mobile, tablet, and desktop
 
 ---
 
@@ -43,7 +56,6 @@ _These are from the original product spec - move to "Planned" when ready to impl
 - [ ] Recipe import from URL
 - [ ] Inline timers in cooking steps
 - [ ] Share recipes via link or PDF export
-- [ ] User accounts (optional login)
 - [ ] Offline support (PWA)
 - [ ] Custom domain setup
 
@@ -55,9 +67,22 @@ _These are from the original product spec - move to "Planned" when ready to impl
 ---
 
 ## 📝 Notes
-_Add any notes, ideas, or reminders here_
+
+### Current Alpha Users (in `backend/server.js`)
+```javascript
+const VALID_CODES = [
+  'cheffinator',
+  'mrdru3000',
+  'dante',
+  'jono',
+  'tester4'
+];
+```
+
+### Preview Environments
+- Enable "PR Previews" in Render settings to test branches before merging
+- Current preview branch: `camera-use` (MR #1)
 
 ---
 
 Last updated: December 2024
-
