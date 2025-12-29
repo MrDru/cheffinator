@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as api from './api';
+import ImageCapture from './ImageCapture';
 
 const UNITS = ['g', 'kg', 'ml', 'L', 'cup', 'tbsp', 'tsp', 'piece', 'pinch', 'to taste'];
 const DEFAULT_TAGS = [
@@ -293,6 +294,10 @@ export default function App() {
   // Variations state
   const [variations, setVariations] = useState([]);
   const [currentVariationIndex, setCurrentVariationIndex] = useState(0);
+
+  // Image capture state (for mobile camera/GIF feature)
+  // captureTarget: { type: 'banner' } | { type: 'ingredient', index: number } | { type: 'stage', index: number } | null
+  const [captureTarget, setCaptureTarget] = useState(null);
 
   const filteredIngredients = ingredients.filter(i => i.name.trim());
   const filteredStages = stages.filter(s => s.text.trim());
@@ -627,6 +632,30 @@ export default function App() {
   };
   
   const removeTag = (t) => setTags(tags.filter(x => x !== t));
+
+  // Handle image capture from camera/gallery/GIF
+  const handleImageCapture = (imageData) => {
+    if (!captureTarget) return;
+    
+    if (captureTarget.type === 'banner') {
+      setBannerImage(imageData);
+    } else if (captureTarget.type === 'ingredient') {
+      setIngredients(prev => prev.map((ing, i) => 
+        i === captureTarget.index ? { ...ing, image: imageData } : ing
+      ));
+    } else if (captureTarget.type === 'stage') {
+      setStages(prev => prev.map((stage, i) => 
+        i === captureTarget.index ? { ...stage, image: imageData } : stage
+      ));
+    }
+    
+    setCaptureTarget(null);
+  };
+
+  // Open image capture modal (mobile shows camera options, desktop shows upload only)
+  const openImageCapture = (target) => {
+    setCaptureTarget(target);
+  };
 
   // Add a new variation to the current recipe
   const handleAddVariation = () => {
@@ -1835,7 +1864,7 @@ export default function App() {
               color: 'var(--text-secondary)', 
               zIndex: 10 
             }} 
-            onClick={() => document.getElementById('banner-upload').click()}
+            onClick={() => openImageCapture({ type: 'banner' })}
           >
             {bannerImage ? <Icon type="camera" /> : <Icon type="plus" />}
           </button>
@@ -2103,29 +2132,24 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 6, 
-                  padding: '8px 14px', 
-                  background: 'var(--bg-tertiary)', 
-                  borderRadius: 8, 
-                  cursor: 'pointer', 
-                  fontSize: 12, 
-                  color: 'var(--text-secondary)', 
-                  fontFamily: 'var(--font-sans)' 
-                }}>
+                <button 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 6, 
+                    padding: '8px 14px', 
+                    background: 'var(--bg-tertiary)', 
+                    borderRadius: 8, 
+                    cursor: 'pointer', 
+                    fontSize: 12, 
+                    color: 'var(--text-secondary)', 
+                    fontFamily: 'var(--font-sans)',
+                    border: 'none'
+                  }}
+                  onClick={() => openImageCapture({ type: 'ingredient', index: i })}
+                >
                   <Icon type="camera" /> Add image
-                  <input 
-                    type="file" 
-                    accept="image/*,image/gif" 
-                    style={{ display: 'none' }} 
-                    onChange={e => { 
-                      const f = e.target.files[0]; 
-                      if (f) handleImageUpload(f, (img) => setIngredients(ingredients.map(x => x.id === ing.id ? { ...x, image: img } : x))); 
-                    }} 
-                  />
-                </label>
+                </button>
               )}
             </div>
           </div>
@@ -2244,30 +2268,24 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 6, 
-                  padding: '10px 16px', 
-                  background: 'var(--bg-tertiary)', 
-                  borderRadius: 10, 
-                  cursor: 'pointer', 
-                  fontSize: 13, 
-                  color: 'var(--text-secondary)', 
-                  fontFamily: 'var(--font-sans)', 
-                  border: '1px dashed #444' 
-                }}>
+                <button 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 6, 
+                    padding: '10px 16px', 
+                    background: 'var(--bg-tertiary)', 
+                    borderRadius: 10, 
+                    cursor: 'pointer', 
+                    fontSize: 13, 
+                    color: 'var(--text-secondary)', 
+                    fontFamily: 'var(--font-sans)', 
+                    border: '1px dashed #444' 
+                  }}
+                  onClick={() => openImageCapture({ type: 'stage', index: i })}
+                >
                   <Icon type="camera" /> Add image or GIF
-                  <input 
-                    type="file" 
-                    accept="image/*,image/gif" 
-                    style={{ display: 'none' }} 
-                    onChange={e => { 
-                      const f = e.target.files[0]; 
-                      if (f) handleImageUpload(f, (img) => setStages(stages.map(x => x.id === stage.id ? { ...x, image: img } : x))); 
-                    }} 
-                  />
-                </label>
+                </button>
               )}
             </div>
           </div>
@@ -2352,6 +2370,20 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Image Capture Modal (mobile camera/GIF feature) */}
+      {captureTarget && (
+        <ImageCapture
+          onCapture={handleImageCapture}
+          onClose={() => setCaptureTarget(null)}
+          currentImage={
+            captureTarget.type === 'banner' ? bannerImage :
+            captureTarget.type === 'ingredient' ? ingredients[captureTarget.index]?.image :
+            captureTarget.type === 'stage' ? stages[captureTarget.index]?.image :
+            null
+          }
+        />
       )}
     </div>
   );
