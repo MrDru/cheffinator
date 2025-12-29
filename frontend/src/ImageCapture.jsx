@@ -47,27 +47,46 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
   const startCamera = async (forVideo = false) => {
     try {
       setError(null);
+      setMode(forVideo ? 'video' : 'camera');
+      
+      // Small delay to ensure video element is rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const constraints = {
         video: {
-          facingMode: 'environment', // Use back camera
-          width: { ideal: forVideo ? GIF_WIDTH : 1280 },
-          height: { ideal: forVideo ? 360 : 720 }
+          facingMode: { ideal: 'environment' }, // Prefer back camera, fall back to any
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         },
         audio: false
       };
       
+      console.log('Requesting camera access...');
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Camera access granted, tracks:', mediaStream.getVideoTracks().length);
+      
       setStream(mediaStream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        
+        // Wait for video to be ready
+        await new Promise((resolve, reject) => {
+          videoRef.current.onloadedmetadata = () => {
+            console.log('Video metadata loaded:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
+            resolve();
+          };
+          videoRef.current.onerror = reject;
+          setTimeout(() => resolve(), 3000); // Timeout fallback
+        });
+        
         await videoRef.current.play();
+        console.log('Video playing');
       }
-      
-      setMode(forVideo ? 'video' : 'camera');
     } catch (err) {
       console.error('Camera error:', err);
-      setError('Could not access camera. Please check permissions.');
+      setError('Could not access camera. Please check permissions. Error: ' + err.message);
+      setMode('select');
     }
   };
 
@@ -103,14 +122,28 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
   };
 
   const startRecording = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      console.error('Video or canvas ref not available');
+      setError('Camera not ready. Please try again.');
+      return;
+    }
+    
+    const video = videoRef.current;
+    
+    // Check if video has valid dimensions
+    if (!video.videoWidth || !video.videoHeight) {
+      console.error('Video dimensions not available:', video.videoWidth, video.videoHeight);
+      setError('Camera not ready. Please wait and try again.');
+      return;
+    }
+    
+    console.log('Starting recording, video dimensions:', video.videoWidth, 'x', video.videoHeight);
     
     framesRef.current = [];
     recordedChunksRef.current = [];
     setIsRecording(true);
     setRecordingTime(0);
     
-    const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
@@ -119,11 +152,17 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
     canvas.width = GIF_WIDTH;
     canvas.height = Math.round(GIF_WIDTH * aspectRatio);
     
+    console.log('Canvas size:', canvas.width, 'x', canvas.height);
+    
     // Capture frames at specified FPS
     frameIntervalRef.current = setInterval(() => {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const frameData = canvas.toDataURL('image/jpeg', 0.6);
-      framesRef.current.push(frameData);
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frameData = canvas.toDataURL('image/jpeg', 0.6);
+        framesRef.current.push(frameData);
+      } catch (e) {
+        console.error('Error capturing frame:', e);
+      }
     }, 1000 / GIF_FPS);
     
     // Timer for recording duration
@@ -139,6 +178,7 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
   };
 
   const stopRecording = useCallback(() => {
+    console.log('Stopping recording, frames captured:', framesRef.current.length);
     setIsRecording(false);
     
     if (frameIntervalRef.current) {
@@ -150,35 +190,66 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
       timerRef.current = null;
     }
     
+    const framesCaptured = [...framesRef.current]; // Copy frames before stopping camera
     stopCamera();
     
     // Convert frames to GIF
-    if (framesRef.current.length > 0) {
+    if (framesCaptured.length > 0) {
+      console.log('Converting', framesCaptured.length, 'frames to GIF');
       setIsProcessing(true);
-      convertToGif(framesRef.current);
+      convertToGif(framesCaptured);
+    } else {
+      console.error('No frames captured');
+      setError('No frames were captured. Please try again.');
+      setMode('select');
     }
   }, []);
 
   const convertToGif = (frames) => {
-    gifshot.createGIF({
-      images: frames,
-      gifWidth: GIF_WIDTH,
-      gifHeight: Math.round(GIF_WIDTH * 0.75), // Approximate, will be adjusted
-      interval: 1 / GIF_FPS,
-      numFrames: frames.length,
-      frameDuration: 1,
-      sampleInterval: 10,
-      numWorkers: 2
-    }, (result) => {
+    console.log('Creating GIF from', frames.length, 'frames');
+    
+    // Calculate dimensions from first frame
+    const img = new Image();
+    img.onload = () => {
+      const aspectRatio = img.height / img.width;
+      const gifHeight = Math.round(GIF_WIDTH * aspectRatio);
+      
+      console.log('GIF dimensions:', GIF_WIDTH, 'x', gifHeight);
+      
+      gifshot.createGIF({
+        images: frames,
+        gifWidth: GIF_WIDTH,
+        gifHeight: gifHeight,
+        interval: 0.1, // 100ms between frames = 10fps
+        numFrames: frames.length,
+        frameDuration: 1,
+        sampleInterval: 10,
+        numWorkers: 2,
+        progressCallback: (progress) => {
+          console.log('GIF progress:', Math.round(progress * 100) + '%');
+        }
+      }, (result) => {
+        console.log('GIF result:', result.error ? 'ERROR: ' + result.errorMsg : 'SUCCESS');
+        setIsProcessing(false);
+        if (!result.error && result.image) {
+          setCapturedMedia(result.image);
+          setMode('preview');
+        } else {
+          console.error('GIF creation failed:', result.errorMsg || result.error);
+          setError('Failed to create GIF: ' + (result.errorMsg || 'Unknown error'));
+          setMode('select');
+        }
+      });
+    };
+    
+    img.onerror = () => {
+      console.error('Failed to load first frame');
       setIsProcessing(false);
-      if (!result.error) {
-        setCapturedMedia(result.image);
-        setMode('preview');
-      } else {
-        setError('Failed to create GIF. Please try again.');
-        setMode('select');
-      }
-    });
+      setError('Failed to process frames. Please try again.');
+      setMode('select');
+    };
+    
+    img.src = frames[0];
   };
 
   const handleFileUpload = (e) => {
