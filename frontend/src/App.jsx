@@ -183,11 +183,12 @@ const styles = {
     fontFamily: 'var(--font-display)' 
   },
   header: { 
-    padding: '20px 24px', 
+    padding: 'clamp(12px, 3vw, 20px) clamp(12px, 3vw, 24px)', 
     borderBottom: '1px solid var(--border-color)', 
     display: 'flex', 
     justifyContent: 'space-between', 
-    alignItems: 'center' 
+    alignItems: 'center',
+    gap: 8
   },
   main: { 
     maxWidth: 800, 
@@ -832,36 +833,40 @@ export default function App() {
   if (currentView === 'dashboard') {
     return (
       <div style={styles.page}>
-        <header style={{ ...styles.header, justifyContent: 'center', position: 'relative' }}>
-          <h1 style={{ fontSize: 32, fontWeight: 600, margin: 0, letterSpacing: '-0.5px' }}>Cheffinator</h1>
+        <header style={{ ...styles.header, justifyContent: 'space-between' }}>
+          {/* Empty spacer for balance on desktop, hidden on mobile */}
+          <div style={{ width: 'clamp(40px, 10vw, 100px)' }} />
+          
+          <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>Cheffinator</h1>
           
           {/* User indicator */}
-          <div style={{ position: 'absolute', right: 24 }}>
+          <div style={{ position: 'relative' }}>
             <button
               onClick={(e) => { e.stopPropagation(); setShowUserMenu(!showUserMenu); }}
               style={{ 
                 ...styles.btn, 
-                padding: '8px 14px',
+                padding: 'clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 14px)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8
+                gap: 'clamp(4px, 1vw, 8px)'
               }}
             >
               <span style={{ 
-                width: 28, 
-                height: 28, 
+                width: 'clamp(24px, 5vw, 28px)', 
+                height: 'clamp(24px, 5vw, 28px)', 
                 borderRadius: '50%', 
                 background: 'linear-gradient(135deg, var(--accent-green-dark), var(--accent-green))',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--bg-primary)',
-                fontSize: 12,
-                fontWeight: 700
+                fontSize: 'clamp(10px, 2vw, 12px)',
+                fontWeight: 700,
+                flexShrink: 0
               }}>
                 {userCode.charAt(0).toUpperCase()}
               </span>
-              <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{userCode}</span>
+              <span className="hide-on-mobile" style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{userCode}</span>
             </button>
             
             {showUserMenu && (

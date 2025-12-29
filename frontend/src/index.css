@@ -72,3 +72,10 @@ a {
   color: var(--text-primary);
 }
 
+/* Responsive utilities */
+@media (max-width: 480px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
