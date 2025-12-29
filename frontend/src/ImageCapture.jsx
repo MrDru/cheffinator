@@ -21,6 +21,7 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [capturedMedia, setCapturedMedia] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
   const [error, setError] = useState(null);
   
   const videoRef = useRef(null);
@@ -197,6 +198,7 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
     if (framesCaptured.length > 0) {
       console.log('Converting', framesCaptured.length, 'frames to GIF');
       setIsProcessing(true);
+      setProcessingProgress(0);
       convertToGif(framesCaptured);
     } else {
       console.error('No frames captured');
@@ -227,6 +229,7 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
         numWorkers: 2,
         progressCallback: (progress) => {
           console.log('GIF progress:', Math.round(progress * 100) + '%');
+          setProcessingProgress(Math.round(progress * 100));
         }
       }, (result) => {
         console.log('GIF result:', result.error ? 'ERROR: ' + result.errorMsg : 'SUCCESS');
@@ -507,25 +510,76 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
     );
   }
 
-  // PROCESSING MODE
+  // PROCESSING MODE - Animated cooking loader
   if (isProcessing) {
     return (
       <div style={overlayStyle}>
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ 
+          textAlign: 'center',
+          background: 'var(--bg-secondary)',
+          borderRadius: 24,
+          padding: '40px 50px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+        }}>
+          {/* Cooking pot animation */}
           <div style={{ 
-            width: 60, 
-            height: 60, 
-            border: '3px solid var(--border-color)',
-            borderTopColor: 'var(--accent-green)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 20px'
-          }} />
-          <p style={{ color: 'var(--text-secondary)', fontSize: 16 }}>Creating GIF...</p>
+            fontSize: 64, 
+            marginBottom: 24,
+            animation: 'bounce 0.6s ease-in-out infinite'
+          }}>
+            🍳
+          </div>
+          
+          <h3 style={{ 
+            margin: '0 0 8px', 
+            fontSize: 20, 
+            fontWeight: 600,
+            color: 'var(--text-primary)'
+          }}>
+            Cooking your GIF...
+          </h3>
+          
+          <p style={{ 
+            color: 'var(--text-muted)', 
+            fontSize: 14, 
+            margin: '0 0 24px' 
+          }}>
+            This may take a few seconds
+          </p>
+          
+          {/* Progress bar */}
+          <div style={{
+            width: 200,
+            height: 8,
+            background: 'var(--bg-tertiary)',
+            borderRadius: 4,
+            overflow: 'hidden',
+            margin: '0 auto'
+          }}>
+            <div style={{
+              width: `${processingProgress}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, var(--accent-green-dark), var(--accent-green))',
+              borderRadius: 4,
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+          
+          <p style={{ 
+            color: 'var(--accent-green)', 
+            fontSize: 14, 
+            margin: '12px 0 0',
+            fontWeight: 600,
+            fontFamily: 'var(--font-sans)'
+          }}>
+            {processingProgress}%
+          </p>
         </div>
+        
         <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
+          @keyframes bounce {
+            0%, 100% { transform: translateY(0) rotate(-5deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
           }
         `}</style>
       </div>
