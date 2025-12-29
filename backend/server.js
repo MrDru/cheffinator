@@ -252,12 +252,12 @@ app.post('/api/auth/validate', (req, res) => {
   }
 });
 
-// Get all recipes (filtered by user_code)
+// Get all recipes (filtered by user_code, case-insensitive)
 app.get('/api/recipes', async (req, res) => {
   try {
-    const userCode = req.query.user || 'default';
+    const userCode = (req.query.user || 'default').toLowerCase();
     const recipesResult = await pool.query(
-      'SELECT * FROM recipes WHERE user_code = $1 ORDER BY updated_at DESC',
+      'SELECT * FROM recipes WHERE LOWER(user_code) = $1 ORDER BY updated_at DESC',
       [userCode]
     );
     
@@ -408,15 +408,16 @@ app.post('/api/recipes', async (req, res) => {
     const recipeId = uuidv4();
     const variationId = uuidv4();
     const now = new Date();
+    const normalizedUserCode = (userCode || 'default').toLowerCase();
     
     // Save any custom tags
     await saveCustomTags(tags);
     
-    // Create the recipe container with user_code
+    // Create the recipe container with user_code (normalized to lowercase)
     await client.query(
       `INSERT INTO recipes (id, name, user_code, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5)`,
-      [recipeId, name, userCode || 'default', now, now]
+      [recipeId, name, normalizedUserCode, now, now]
     );
     
     // Create the first variation (Original)
