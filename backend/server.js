@@ -172,6 +172,18 @@ async function initDatabase() {
       console.log('Migration complete: variation support added');
     }
     
+    // Migration: Add user_code column for multi-user support
+    const userCodeCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'recipes' AND column_name = 'user_code'
+    `);
+    
+    if (userCodeCheck.rows.length === 0) {
+      console.log('Running migration: adding user support...');
+      await client.query(`ALTER TABLE recipes ADD COLUMN user_code TEXT DEFAULT 'default'`);
+      console.log('Migration complete: user support added');
+    }
+    
     console.log('Database tables initialized');
   } finally {
     client.release();
@@ -214,11 +226,13 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use('/uploads', express.static(uploadsDir));
 
-// Get all recipes
+// Get all recipes (filtered by user_code)
 app.get('/api/recipes', async (req, res) => {
   try {
+    const userCode = req.query.user || 'default';
     const recipesResult = await pool.query(
-      'SELECT * FROM recipes ORDER BY updated_at DESC'
+      'SELECT * FROM recipes WHERE user_code = $1 ORDER BY updated_at DESC',
+      [userCode]
     );
     
     const recipes = await Promise.all(recipesResult.rows.map(async (recipe) => {
@@ -364,7 +378,7 @@ app.post('/api/recipes', async (req, res) => {
   try {
     await client.query('BEGIN');
     
-    const { name, description, servings, tags, bannerImage, ingredients, stages } = req.body;
+    const { name, description, servings, tags, bannerImage, ingredients, stages, userCode } = req.body;
     const recipeId = uuidv4();
     const variationId = uuidv4();
     const now = new Date();
@@ -372,11 +386,11 @@ app.post('/api/recipes', async (req, res) => {
     // Save any custom tags
     await saveCustomTags(tags);
     
-    // Create the recipe container
+    // Create the recipe container with user_code
     await client.query(
-      `INSERT INTO recipes (id, name, created_at, updated_at)
-       VALUES ($1, $2, $3, $4)`,
-      [recipeId, name, now, now]
+      `INSERT INTO recipes (id, name, user_code, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [recipeId, name, userCode || 'default', now, now]
     );
     
     // Create the first variation (Original)

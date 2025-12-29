@@ -2,8 +2,24 @@
 // In development, Vite proxies /api to localhost:3001
 const API_BASE = '/api';
 
-export async function fetchRecipes() {
-  const response = await fetch(`${API_BASE}/recipes`);
+// Get user code from localStorage
+export function getUserCode() {
+  return localStorage.getItem('cheffinator_user_code');
+}
+
+// Set user code in localStorage
+export function setUserCode(code) {
+  localStorage.setItem('cheffinator_user_code', code);
+}
+
+// Clear user code (logout)
+export function clearUserCode() {
+  localStorage.removeItem('cheffinator_user_code');
+}
+
+export async function fetchRecipes(userCode) {
+  const code = userCode || getUserCode() || 'default';
+  const response = await fetch(`${API_BASE}/recipes?user=${encodeURIComponent(code)}`);
   if (!response.ok) throw new Error('Failed to fetch recipes');
   return response.json();
 }
@@ -14,11 +30,12 @@ export async function fetchRecipe(id) {
   return response.json();
 }
 
-export async function createRecipe(recipe) {
+export async function createRecipe(recipe, userCode) {
+  const code = userCode || getUserCode() || 'default';
   const response = await fetch(`${API_BASE}/recipes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(recipe)
+    body: JSON.stringify({ ...recipe, userCode: code })
   });
   if (!response.ok) throw new Error('Failed to create recipe');
   return response.json();

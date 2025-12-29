@@ -260,6 +260,11 @@ const styles = {
 };
 
 export default function App() {
+  // User authentication state
+  const [userCode, setUserCode] = useState(() => api.getUserCode());
+  const [loginInput, setLoginInput] = useState('');
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  
   const [currentView, setCurrentView] = useState('dashboard');
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -280,7 +285,6 @@ export default function App() {
   const [variationModal, setVariationModal] = useState(null);
   const [newVariationName, setNewVariationName] = useState('');
   const [customTags, setCustomTags] = useState([]);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
   
   // Variations state
@@ -295,16 +299,19 @@ export default function App() {
   const allAvailableTags = [...new Set([...DEFAULT_TAGS, ...customTags])];
   const suggestions = tagInput ? allAvailableTags.filter(t => t.toLowerCase().startsWith(tagInput.toLowerCase()) && !tags.includes(t)) : [];
 
-  // Load recipes and custom tags on mount
+  // Load recipes and custom tags when userCode is set
   useEffect(() => {
-    loadRecipes();
-    loadCustomTags();
-  }, []);
+    if (userCode) {
+      loadRecipes();
+      loadCustomTags();
+    }
+  }, [userCode]);
 
   const loadRecipes = async () => {
+    if (!userCode) return;
     try {
       setLoading(true);
-      const data = await api.fetchRecipes();
+      const data = await api.fetchRecipes(userCode);
       // In development, always include mock recipes for demo purposes
       const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       if (isDev) {
@@ -333,7 +340,32 @@ export default function App() {
     }
   };
 
-  // Fullscreen helpers
+  // Login with access code
+  const handleLogin = (code) => {
+    if (code.trim()) {
+      api.setUserCode(code.trim());
+      setUserCode(code.trim());
+      setLoginInput('');
+    }
+  };
+
+  // Logout
+  const handleLogout = () => {
+    api.clearUserCode();
+    setUserCode(null);
+    setRecipes([]);
+    setShowUserMenu(false);
+  };
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handleClick = () => setShowUserMenu(false);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [showUserMenu]);
+
+  // Fullscreen helpers for cooking mode
   const enterFullscreen = () => {
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
@@ -557,7 +589,7 @@ export default function App() {
           bannerImage,
           ingredients: filteredIngredients,
           stages: filteredStages
-        });
+        }, userCode);
         setEditingId(result.id);
       }
       await loadRecipes();
@@ -703,19 +735,156 @@ export default function App() {
     return results;
   }, [recipes, searchQuery]);
 
+  // LOGIN SCREEN - show when no user code
+  if (!userCode) {
+    return (
+      <div style={{ 
+        ...styles.page, 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        padding: 24
+      }}>
+        <div style={{ 
+          maxWidth: 400, 
+          width: '100%', 
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: 64, marginBottom: 24 }}>🍳</div>
+          <h1 style={{ fontSize: 36, fontWeight: 600, margin: '0 0 12px', letterSpacing: '-0.5px' }}>
+            Cheffinator
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 40, fontSize: 16 }}>
+            What's your chef's name?
+          </p>
+          
+          <div style={{ ...styles.surface, padding: 24 }}>
+            <input
+              style={{
+                width: '100%',
+                padding: '16px 20px',
+                fontSize: 18,
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 12,
+                color: 'var(--text-primary)',
+                outline: 'none',
+                boxSizing: 'border-box',
+                textAlign: 'center',
+                fontFamily: 'var(--font-sans)'
+              }}
+              placeholder="Enter your name..."
+              value={loginInput}
+              onChange={e => setLoginInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin(loginInput)}
+              autoFocus
+            />
+            <button
+              style={{
+                ...styles.btnPrimary,
+                width: '100%',
+                marginTop: 16,
+                padding: '14px 20px',
+                fontSize: 16
+              }}
+              onClick={() => handleLogin(loginInput)}
+              disabled={!loginInput.trim()}
+            >
+              Continue
+            </button>
+          </div>
+          
+          <p style={{ color: 'var(--text-muted)', marginTop: 32, fontSize: 13 }}>
+            Alpha Testing • Contact admin for access
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // DASHBOARD VIEW
   if (currentView === 'dashboard') {
     return (
       <div style={styles.page}>
         <header style={{ ...styles.header, justifyContent: 'center', position: 'relative' }}>
           <h1 style={{ fontSize: 32, fontWeight: 600, margin: 0, letterSpacing: '-0.5px' }}>Cheffinator</h1>
-          <button
-            onClick={toggleFullscreen}
-            style={{ ...styles.btn, padding: '10px', position: 'absolute', right: 24 }}
-            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-          >
-            <Icon type={isFullscreen ? 'exitFullscreen' : 'fullscreen'} />
-          </button>
+          
+          {/* User indicator */}
+          <div style={{ position: 'absolute', right: 24 }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowUserMenu(!showUserMenu); }}
+              style={{ 
+                ...styles.btn, 
+                padding: '8px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <span style={{ 
+                width: 28, 
+                height: 28, 
+                borderRadius: '50%', 
+                background: 'linear-gradient(135deg, var(--accent-green-dark), var(--accent-green))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--bg-primary)',
+                fontSize: 12,
+                fontWeight: 700
+              }}>
+                {userCode.charAt(0).toUpperCase()}
+              </span>
+              <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{userCode}</span>
+            </button>
+            
+            {showUserMenu && (
+              <div 
+                style={{ 
+                  position: 'absolute', 
+                  top: '100%', 
+                  right: 0, 
+                  marginTop: 8,
+                  background: 'var(--bg-secondary)', 
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: 12, 
+                  padding: 6,
+                  minWidth: 160,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                  zIndex: 100
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div style={{ 
+                  padding: '10px 14px', 
+                  borderBottom: '1px solid var(--border-color)',
+                  marginBottom: 6
+                }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Logged in as</div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{userCode}</div>
+                </div>
+                <button
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 8,
+                    color: 'var(--accent-red)',
+                    fontSize: 14,
+                    fontFamily: 'var(--font-sans)',
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onClick={handleLogout}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  Log out
+                </button>
+              </div>
+            )}
+          </div>
         </header>
         
         <main style={styles.main}>
