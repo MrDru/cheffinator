@@ -11,6 +11,70 @@ const DEFAULT_TAGS = [
   'Baking', 'Holiday', 'Shabbat', 'Passover'
 ];
 
+const MOCK_RECIPES = [
+  {
+    id: 'mock-1',
+    name: 'Classic Shakshuka',
+    description: 'A delicious Middle Eastern dish of poached eggs in spiced tomato sauce',
+    servings: 4,
+    tags: ['Israeli', 'Breakfast', 'Vegetarian', 'Easy'],
+    ingredients: [
+      { id: 1, name: 'Tomatoes', amount: '400', unit: 'g' },
+      { id: 2, name: 'Eggs', amount: '4', unit: 'piece' },
+      { id: 3, name: 'Onion', amount: '1', unit: 'piece' },
+      { id: 4, name: 'Cumin', amount: '1', unit: 'tsp' }
+    ],
+    stages: [
+      { id: 1, text: 'Sauté diced onion until golden' },
+      { id: 2, text: 'Add crushed tomatoes and spices, simmer for 10 minutes' },
+      { id: 3, text: 'Make wells and crack eggs, cover and cook until set' }
+    ],
+    updated: 'Dec 2024',
+    isMock: true
+  },
+  {
+    id: 'mock-2',
+    name: 'Creamy Pasta Primavera',
+    description: 'Fresh vegetables in a light cream sauce over pasta',
+    servings: 6,
+    tags: ['Italian', 'Pasta', 'Vegetarian', 'Dinner'],
+    ingredients: [
+      { id: 1, name: 'Penne pasta', amount: '500', unit: 'g' },
+      { id: 2, name: 'Heavy cream', amount: '250', unit: 'ml' },
+      { id: 3, name: 'Mixed vegetables', amount: '300', unit: 'g' },
+      { id: 4, name: 'Parmesan', amount: '100', unit: 'g' }
+    ],
+    stages: [
+      { id: 1, text: 'Cook pasta according to package directions' },
+      { id: 2, text: 'Sauté vegetables until tender-crisp' },
+      { id: 3, text: 'Add cream and parmesan, toss with pasta' }
+    ],
+    updated: 'Dec 2024',
+    isMock: true
+  },
+  {
+    id: 'mock-3',
+    name: 'Chocolate Lava Cake',
+    description: 'Decadent individual chocolate cakes with molten centers',
+    servings: 4,
+    tags: ['Dessert', 'Baking', 'Easy'],
+    ingredients: [
+      { id: 1, name: 'Dark chocolate', amount: '200', unit: 'g' },
+      { id: 2, name: 'Butter', amount: '100', unit: 'g' },
+      { id: 3, name: 'Eggs', amount: '4', unit: 'piece' },
+      { id: 4, name: 'Sugar', amount: '100', unit: 'g' },
+      { id: 5, name: 'Flour', amount: '50', unit: 'g' }
+    ],
+    stages: [
+      { id: 1, text: 'Melt chocolate and butter together' },
+      { id: 2, text: 'Whisk eggs and sugar, fold in chocolate mixture and flour' },
+      { id: 3, text: 'Bake at 200°C for 12 minutes until edges are set' }
+    ],
+    updated: 'Dec 2024',
+    isMock: true
+  }
+];
+
 const Icon = ({ type }) => {
   const icons = {
     plus: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
@@ -157,9 +221,20 @@ export default function App() {
     try {
       setLoading(true);
       const data = await api.fetchRecipes();
-      setRecipes(data);
+      // In development, always include mock recipes for demo purposes
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (isDev) {
+        setRecipes([...data, ...MOCK_RECIPES]);
+      } else {
+        setRecipes(data);
+      }
     } catch (error) {
       console.error('Failed to load recipes:', error);
+      // If API fails in dev, still show mock recipes
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (isDev) {
+        setRecipes(MOCK_RECIPES);
+      }
     } finally {
       setLoading(false);
     }
@@ -394,28 +469,6 @@ export default function App() {
         </header>
         
         <main style={styles.main}>
-          <div style={{ marginBottom: 48 }}>
-            <button 
-              onClick={openNew} 
-              style={{ 
-                ...styles.btnPrimary, 
-                width: 40, 
-                height: 40, 
-                padding: 0, 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                borderRadius: 10
-              }}
-              title="Create New Recipe"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-            </button>
-          </div>
-          
           <h2 style={{ 
             fontSize: 12, 
             fontWeight: 600, 
@@ -458,13 +511,50 @@ export default function App() {
               <div style={{ fontSize: 32, marginBottom: 16 }}>🍳</div>
               Loading recipes...
             </div>
-          ) : filteredRecipes.length === 0 ? (
-            <div style={{ ...styles.surface, textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>📖</div>
-              {recipes.length === 0 ? "No recipes yet. Create your first one!" : "No recipes match your search."}
-            </div>
           ) : (
-            filteredRecipes.map(r => (
+            <>
+              <div 
+                style={{ 
+                  ...styles.card, 
+                  borderStyle: 'dashed',
+                  borderColor: 'var(--accent-green)',
+                  background: 'transparent',
+                  justifyContent: 'center'
+                }} 
+                onClick={openNew}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ 
+                  width: 60, 
+                  height: 60, 
+                  borderRadius: 12, 
+                  background: 'var(--accent-green)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  flexShrink: 0 
+                }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 17, fontWeight: 500, color: 'var(--accent-green)' }}>
+                    Add Recipe
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+                    Create a new recipe
+                  </div>
+                </div>
+              </div>
+              {filteredRecipes.length === 0 && recipes.length > 0 ? (
+                <div style={{ ...styles.surface, textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                  No recipes match your search.
+                </div>
+              ) : (
+                filteredRecipes.map(r => (
               <div 
                 key={r.id} 
                 style={styles.card} 
@@ -486,8 +576,20 @@ export default function App() {
                   {!r.bannerImage && '🍽️'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8 }}>
                     {r.name}
+                    {r.isMock && (
+                      <span style={{ 
+                        fontSize: 10, 
+                        fontWeight: 600, 
+                        background: 'var(--bg-tertiary)', 
+                        color: 'var(--text-muted)', 
+                        padding: '2px 6px', 
+                        borderRadius: 4, 
+                        textTransform: 'uppercase',
+                        fontFamily: 'var(--font-sans)'
+                      }}>Sample</span>
+                    )}
                   </div>
                   <div>
                     {r.tags?.map(t => <span key={t} style={styles.tag}>{t}</span>)}
@@ -497,21 +599,23 @@ export default function App() {
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button 
                     style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', opacity: 0.6, cursor: 'pointer', padding: 8, borderRadius: 6 }} 
-                    onClick={(e) => { e.stopPropagation(); handleDuplicate(r); }}
+                    onClick={(e) => { e.stopPropagation(); if (!r.isMock) handleDuplicate(r); }}
                     title="Duplicate"
                   >
                     <Icon type="copy" />
                   </button>
                   <button 
                     style={{ background: 'transparent', border: 'none', color: 'var(--accent-red)', opacity: 0.6, cursor: 'pointer', padding: 8, borderRadius: 6 }} 
-                    onClick={(e) => { e.stopPropagation(); handleDelete(r); }}
+                    onClick={(e) => { e.stopPropagation(); if (!r.isMock) handleDelete(r); }}
                     title="Delete"
                   >
                     <Icon type="trash" />
                   </button>
                 </div>
               </div>
-            ))
+                ))
+              )}
+            </>
           )}
           
           <div style={{ ...styles.surface, marginTop: 40, textAlign: 'center', padding: 28 }}>
