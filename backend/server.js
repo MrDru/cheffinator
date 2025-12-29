@@ -40,10 +40,10 @@ const DEFAULT_TAGS = [
 
 // Approved user codes for alpha testing (case-insensitive)
 const VALID_CODES = [
-  'liron',
-  'tester1',
-  'tester2',
-  'tester3',
+  'cheffinator',
+  'mrdru3000',
+  'dante',
+  'jono',
   'tester4'
 ];
 
