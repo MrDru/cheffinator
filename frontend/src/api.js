@@ -17,6 +17,20 @@ export function clearUserCode() {
   localStorage.removeItem('cheffinator_user_code');
 }
 
+// Validate user code with the server
+export async function validateCode(code) {
+  const response = await fetch(`${API_BASE}/auth/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code })
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Invalid code');
+  }
+  return data;
+}
+
 export async function fetchRecipes(userCode) {
   const code = userCode || getUserCode() || 'default';
   const response = await fetch(`${API_BASE}/recipes?user=${encodeURIComponent(code)}`);

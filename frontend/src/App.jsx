@@ -263,6 +263,8 @@ export default function App() {
   // User authentication state
   const [userCode, setUserCode] = useState(() => api.getUserCode());
   const [loginInput, setLoginInput] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   
   const [currentView, setCurrentView] = useState('dashboard');
@@ -340,12 +342,23 @@ export default function App() {
     }
   };
 
-  // Login with access code
-  const handleLogin = (code) => {
-    if (code.trim()) {
-      api.setUserCode(code.trim());
-      setUserCode(code.trim());
+  // Login with access code (validates with server first)
+  const handleLogin = async (code) => {
+    if (!code.trim()) return;
+    
+    setLoginLoading(true);
+    setLoginError('');
+    
+    try {
+      // Validate code with server
+      const result = await api.validateCode(code.trim());
+      api.setUserCode(result.code);
+      setUserCode(result.code);
       setLoginInput('');
+    } catch (error) {
+      setLoginError(error.message || 'Invalid access code');
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -765,7 +778,7 @@ export default function App() {
                 padding: '16px 20px',
                 fontSize: 18,
                 background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
+                border: loginError ? '1px solid var(--accent-red)' : '1px solid var(--border-color)',
                 borderRadius: 12,
                 color: 'var(--text-primary)',
                 outline: 'none',
@@ -775,22 +788,35 @@ export default function App() {
               }}
               placeholder="Enter your name..."
               value={loginInput}
-              onChange={e => setLoginInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleLogin(loginInput)}
+              onChange={e => { setLoginInput(e.target.value); setLoginError(''); }}
+              onKeyDown={e => e.key === 'Enter' && !loginLoading && handleLogin(loginInput)}
               autoFocus
+              disabled={loginLoading}
             />
+            
+            {loginError && (
+              <p style={{ 
+                color: 'var(--accent-red)', 
+                margin: '12px 0 0', 
+                fontSize: 14 
+              }}>
+                {loginError}
+              </p>
+            )}
+            
             <button
               style={{
                 ...styles.btnPrimary,
                 width: '100%',
                 marginTop: 16,
                 padding: '14px 20px',
-                fontSize: 16
+                fontSize: 16,
+                opacity: loginLoading ? 0.7 : 1
               }}
               onClick={() => handleLogin(loginInput)}
-              disabled={!loginInput.trim()}
+              disabled={!loginInput.trim() || loginLoading}
             >
-              Continue
+              {loginLoading ? 'Checking...' : 'Continue'}
             </button>
           </div>
           
@@ -1138,7 +1164,7 @@ export default function App() {
     );
   }
 
-  // COOKING MODE
+  // COOKING MODE - Fully responsive
   if (currentView === 'cooking') {
     return (
       <div style={{ 
@@ -1149,34 +1175,88 @@ export default function App() {
         fontFamily: 'var(--font-display)', 
         display: 'flex', 
         flexDirection: 'column', 
-        zIndex: 1000 
+        zIndex: 1000,
+        overflow: 'hidden'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', background: 'rgba(0,0,0,0.5)' }}>
-          <span style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>{cookingSlide + 1} / {totalSlides}</span>
+        {/* Header - compact on mobile */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          padding: 'clamp(12px, 2vw, 16px) clamp(16px, 3vw, 24px)', 
+          background: 'rgba(0,0,0,0.5)',
+          flexShrink: 0
+        }}>
+          <span style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+            {cookingSlide + 1} / {totalSlides}
+          </span>
           <button 
             onClick={exitCookingMode} 
-            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}
+            style={{ 
+              background: 'rgba(255,255,255,0.1)', 
+              border: 'none', 
+              borderRadius: 8, 
+              padding: 'clamp(6px, 1.5vw, 8px)', 
+              cursor: 'pointer', 
+              color: 'var(--text-secondary)', 
+              display: 'flex' 
+            }}
           >
             <Icon type="close" />
           </button>
         </div>
         
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 80px', overflow: 'auto' }}>
+        {/* Content area - responsive padding */}
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          padding: 'clamp(16px, 4vw, 40px) clamp(16px, 5vw, 80px)', 
+          overflow: 'auto',
+          minHeight: 0
+        }}>
+          {/* Slide 0: Recipe intro */}
           {cookingSlide === 0 && (
-            <div style={{ textAlign: 'center', maxWidth: 800 }}>
+            <div style={{ textAlign: 'center', maxWidth: 800, width: '100%' }}>
               {bannerImage && (
                 <div style={{ 
-                  width: 220, 
-                  height: 220, 
+                  width: 'clamp(120px, 30vw, 220px)', 
+                  height: 'clamp(120px, 30vw, 220px)', 
                   borderRadius: '50%', 
                   background: `url(${bannerImage}) center/cover`, 
-                  margin: '0 auto 48px',
+                  margin: '0 auto clamp(24px, 5vw, 48px)',
                   boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
                 }} />
               )}
-              <h1 style={{ fontSize: 'clamp(40px, 8vw, 80px)', fontWeight: 600, margin: '0 0 24px', letterSpacing: '-1px' }}>{recipeName}</h1>
-              {description && <p style={{ fontSize: 'clamp(18px, 3vw, 26px)', color: 'var(--text-secondary)', margin: '0 0 48px', lineHeight: 1.5 }}>{description}</p>}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 40, fontSize: 'clamp(16px, 2.5vw, 20px)', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+              <h1 style={{ 
+                fontSize: 'clamp(28px, 7vw, 80px)', 
+                fontWeight: 600, 
+                margin: '0 0 clamp(12px, 2vw, 24px)', 
+                letterSpacing: '-1px',
+                lineHeight: 1.1
+              }}>
+                {recipeName}
+              </h1>
+              {description && (
+                <p style={{ 
+                  fontSize: 'clamp(14px, 3vw, 26px)', 
+                  color: 'var(--text-secondary)', 
+                  margin: '0 0 clamp(24px, 5vw, 48px)', 
+                  lineHeight: 1.5 
+                }}>
+                  {description}
+                </p>
+              )}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                gap: 'clamp(16px, 4vw, 40px)', 
+                fontSize: 'clamp(12px, 2.5vw, 20px)', 
+                color: 'var(--text-muted)', 
+                fontFamily: 'var(--font-sans)',
+                flexWrap: 'wrap'
+              }}>
                 <span><strong style={{ color: 'var(--accent-green)' }}>{servings}</strong> servings</span>
                 <span><strong style={{ color: 'var(--accent-green)' }}>{filteredIngredients.length}</strong> ingredients</span>
                 <span><strong style={{ color: 'var(--accent-green)' }}>{filteredStages.length}</strong> steps</span>
@@ -1184,15 +1264,16 @@ export default function App() {
             </div>
           )}
           
+          {/* Slide 1: Ingredients */}
           {cookingSlide === 1 && (
-            <div style={{ maxWidth: 900, width: '100%', padding: '0 20px' }}>
+            <div style={{ maxWidth: 900, width: '100%', padding: '0 clamp(8px, 2vw, 20px)' }}>
               <h2 style={{ 
-                fontSize: 'clamp(14px, 2vw, 18px)', 
+                fontSize: 'clamp(12px, 2vw, 18px)', 
                 fontWeight: 600, 
                 color: 'var(--accent-green)', 
                 textTransform: 'uppercase', 
-                letterSpacing: 4, 
-                marginBottom: 50, 
+                letterSpacing: 'clamp(2px, 0.5vw, 4px)', 
+                marginBottom: 'clamp(24px, 5vw, 50px)', 
                 textAlign: 'center', 
                 fontFamily: 'var(--font-sans)' 
               }}>
@@ -1200,15 +1281,15 @@ export default function App() {
               </h2>
               <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: `repeat(auto-fit, minmax(${filteredIngredients.some(i => i.image) ? '200px' : '280px'}, 1fr))`,
-                gap: 20,
+                gridTemplateColumns: `repeat(auto-fit, minmax(clamp(140px, 25vw, ${filteredIngredients.some(i => i.image) ? '200px' : '280px'}), 1fr))`,
+                gap: 'clamp(12px, 2vw, 20px)',
                 justifyContent: 'center'
               }}>
                 {filteredIngredients.map((ing) => (
                   <div key={ing.id} style={{ 
                     background: 'linear-gradient(145deg, var(--bg-secondary) 0%, #141414 100%)',
-                    borderRadius: 16,
-                    padding: ing.image ? 0 : '24px',
+                    borderRadius: 'clamp(10px, 2vw, 16px)',
+                    padding: ing.image ? 0 : 'clamp(14px, 3vw, 24px)',
                     overflow: 'hidden',
                     border: '1px solid var(--border-color)',
                     display: 'flex',
@@ -1222,20 +1303,20 @@ export default function App() {
                         borderBottom: '1px solid var(--border-color)'
                       }} />
                     )}
-                    <div style={{ padding: ing.image ? '16px 20px 20px' : '0', textAlign: 'center' }}>
+                    <div style={{ padding: ing.image ? 'clamp(10px, 2vw, 16px) clamp(12px, 2vw, 20px) clamp(12px, 2vw, 20px)' : '0', textAlign: 'center' }}>
                       <div style={{ 
-                        fontSize: 'clamp(16px, 2.5vw, 22px)', 
+                        fontSize: 'clamp(14px, 2.5vw, 22px)', 
                         fontWeight: 500,
-                        marginBottom: 8,
+                        marginBottom: 'clamp(4px, 1vw, 8px)',
                         color: 'var(--text-primary)'
                       }}>{ing.name}</div>
                       <div style={{ 
-                        fontSize: 'clamp(14px, 2vw, 18px)',
+                        fontSize: 'clamp(12px, 2vw, 18px)',
                         color: 'var(--accent-green)',
                         fontFamily: 'var(--font-sans)',
                         fontWeight: 600,
                         background: 'rgba(74,222,128,0.1)',
-                        padding: '8px 16px',
+                        padding: 'clamp(4px, 1vw, 8px) clamp(8px, 2vw, 16px)',
                         borderRadius: 8,
                         display: 'inline-block'
                       }}>{ing.amount} {ing.unit}</div>
@@ -1246,70 +1327,129 @@ export default function App() {
             </div>
           )}
           
+          {/* Cooking steps */}
           {cookingSlide >= 2 && filteredStages[cookingSlide - 2] && (
-            <div style={{ maxWidth: 800, textAlign: 'center' }}>
+            <div style={{ maxWidth: 800, textAlign: 'center', padding: '0 clamp(8px, 2vw, 20px)' }}>
               <div style={{ 
-                width: 'clamp(70px, 12vw, 110px)', 
-                height: 'clamp(70px, 12vw, 110px)', 
+                width: 'clamp(50px, 12vw, 110px)', 
+                height: 'clamp(50px, 12vw, 110px)', 
                 borderRadius: '50%', 
                 background: 'linear-gradient(135deg, var(--accent-green-dark), var(--accent-green))', 
                 display: 'inline-flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
                 color: '#0A0A0A', 
-                fontSize: 'clamp(28px, 5vw, 48px)', 
+                fontSize: 'clamp(20px, 5vw, 48px)', 
                 fontWeight: 700, 
-                marginBottom: 48, 
+                marginBottom: 'clamp(24px, 5vw, 48px)', 
                 fontFamily: 'var(--font-sans)',
                 boxShadow: '0 15px 50px rgba(74, 222, 128, 0.3)'
               }}>
                 {cookingSlide - 1}
               </div>
-              <p style={{ fontSize: 'clamp(24px, 5vw, 40px)', lineHeight: 1.6, margin: 0, color: '#EEE' }}>
+              <p style={{ 
+                fontSize: 'clamp(18px, 4.5vw, 40px)', 
+                lineHeight: 1.6, 
+                margin: 0, 
+                color: '#EEE' 
+              }}>
                 {filteredStages[cookingSlide - 2].text}
               </p>
               {filteredStages[cookingSlide - 2].image && (
                 <img 
                   src={filteredStages[cookingSlide - 2].image} 
                   alt="" 
-                  style={{ marginTop: 48, maxWidth: '100%', maxHeight: '40vh', borderRadius: 20, objectFit: 'contain', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} 
+                  style={{ 
+                    marginTop: 'clamp(24px, 5vw, 48px)', 
+                    maxWidth: '100%', 
+                    maxHeight: 'clamp(150px, 30vh, 40vh)', 
+                    borderRadius: 'clamp(12px, 2vw, 20px)', 
+                    objectFit: 'contain', 
+                    boxShadow: '0 20px 60px rgba(0,0,0,0.5)' 
+                  }} 
                 />
               )}
             </div>
           )}
         </div>
         
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 40px', background: 'rgba(0,0,0,0.5)' }}>
+        {/* Bottom navigation - responsive and always visible */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          padding: 'clamp(12px, 2.5vw, 24px) clamp(12px, 3vw, 40px)', 
+          background: 'rgba(0,0,0,0.7)',
+          flexShrink: 0,
+          gap: 'clamp(8px, 2vw, 16px)'
+        }}>
           <button 
             onClick={() => setCookingSlide(Math.max(0, cookingSlide - 1))} 
             disabled={cookingSlide === 0} 
-            style={{ ...styles.btn, padding: '16px 28px', opacity: cookingSlide === 0 ? 0.3 : 1 }}
+            style={{ 
+              ...styles.btn, 
+              padding: 'clamp(10px, 2vw, 16px) clamp(14px, 2.5vw, 28px)', 
+              opacity: cookingSlide === 0 ? 0.3 : 1,
+              fontSize: 'clamp(12px, 2vw, 14px)',
+              whiteSpace: 'nowrap',
+              minWidth: 0
+            }}
           >
-            <Icon type="back" /> Previous
+            <Icon type="back" /> <span style={{ display: 'inline' }}>Prev</span>
           </button>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {Array.from({ length: totalSlides }).map((_, i) => (
-              <button 
-                key={i} 
-                onClick={() => setCookingSlide(i)} 
-                style={{ 
-                  width: i === cookingSlide ? 28 : 10, 
-                  height: 10, 
-                  borderRadius: 5, 
-                  background: i === cookingSlide ? 'var(--accent-green)' : '#333', 
-                  border: 'none', 
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }} 
-              />
-            ))}
+          
+          {/* Dot indicators - hide on very small screens, show abbreviated on mobile */}
+          <div style={{ 
+            display: 'flex', 
+            gap: 'clamp(4px, 1vw, 8px)',
+            flexShrink: 1,
+            overflow: 'hidden',
+            justifyContent: 'center'
+          }}>
+            {totalSlides <= 10 ? (
+              Array.from({ length: totalSlides }).map((_, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => setCookingSlide(i)} 
+                  style={{ 
+                    width: i === cookingSlide ? 'clamp(16px, 3vw, 28px)' : 'clamp(6px, 1.2vw, 10px)', 
+                    height: 'clamp(6px, 1.2vw, 10px)', 
+                    borderRadius: 5, 
+                    background: i === cookingSlide ? 'var(--accent-green)' : '#333', 
+                    border: 'none', 
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    flexShrink: 0
+                  }} 
+                />
+              ))
+            ) : (
+              <span style={{ 
+                fontSize: 'clamp(11px, 2vw, 14px)', 
+                color: 'var(--text-muted)', 
+                fontFamily: 'var(--font-sans)' 
+              }}>
+                {cookingSlide + 1} of {totalSlides}
+              </span>
+            )}
           </div>
+          
           <button 
             onClick={() => setCookingSlide(Math.min(totalSlides - 1, cookingSlide + 1))} 
             disabled={cookingSlide === totalSlides - 1} 
-            style={{ ...styles.btnPrimary, padding: '16px 28px', opacity: cookingSlide === totalSlides - 1 ? 0.3 : 1, display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ 
+              ...styles.btnPrimary, 
+              padding: 'clamp(10px, 2vw, 16px) clamp(14px, 2.5vw, 28px)', 
+              opacity: cookingSlide === totalSlides - 1 ? 0.3 : 1, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 'clamp(4px, 1vw, 8px)',
+              fontSize: 'clamp(12px, 2vw, 14px)',
+              whiteSpace: 'nowrap',
+              minWidth: 0
+            }}
           >
-            Next <Icon type="chevronRight" />
+            <span style={{ display: 'inline' }}>Next</span> <Icon type="chevronRight" />
           </button>
         </div>
       </div>

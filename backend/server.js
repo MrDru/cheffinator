@@ -38,6 +38,15 @@ const DEFAULT_TAGS = [
   'Baking', 'Holiday', 'Shabbat', 'Passover'
 ];
 
+// Approved user codes for alpha testing (case-insensitive)
+const VALID_CODES = [
+  'liron',
+  'tester1',
+  'tester2',
+  'tester3',
+  'tester4'
+];
+
 // PostgreSQL connection
 if (!process.env.DATABASE_URL) {
   console.error('❌ DATABASE_URL environment variable is not set!');
@@ -225,6 +234,23 @@ async function saveCustomTags(tags) {
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use('/uploads', express.static(uploadsDir));
+
+// Validate user code
+app.post('/api/auth/validate', (req, res) => {
+  const { code } = req.body;
+  if (!code) {
+    return res.status(400).json({ valid: false, error: 'Code is required' });
+  }
+  
+  const normalizedCode = code.trim().toLowerCase();
+  const isValid = VALID_CODES.some(c => c.toLowerCase() === normalizedCode);
+  
+  if (isValid) {
+    res.json({ valid: true, code: normalizedCode });
+  } else {
+    res.status(401).json({ valid: false, error: 'Invalid access code' });
+  }
+});
 
 // Get all recipes (filtered by user_code)
 app.get('/api/recipes', async (req, res) => {
