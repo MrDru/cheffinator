@@ -778,6 +778,23 @@ export default function App() {
     return results;
   }, [recipes, searchQuery]);
 
+  // Version indicator component (reusable)
+  const VersionIndicator = () => (
+    <div style={{ 
+      position: 'fixed', 
+      top: 12, 
+      left: 12, 
+      fontSize: 10, 
+      color: 'rgba(255,255,255,0.6)', 
+      lineHeight: 1.4,
+      zIndex: 1000,
+      fontFamily: 'var(--font-sans)'
+    }}>
+      <div>v0.0.2</div>
+      <div>Dec 31, 2025</div>
+    </div>
+  );
+
   // LOGIN SCREEN - show when no user code
   if (!userCode) {
     return (
@@ -788,6 +805,7 @@ export default function App() {
         justifyContent: 'center',
         padding: 24
       }}>
+        <VersionIndicator />
         <div style={{ 
           maxWidth: 400, 
           width: '100%', 
@@ -862,6 +880,8 @@ export default function App() {
   if (currentView === 'dashboard') {
     return (
       <div style={styles.page}>
+        <VersionIndicator />
+        
         <header style={{ ...styles.header, justifyContent: 'space-between' }}>
           {/* Empty spacer for balance on desktop, hidden on mobile */}
           <div style={{ width: 'clamp(40px, 10vw, 100px)' }} />
