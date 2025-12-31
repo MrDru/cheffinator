@@ -1991,11 +1991,16 @@ export default function App() {
                 style={{ ...styles.input, flex: 1, minWidth: 100, padding: '6px 0', fontSize: 14, fontFamily: 'var(--font-sans)' }} 
                 placeholder={tags.length ? '' : 'Add tags...'} 
                 value={tagInput} 
+                enterKeyHint="done"
                 onChange={e => { setTagInput(e.target.value); setShowSuggestions(true); }} 
                 onFocus={() => setShowSuggestions(true)} 
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)} 
                 onKeyDown={e => { 
-                  if (e.key === 'Enter' && tagInput.trim()) { e.preventDefault(); addTag(tagInput); } 
+                  if ((e.key === 'Enter' || e.keyCode === 13) && tagInput.trim()) { 
+                    e.preventDefault(); 
+                    e.stopPropagation();
+                    addTag(tagInput); 
+                  } 
                   else if (e.key === 'Backspace' && !tagInput && tags.length) removeTag(tags[tags.length - 1]); 
                 }} 
               />
