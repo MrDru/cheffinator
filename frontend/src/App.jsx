@@ -2044,9 +2044,10 @@ export default function App() {
         
         {ingredients.map(ing => (
           <div key={ing.id} style={{ ...styles.surface, marginBottom: 12 }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            {/* Ingredient name row */}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
               <input 
-                style={{ ...styles.input, flex: 2, fontSize: 15 }} 
+                style={{ ...styles.input, flex: 1, fontSize: 15, minWidth: 0 }} 
                 placeholder="Ingredient" 
                 value={ing.name} 
                 onChange={e => setIngredients(ingredients.map(x => x.id === ing.id ? { ...x, name: e.target.value } : x))}
@@ -2062,6 +2063,24 @@ export default function App() {
                   }
                 }}
               />
+              <button 
+                style={{ 
+                  background: 'transparent', 
+                  border: 'none', 
+                  color: 'var(--accent-red)', 
+                  cursor: ingredients.length === 1 ? 'not-allowed' : 'pointer', 
+                  opacity: ingredients.length === 1 ? 0.3 : 0.6, 
+                  padding: 8,
+                  flexShrink: 0
+                }} 
+                disabled={ingredients.length === 1} 
+                onClick={() => ingredients.length > 1 && setIngredients(ingredients.filter(x => x.id !== ing.id))}
+              >
+                <Icon type="trash" />
+              </button>
+            </div>
+            {/* Amount and unit row */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <input 
                 style={{ 
                   background: 'var(--bg-tertiary)', 
@@ -2096,20 +2115,6 @@ export default function App() {
               >
                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
-              <button 
-                style={{ 
-                  background: 'transparent', 
-                  border: 'none', 
-                  color: 'var(--accent-red)', 
-                  cursor: ingredients.length === 1 ? 'not-allowed' : 'pointer', 
-                  opacity: ingredients.length === 1 ? 0.3 : 0.6, 
-                  padding: 8 
-                }} 
-                disabled={ingredients.length === 1} 
-                onClick={() => ingredients.length > 1 && setIngredients(ingredients.filter(x => x.id !== ing.id))}
-              >
-                <Icon type="trash" />
-              </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
               {ing.image ? (
