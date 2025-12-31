@@ -193,6 +193,18 @@ async function initDatabase() {
       console.log('Migration complete: user support added');
     }
     
+    // Migration: Add share_id column for public sharing
+    const shareIdCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'recipes' AND column_name = 'share_id'
+    `);
+    
+    if (shareIdCheck.rows.length === 0) {
+      console.log('Running migration: adding share support...');
+      await client.query(`ALTER TABLE recipes ADD COLUMN share_id TEXT UNIQUE`);
+      console.log('Migration complete: share support added');
+    }
+    
     console.log('Database tables initialized');
   } finally {
     client.release();
@@ -677,6 +689,107 @@ app.post('/api/recipes/:id/variations', async (req, res) => {
     res.status(500).json({ error: 'Failed to add variation' });
   } finally {
     client.release();
+  }
+});
+
+// Generate or get share link for a recipe
+app.post('/api/recipes/:id/share', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if recipe exists
+    const recipeResult = await pool.query('SELECT id, share_id FROM recipes WHERE id = $1', [id]);
+    if (recipeResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+    
+    let shareId = recipeResult.rows[0].share_id;
+    
+    // Generate share_id if it doesn't exist
+    if (!shareId) {
+      // Generate a short, URL-friendly ID (8 characters)
+      shareId = uuidv4().replace(/-/g, '').substring(0, 8);
+      await pool.query('UPDATE recipes SET share_id = $1 WHERE id = $2', [shareId, id]);
+    }
+    
+    res.json({ shareId });
+  } catch (error) {
+    console.error('Error generating share link:', error);
+    res.status(500).json({ error: 'Failed to generate share link' });
+  }
+});
+
+// Get shared recipe by share ID (PUBLIC - no auth required)
+app.get('/api/public/recipes/:shareId', async (req, res) => {
+  try {
+    const { shareId } = req.params;
+    
+    // Find recipe by share_id
+    const recipeResult = await pool.query(
+      'SELECT id, name, share_id, created_at, updated_at FROM recipes WHERE share_id = $1',
+      [shareId]
+    );
+    
+    if (recipeResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+    
+    const recipe = recipeResult.rows[0];
+    
+    // Get all variations for this recipe
+    const variationsResult = await pool.query(
+      'SELECT * FROM recipe_variations WHERE recipe_id = $1 ORDER BY sort_order',
+      [recipe.id]
+    );
+    
+    const variations = [];
+    
+    for (const variation of variationsResult.rows) {
+      // Get ingredients for this variation
+      const ingredientsResult = await pool.query(
+        'SELECT * FROM ingredients WHERE variation_id = $1 ORDER BY sort_order',
+        [variation.id]
+      );
+      
+      // Get cooking steps for this variation
+      const stepsResult = await pool.query(
+        'SELECT * FROM cooking_steps WHERE variation_id = $1 ORDER BY sort_order',
+        [variation.id]
+      );
+      
+      variations.push({
+        id: variation.id,
+        name: variation.name,
+        description: variation.description,
+        servings: variation.servings,
+        tags: variation.tags ? JSON.parse(variation.tags) : [],
+        bannerImage: variation.banner_image,
+        ingredients: ingredientsResult.rows.map(ing => ({
+          id: ing.id,
+          name: ing.name,
+          amount: ing.amount,
+          unit: ing.unit,
+          image: ing.image
+        })),
+        stages: stepsResult.rows.map(step => ({
+          id: step.id,
+          text: step.step_text,
+          image: step.image
+        }))
+      });
+    }
+    
+    res.json({
+      id: recipe.id,
+      name: recipe.name,
+      shareId: recipe.share_id,
+      variations,
+      createdAt: recipe.created_at,
+      updatedAt: recipe.updated_at
+    });
+  } catch (error) {
+    console.error('Error fetching shared recipe:', error);
+    res.status(500).json({ error: 'Failed to fetch recipe' });
   }
 });
 

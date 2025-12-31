@@ -172,6 +172,8 @@ const Icon = ({ type }) => {
     fullscreen: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>,
     exitFullscreen: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>,
     more: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>,
+    share: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
+    link: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
   };
   return icons[type] || null;
 };
@@ -272,6 +274,11 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Public/shared recipe state
+  const [isPublicView, setIsPublicView] = useState(false);
+  const [publicRecipe, setPublicRecipe] = useState(null);
+  const [shareModal, setShareModal] = useState(null); // { recipeId, shareUrl } or null
   const [editingId, setEditingId] = useState(null);
   const [recipeName, setRecipeName] = useState('');
   const [description, setDescription] = useState('');
@@ -307,13 +314,55 @@ export default function App() {
   const allAvailableTags = [...new Set([...DEFAULT_TAGS, ...customTags])];
   const suggestions = tagInput ? allAvailableTags.filter(t => t.toLowerCase().startsWith(tagInput.toLowerCase()) && !tags.includes(t)) : [];
 
+  // Check for shared recipe URL on app load
+  useEffect(() => {
+    const path = window.location.pathname;
+    const shareMatch = path.match(/^\/r\/([a-zA-Z0-9]+)$/);
+    if (shareMatch) {
+      const shareId = shareMatch[1];
+      loadSharedRecipe(shareId);
+    }
+  }, []);
+
+  // Load shared recipe by shareId
+  const loadSharedRecipe = async (shareId) => {
+    try {
+      setLoading(true);
+      const data = await api.fetchSharedRecipe(shareId);
+      setPublicRecipe(data);
+      setIsPublicView(true);
+      setCurrentView('view');
+      
+      // Set up the view with first variation data
+      if (data.variations && data.variations.length > 0) {
+        const firstVar = data.variations[0];
+        setRecipeName(data.name);
+        setVariations(data.variations);
+        setCurrentVariationIndex(0);
+        setDescription(firstVar.description || '');
+        setServings(String(firstVar.servings || 4));
+        setTags(firstVar.tags || []);
+        setBannerImage(firstVar.bannerImage || null);
+        setIngredients(firstVar.ingredients?.length ? firstVar.ingredients : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+        setStages(firstVar.stages?.length ? firstVar.stages : [{ id: 1, text: '', image: null }]);
+      }
+    } catch (error) {
+      console.error('Failed to load shared recipe:', error);
+      // Redirect to home if recipe not found
+      window.history.pushState({}, '', '/');
+      setIsPublicView(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Load recipes and custom tags when userCode is set
   useEffect(() => {
-    if (userCode) {
+    if (userCode && !isPublicView) {
       loadRecipes();
       loadCustomTags();
     }
-  }, [userCode]);
+  }, [userCode, isPublicView]);
 
   const loadRecipes = async () => {
     if (!userCode) return;
@@ -1514,6 +1563,49 @@ export default function App() {
   if (currentView === 'view') {
     const currentVariation = variations[currentVariationIndex] || {};
     
+    // Handle back button for public view
+    const handleBack = () => {
+      if (isPublicView) {
+        // Redirect to homepage
+        window.history.pushState({}, '', '/');
+        setIsPublicView(false);
+        setPublicRecipe(null);
+        resetForm();
+        setCurrentView('login');
+      } else {
+        resetForm();
+        setCurrentView('dashboard');
+      }
+    };
+    
+    // Handle share button click
+    const handleShare = async () => {
+      try {
+        const result = await api.generateShareLink(editingId);
+        const shareUrl = `${window.location.origin}/r/${result.shareId}`;
+        setShareModal({ recipeId: editingId, shareUrl });
+      } catch (error) {
+        console.error('Failed to generate share link:', error);
+      }
+    };
+    
+    // Copy share URL to clipboard
+    const copyShareUrl = async () => {
+      if (shareModal?.shareUrl) {
+        try {
+          await navigator.clipboard.writeText(shareModal.shareUrl);
+          // Show brief feedback
+          const btn = document.getElementById('copy-share-btn');
+          if (btn) {
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = 'Copy Link'; }, 2000);
+          }
+        } catch (error) {
+          console.error('Failed to copy:', error);
+        }
+      }
+    };
+    
     return (
       <div style={styles.page}>
         <header style={{ 
@@ -1524,8 +1616,8 @@ export default function App() {
           backdropFilter: 'blur(12px)', 
           zIndex: 100 
         }}>
-          <button style={styles.btn} onClick={() => { resetForm(); setCurrentView('dashboard'); }}>
-            <Icon type="back" /> Back
+          <button style={styles.btn} onClick={handleBack}>
+            <Icon type="back" /> {isPublicView ? 'Home' : 'Back'}
           </button>
           <div style={{ display: 'flex', gap: 10 }}>
             {(filteredIngredients.length > 0 || filteredStages.length > 0) && (
@@ -1536,9 +1628,19 @@ export default function App() {
                 <Icon type="play" /> Cook
               </button>
             )}
-            <button style={{ ...styles.btnPrimary, display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setCurrentView('edit')}>
-              <Icon type="edit" /> Edit
-            </button>
+            {!isPublicView && (
+              <>
+                <button 
+                  style={{ ...styles.btn, color: 'var(--accent-orange)', borderColor: 'var(--accent-orange)' }} 
+                  onClick={handleShare}
+                >
+                  <Icon type="share" /> Share
+                </button>
+                <button style={{ ...styles.btnPrimary, display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setCurrentView('edit')}>
+                  <Icon type="edit" /> Edit
+                </button>
+              </>
+            )}
           </div>
         </header>
         
@@ -1574,24 +1676,26 @@ export default function App() {
                 {v.name}
               </button>
             ))}
-            <button
-              onClick={handleAddVariation}
-              style={{
-                padding: '14px 16px',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 14,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4
-              }}
-              title="Add variation"
-            >
-              <Icon type="plus" /> Add
-            </button>
+            {!isPublicView && (
+              <button
+                onClick={handleAddVariation}
+                style={{
+                  padding: '14px 16px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+                title="Add variation"
+              >
+                <Icon type="plus" /> Add
+              </button>
+            )}
           </div>
         )}
         
@@ -1698,14 +1802,16 @@ export default function App() {
           
           {filteredIngredients.length === 0 && filteredStages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '70px 20px', color: '#555' }}>
-              <div style={{ fontSize: 48, marginBottom: 20 }}>📝</div>
-              <p style={{ margin: '0 0 20px' }}>This recipe is empty</p>
-              <button 
-                style={{ ...styles.btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 8 }} 
-                onClick={() => setCurrentView('edit')}
-              >
-                <Icon type="edit" /> Add content
-              </button>
+              <div style={{ fontSize: 48, marginBottom: 20 }}>{isPublicView ? '🍳' : '📝'}</div>
+              <p style={{ margin: '0 0 20px' }}>{isPublicView ? 'This recipe has no content yet' : 'This recipe is empty'}</p>
+              {!isPublicView && (
+                <button 
+                  style={{ ...styles.btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 8 }} 
+                  onClick={() => setCurrentView('edit')}
+                >
+                  <Icon type="edit" /> Add content
+                </button>
+              )}
             </div>
           )}
         </main>
@@ -1756,6 +1862,78 @@ export default function App() {
                   disabled={!newVariationName.trim()}
                 >
                   Create Variation
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Share Modal */}
+        {shareModal && (
+          <div 
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }} 
+            onClick={() => setShareModal(null)}
+          >
+            <div 
+              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 450, width: '90%', border: '1px solid var(--border-color)' }} 
+              onClick={e => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <div style={{ 
+                  width: 48, 
+                  height: 48, 
+                  borderRadius: 12, 
+                  background: 'rgba(251,146,60,0.15)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  color: 'var(--accent-orange)'
+                }}>
+                  <Icon type="share" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Share Recipe</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>Anyone with this link can view</p>
+                </div>
+              </div>
+              
+              <div style={{ 
+                background: 'var(--bg-tertiary)', 
+                borderRadius: 12, 
+                padding: '14px 16px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 12,
+                marginBottom: 24
+              }}>
+                <Icon type="link" />
+                <input 
+                  type="text" 
+                  value={shareModal.shareUrl} 
+                  readOnly 
+                  style={{ 
+                    flex: 1, 
+                    background: 'transparent', 
+                    border: 'none', 
+                    color: 'var(--text-primary)', 
+                    fontSize: 14, 
+                    fontFamily: 'var(--font-sans)',
+                    outline: 'none'
+                  }} 
+                  onClick={e => e.target.select()}
+                />
+              </div>
+              
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button style={{ ...styles.btn, flex: 1 }} onClick={() => setShareModal(null)}>
+                  Close
+                </button>
+                <button 
+                  id="copy-share-btn"
+                  style={{ ...styles.btnPrimary, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} 
+                  onClick={copyShareUrl}
+                >
+                  <Icon type="copy" /> Copy Link
                 </button>
               </div>
             </div>

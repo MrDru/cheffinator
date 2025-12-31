@@ -100,3 +100,20 @@ export async function fetchCustomTags() {
   return response.json();
 }
 
+// Generate or get share link for a recipe
+export async function generateShareLink(recipeId) {
+  const response = await fetch(`${API_BASE}/recipes/${recipeId}/share`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!response.ok) throw new Error('Failed to generate share link');
+  return response.json();
+}
+
+// Fetch a shared recipe by share ID (public, no auth)
+export async function fetchSharedRecipe(shareId) {
+  const response = await fetch(`${API_BASE}/public/recipes/${shareId}`);
+  if (!response.ok) throw new Error('Recipe not found');
+  return response.json();
+}
+
