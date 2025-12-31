@@ -844,8 +844,26 @@ export default function App() {
     </div>
   );
 
-  // LOGIN SCREEN - show when no user code
-  if (!userCode) {
+  // Show loading while fetching a shared recipe
+  if (window.location.pathname.startsWith('/r/') && loading) {
+    return (
+      <div style={{ 
+        ...styles.page, 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        padding: 24
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 64, marginBottom: 24 }}>🍳</div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 16 }}>Loading recipe...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // LOGIN SCREEN - show when no user code (but skip if viewing a public recipe)
+  if (!userCode && !isPublicView && !window.location.pathname.startsWith('/r/')) {
     return (
       <div style={{ 
         ...styles.page, 
