@@ -278,7 +278,9 @@ export default function App() {
   // Public/shared recipe state
   const [isPublicView, setIsPublicView] = useState(false);
   const [publicRecipe, setPublicRecipe] = useState(null);
+  const [publicProfile, setPublicProfile] = useState(null); // { userCode, recipes } for public profile view
   const [shareModal, setShareModal] = useState(null); // { recipeId, shareUrl } or null
+  const [profileShareModal, setProfileShareModal] = useState(false); // for profile share link modal
   const [editingId, setEditingId] = useState(null);
   const [recipeName, setRecipeName] = useState('');
   const [description, setDescription] = useState('');
@@ -314,13 +316,23 @@ export default function App() {
   const allAvailableTags = [...new Set([...DEFAULT_TAGS, ...customTags])];
   const suggestions = tagInput ? allAvailableTags.filter(t => t.toLowerCase().startsWith(tagInput.toLowerCase()) && !tags.includes(t)) : [];
 
-  // Check for shared recipe URL on app load
+  // Check for shared recipe or profile URL on app load
   useEffect(() => {
     const path = window.location.pathname;
+    
+    // Check for shared recipe URL (/r/:shareId)
     const shareMatch = path.match(/^\/r\/([a-zA-Z0-9]+)$/);
     if (shareMatch) {
       const shareId = shareMatch[1];
       loadSharedRecipe(shareId);
+      return;
+    }
+    
+    // Check for public profile URL (/u/:userCode)
+    const profileMatch = path.match(/^\/u\/([a-zA-Z0-9_-]+)$/i);
+    if (profileMatch) {
+      const profileUserCode = profileMatch[1];
+      loadPublicProfile(profileUserCode);
     }
   }, []);
 
@@ -351,6 +363,56 @@ export default function App() {
       // Redirect to home if recipe not found
       window.history.pushState({}, '', '/');
       setIsPublicView(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load public profile by userCode
+  const loadPublicProfile = async (profileUserCode) => {
+    try {
+      setLoading(true);
+      const data = await api.fetchPublicProfile(profileUserCode);
+      setPublicProfile(data);
+      setIsPublicView(true);
+      setCurrentView('profile');
+    } catch (error) {
+      console.error('Failed to load public profile:', error);
+      window.history.pushState({}, '', '/');
+      setIsPublicView(false);
+      setPublicProfile(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle clicking a recipe in public profile view
+  const openPublicRecipe = async (recipe) => {
+    try {
+      setLoading(true);
+      // Fetch the full recipe data
+      const data = await api.fetchRecipe(recipe.id);
+      setPublicRecipe(data);
+      
+      // Set up the view with first variation data
+      if (data.variations && data.variations.length > 0) {
+        const firstVar = data.variations[0];
+        setRecipeName(data.name);
+        setVariations(data.variations);
+        setCurrentVariationIndex(0);
+        setDescription(firstVar.description || '');
+        setServings(String(firstVar.servings || 4));
+        setTags(firstVar.tags || []);
+        setBannerImage(firstVar.bannerImage || null);
+        setIngredients(firstVar.ingredients?.length ? firstVar.ingredients : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+        setStages(firstVar.stages?.length ? firstVar.stages : [{ id: 1, text: '', image: null }]);
+      }
+      
+      // Push state for back button navigation
+      window.history.pushState({ view: 'view', fromProfile: true }, '', window.location.pathname);
+      setCurrentView('view');
+    } catch (error) {
+      console.error('Failed to load recipe:', error);
     } finally {
       setLoading(false);
     }
@@ -544,15 +606,32 @@ export default function App() {
           // Go back to view or dashboard from edit
           setCurrentView(event.state.view);
         } else if (currentView === 'view') {
-          // Go back to dashboard from view
+          // If in public view mode and came from profile, go back to profile
+          if (isPublicView && publicProfile) {
+            resetForm();
+            setPublicRecipe(null);
+            setCurrentView('profile');
+          } else {
+            // Go back to dashboard from view
+            resetForm();
+            setCurrentView('dashboard');
+          }
+        } else if (currentView === 'profile') {
+          // Exit profile view
+          setIsPublicView(false);
+          setPublicProfile(null);
           resetForm();
-          setCurrentView('dashboard');
         } else {
           setCurrentView(event.state.view);
         }
       } else {
-        // No state - go to dashboard
-        if (currentView !== 'dashboard' && !isPublicView) {
+        // No state - go to dashboard or exit public view
+        if (isPublicView) {
+          setIsPublicView(false);
+          setPublicProfile(null);
+          setPublicRecipe(null);
+          resetForm();
+        } else if (currentView !== 'dashboard') {
           resetForm();
           setCurrentView('dashboard');
         }
@@ -889,13 +968,13 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.2</div>
-      <div>Dec 31, 2025</div>
+      <div>v0.0.3</div>
+      <div>Jan 4, 2026</div>
     </div>
   );
 
-  // Show loading while fetching a shared recipe
-  if (window.location.pathname.startsWith('/r/') && loading) {
+  // Show loading while fetching a shared recipe or profile
+  if ((window.location.pathname.startsWith('/r/') || window.location.pathname.startsWith('/u/')) && loading) {
     return (
       <div style={{ 
         ...styles.page, 
@@ -906,14 +985,16 @@ export default function App() {
       }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 64, marginBottom: 24 }}>🍳</div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 16 }}>Loading recipe...</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 16 }}>
+            {window.location.pathname.startsWith('/u/') ? 'Loading profile...' : 'Loading recipe...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  // LOGIN SCREEN - show when no user code (but skip if viewing a public recipe)
-  if (!userCode && !isPublicView && !window.location.pathname.startsWith('/r/')) {
+  // LOGIN SCREEN - show when no user code (but skip if viewing a public recipe or profile)
+  if (!userCode && !isPublicView && !window.location.pathname.startsWith('/r/') && !window.location.pathname.startsWith('/u/')) {
     return (
       <div style={{ 
         ...styles.page, 
@@ -993,6 +1074,128 @@ export default function App() {
     );
   }
 
+  // PUBLIC PROFILE VIEW - shows all recipes for a user (read-only)
+  if (currentView === 'profile' && isPublicView && publicProfile) {
+    return (
+      <div style={styles.page}>
+        <VersionIndicator />
+        
+        <header style={{ ...styles.header, justifyContent: 'center' }}>
+          <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px' }}>
+            Cheffinator
+          </h1>
+        </header>
+        
+        <main style={styles.main}>
+          {/* Profile Header */}
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <div style={{ 
+              width: 80, 
+              height: 80, 
+              borderRadius: '50%', 
+              background: 'linear-gradient(135deg, var(--accent-green-dark), var(--accent-green))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              fontSize: 32,
+              fontWeight: 700,
+              color: 'var(--bg-primary)'
+            }}>
+              {publicProfile.userCode.charAt(0).toUpperCase()}
+            </div>
+            <h2 style={{ fontSize: 24, fontWeight: 600, margin: '0 0 8px' }}>
+              {publicProfile.userCode}'s Recipes
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
+              {publicProfile.recipeCount} {publicProfile.recipeCount === 1 ? 'recipe' : 'recipes'}
+            </p>
+          </div>
+          
+          {/* Recipe Grid */}
+          {publicProfile.recipes.length === 0 ? (
+            <div style={{ ...styles.surface, textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🍳</div>
+              <p>No recipes yet</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {publicProfile.recipes.map(recipe => (
+                <div 
+                  key={recipe.id}
+                  style={{ 
+                    ...styles.card, 
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => openPublicRecipe(recipe)}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-green)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                >
+                  <div style={{ 
+                    width: 60, 
+                    height: 60, 
+                    borderRadius: 12, 
+                    background: recipe.bannerImage ? `url(${recipe.bannerImage}) center/cover` : 'var(--bg-tertiary)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    fontSize: 26, 
+                    flexShrink: 0 
+                  }}>
+                    {!recipe.bannerImage && '🍽️'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 4 }}>{recipe.name}</div>
+                    {recipe.description && (
+                      <div style={{ 
+                        fontSize: 13, 
+                        color: 'var(--text-muted)', 
+                        fontFamily: 'var(--font-sans)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {recipe.description}
+                      </div>
+                    )}
+                    {recipe.tags && recipe.tags.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                        {recipe.tags.slice(0, 3).map(tag => (
+                          <span key={tag} style={styles.tag}>{tag}</span>
+                        ))}
+                        {recipe.tags.length > 3 && (
+                          <span style={{ ...styles.tag, background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                            +{recipe.tags.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <Icon type="chevronRight" />
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Back to Login */}
+          <div style={{ textAlign: 'center', marginTop: 40 }}>
+            <button 
+              style={{ ...styles.btn, margin: '0 auto' }}
+              onClick={() => {
+                window.history.pushState({}, '', '/');
+                setIsPublicView(false);
+                setPublicProfile(null);
+                setCurrentView('dashboard');
+              }}
+            >
+              <Icon type="back" /> Back to Cheffinator
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   // DASHBOARD VIEW
   if (currentView === 'dashboard') {
     return (
@@ -1060,6 +1263,28 @@ export default function App() {
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Logged in as</div>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{userCode}</div>
                 </div>
+                <button
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 8,
+                    color: 'var(--text-secondary)',
+                    fontSize: 14,
+                    fontFamily: 'var(--font-sans)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8
+                  }}
+                  onClick={() => { setProfileShareModal(true); setShowUserMenu(false); }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <Icon type="share" /> Share Profile
+                </button>
                 <button
                   style={{
                     width: '100%',
@@ -1326,6 +1551,59 @@ export default function App() {
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                 <button style={styles.btn} onClick={() => setDeleteModal(null)}>Cancel</button>
                 <button style={{ ...styles.btnPrimary, background: 'var(--accent-red)' }} onClick={confirmDelete}>Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Profile Share Modal */}
+        {profileShareModal && (
+          <div 
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }} 
+            onClick={() => setProfileShareModal(false)}
+          >
+            <div 
+              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 440, width: '90%', border: '1px solid var(--border-color)' }} 
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 600 }}>Share Your Profile</h3>
+              <p style={{ margin: '0 0 24px', color: 'var(--text-muted)', fontSize: 14 }}>
+                Anyone with this link can view all your recipes (read-only).
+              </p>
+              
+              <div style={{ 
+                background: 'var(--bg-tertiary)', 
+                borderRadius: 12, 
+                padding: '14px 16px', 
+                marginBottom: 20,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12
+              }}>
+                <Icon type="link" />
+                <code style={{ 
+                  flex: 1, 
+                  fontSize: 14, 
+                  color: 'var(--text-primary)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {window.location.origin}/u/{userCode}
+                </code>
+              </div>
+              
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <button style={styles.btn} onClick={() => setProfileShareModal(false)}>Close</button>
+                <button 
+                  style={{ ...styles.btnPrimary, display: 'flex', alignItems: 'center', gap: 8 }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/u/${userCode}`);
+                    setProfileShareModal(false);
+                  }}
+                >
+                  <Icon type="copy" /> Copy Link
+                </button>
               </div>
             </div>
           </div>

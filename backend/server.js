@@ -793,6 +793,53 @@ app.get('/api/public/recipes/:shareId', async (req, res) => {
   }
 });
 
+// Get public profile - all recipes for a user (PUBLIC - no auth required)
+app.get('/api/public/users/:userCode', async (req, res) => {
+  try {
+    const userCode = req.params.userCode.toLowerCase();
+    
+    // Check if this is a valid user
+    const isValidUser = VALID_CODES.some(c => c.toLowerCase() === userCode);
+    if (!isValidUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Get all recipes for this user
+    const recipesResult = await pool.query(
+      'SELECT id, name, banner_image, updated_at FROM recipes WHERE LOWER(user_code) = $1 ORDER BY updated_at DESC',
+      [userCode]
+    );
+    
+    const recipes = await Promise.all(recipesResult.rows.map(async (recipe) => {
+      // Get first variation for banner image and tags
+      const variationResult = await pool.query(
+        'SELECT banner_image, tags, description FROM recipe_variations WHERE recipe_id = $1 ORDER BY sort_order LIMIT 1',
+        [recipe.id]
+      );
+      
+      const firstVar = variationResult.rows[0] || {};
+      
+      return {
+        id: recipe.id,
+        name: recipe.name,
+        bannerImage: firstVar.banner_image || recipe.banner_image,
+        description: firstVar.description || '',
+        tags: firstVar.tags ? JSON.parse(firstVar.tags) : [],
+        updatedAt: recipe.updated_at
+      };
+    }));
+    
+    res.json({
+      userCode,
+      recipeCount: recipes.length,
+      recipes
+    });
+  } catch (error) {
+    console.error('Error fetching public profile:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
 // Upload image endpoint
 app.post('/api/upload', upload.single('image'), (req, res) => {
   try {

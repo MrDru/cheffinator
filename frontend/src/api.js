@@ -117,3 +117,10 @@ export async function fetchSharedRecipe(shareId) {
   return response.json();
 }
 
+// Fetch public profile - all recipes for a user (public, no auth)
+export async function fetchPublicProfile(userCode) {
+  const response = await fetch(`${API_BASE}/public/users/${encodeURIComponent(userCode)}`);
+  if (!response.ok) throw new Error('User not found');
+  return response.json();
+}
+
