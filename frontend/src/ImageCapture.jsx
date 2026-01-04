@@ -409,8 +409,8 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
     );
   }
 
-  // CAMERA/VIDEO MODE - Live viewfinder
-  if (mode === 'camera' || mode === 'video') {
+  // CAMERA/VIDEO MODE - Live viewfinder (skip if processing GIF)
+  if ((mode === 'camera' || mode === 'video') && !isProcessing) {
     return (
       <div style={overlayStyle}>
         <div style={{ 
