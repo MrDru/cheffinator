@@ -1,0 +1,42 @@
+# Cheffinator Project Rules
+
+## Project Overview
+Cheffinator is a recipe management web app with a React frontend and Node.js/Express backend.
+
+## Tech Stack
+- Frontend: React (Vite), vanilla CSS-in-JS
+- Backend: Node.js, Express
+- Database: PostgreSQL (Neon)
+- Hosting: Render.com
+- Domain: cheffinator.com (Cloudflare DNS)
+
+## Project Structure
+```
+Cheffinator webapp/
+├── frontend/          # React app (Vite)
+│   └── src/
+│       ├── App.jsx    # Main app component
+│       ├── api.js     # API calls
+│       └── ImageCapture.jsx  # Camera/GIF capture
+├── backend/           # Express server
+│   └── server.js      # API routes + database
+└── package.json       # Root scripts
+```
+
+## Git Workflow
+- `main` branch → Production (cheffinator.com)
+- Feature branches → Test on staging first
+- Always test on mobile before merging
+
+## Coding Conventions
+- 
+
+## Version Control
+- Version displayed at top-left of app
+- Update version in App.jsx after significant changes
+- Format: v0.0.X with date
+
+## Important Notes
+always ask before pushing to main branch
+
+

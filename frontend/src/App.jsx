@@ -486,6 +486,7 @@ export default function App() {
 
   const startCookingMode = () => {
     setCookingSlide(0);
+    window.history.pushState({ view: 'cooking' }, '', window.location.pathname);
     setCurrentView('cooking');
     enterFullscreen();
   };
@@ -515,6 +516,53 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [currentView, totalSlides]);
 
+  // Browser back button support - push history state on view changes
+  const navigateTo = useCallback((view, replace = false) => {
+    const state = { view, editingId, recipeName };
+    if (replace) {
+      window.history.replaceState(state, '', window.location.pathname);
+    } else {
+      window.history.pushState(state, '', window.location.pathname);
+    }
+    setCurrentView(view);
+  }, [editingId, recipeName]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    // Set initial state
+    if (!window.history.state?.view) {
+      window.history.replaceState({ view: currentView }, '', window.location.pathname);
+    }
+
+    const handlePopState = (event) => {
+      if (event.state?.view) {
+        // Handle back navigation based on current view
+        if (currentView === 'cooking') {
+          // Exit cooking mode on back
+          exitCookingMode();
+        } else if (currentView === 'edit') {
+          // Go back to view or dashboard from edit
+          setCurrentView(event.state.view);
+        } else if (currentView === 'view') {
+          // Go back to dashboard from view
+          resetForm();
+          setCurrentView('dashboard');
+        } else {
+          setCurrentView(event.state.view);
+        }
+      } else {
+        // No state - go to dashboard
+        if (currentView !== 'dashboard' && !isPublicView) {
+          resetForm();
+          setCurrentView('dashboard');
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentView, isPublicView]);
+
   const resetForm = () => {
     setRecipeName(''); 
     setDescription(''); 
@@ -531,6 +579,7 @@ export default function App() {
 
   const openNew = () => { 
     resetForm(); 
+    window.history.pushState({ view: 'edit' }, '', window.location.pathname);
     setCurrentView('edit'); 
   };
 
@@ -573,6 +622,7 @@ export default function App() {
       loadVariationData(defaultVariation);
     }
     
+    window.history.pushState({ view: 'view', recipeId: r.id }, '', window.location.pathname);
     setCurrentView('view');
   };
 
@@ -1654,7 +1704,10 @@ export default function App() {
                 >
                   <Icon type="share" /> Share
                 </button>
-                <button style={{ ...styles.btnPrimary, display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setCurrentView('edit')}>
+                <button style={{ ...styles.btnPrimary, display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => {
+                    window.history.pushState({ view: 'edit' }, '', window.location.pathname);
+                    setCurrentView('edit');
+                  }}>
                   <Icon type="edit" /> Edit
                 </button>
               </>
