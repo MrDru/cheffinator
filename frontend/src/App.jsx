@@ -2278,12 +2278,16 @@ export default function App() {
     // Handle back button for public view
     const handleBack = () => {
       if (isPublicView) {
-        // Redirect to homepage
-        window.history.pushState({}, '', '/');
-        setIsPublicView(false);
-        setPublicRecipe(null);
-        resetForm();
-        setCurrentView('login');
+        // Navigate back in browser history if possible, otherwise go to home
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.history.pushState({}, '', '/');
+          setIsPublicView(false);
+          setPublicRecipe(null);
+          resetForm();
+          setCurrentView(userCode ? 'home' : 'login');
+        }
       } else {
         resetForm();
         setCurrentView('dashboard');
