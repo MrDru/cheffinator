@@ -292,9 +292,13 @@ export default function App() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   
-  const [currentView, setCurrentView] = useState('dashboard');
+  const [currentView, setCurrentView] = useState('home');
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Discover/homepage state
+  const [discoverRecipes, setDiscoverRecipes] = useState([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
   
   // Public/shared recipe state
   const [isPublicView, setIsPublicView] = useState(false);
@@ -419,6 +423,26 @@ export default function App() {
       loadPublicProfile(profileUserCode);
     }
   }, []);
+
+  // Load discover recipes for homepage
+  const loadDiscoverRecipes = async () => {
+    try {
+      setDiscoverLoading(true);
+      const data = await api.fetchDiscoverRecipes(5);
+      setDiscoverRecipes(data.recipes);
+    } catch (error) {
+      console.error('Failed to load discover recipes:', error);
+    } finally {
+      setDiscoverLoading(false);
+    }
+  };
+
+  // Load discover recipes when on home view
+  useEffect(() => {
+    if (currentView === 'home' && userCode && !showSplash) {
+      loadDiscoverRecipes();
+    }
+  }, [currentView, userCode, showSplash]);
 
   // Load shared recipe by shareId
   const loadSharedRecipe = async (shareId) => {
@@ -1373,6 +1397,121 @@ export default function App() {
     );
   }
 
+  // HOMEPAGE VIEW - Discover recipes from all users
+  if (currentView === 'home') {
+    return (
+      <div className={appFadingIn ? 'app-fade-in' : ''} style={styles.page}>
+        <VersionIndicator />
+        
+        <header style={{ ...styles.header, justifyContent: 'space-between' }}>
+          <div style={{ width: 'clamp(40px, 10vw, 100px)' }} />
+          
+          <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>
+            Discover
+          </h1>
+          
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            style={{ 
+              ...styles.btn, 
+              padding: 'clamp(6px, 1.5vw, 8px) clamp(10px, 2vw, 16px)',
+              background: 'linear-gradient(135deg, var(--accent-green-dark), var(--accent-green))',
+              color: 'var(--bg-primary)',
+              fontWeight: 600,
+              border: 'none'
+            }}
+          >
+            My Recipes
+          </button>
+        </header>
+        
+        <main style={styles.main}>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 24, textAlign: 'center' }}>
+            Random recipes from the community
+          </p>
+          
+          {discoverLoading ? (
+            <div style={{ textAlign: 'center', padding: 60 }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🍳</div>
+              <p style={{ color: 'var(--text-muted)' }}>Loading recipes...</p>
+            </div>
+          ) : discoverRecipes.length === 0 ? (
+            <div style={{ ...styles.surface, textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🍽️</div>
+              <p>No shared recipes yet</p>
+              <p style={{ fontSize: 14, marginTop: 8 }}>Be the first to share!</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {discoverRecipes.map(recipe => (
+                <div 
+                  key={recipe.id}
+                  style={{ 
+                    ...styles.card, 
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => {
+                    // Load the shared recipe
+                    if (recipe.shareId) {
+                      window.location.href = `/r/${recipe.shareId}`;
+                    }
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-green)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                >
+                  <div style={{ 
+                    width: 70, 
+                    height: 70, 
+                    borderRadius: 12, 
+                    background: recipe.bannerImage ? `url(${recipe.bannerImage}) center/cover` : 'var(--bg-tertiary)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    fontSize: 28, 
+                    flexShrink: 0 
+                  }}>
+                    {!recipe.bannerImage && '🍽️'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 4 }}>{recipe.name}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
+                      by {recipe.userCode}
+                    </div>
+                    {recipe.tags && recipe.tags.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {recipe.tags.slice(0, 3).map(tag => (
+                          <span key={tag} style={{ ...styles.tag, fontSize: 11, padding: '2px 8px' }}>{tag}</span>
+                        ))}
+                        {recipe.tags.length > 3 && (
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{recipe.tags.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Refresh button */}
+          <div style={{ textAlign: 'center', marginTop: 24 }}>
+            <button
+              onClick={loadDiscoverRecipes}
+              disabled={discoverLoading}
+              style={{ 
+                ...styles.btn, 
+                padding: '12px 24px',
+                opacity: discoverLoading ? 0.5 : 1
+              }}
+            >
+              🎲 Show Different Recipes
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   // DASHBOARD VIEW
   if (currentView === 'dashboard') {
     return (
@@ -1380,10 +1519,19 @@ export default function App() {
         <VersionIndicator />
         
         <header style={{ ...styles.header, justifyContent: 'space-between' }}>
-          {/* Empty spacer for balance on desktop, hidden on mobile */}
-          <div style={{ width: 'clamp(40px, 10vw, 100px)' }} />
+          {/* Discover button */}
+          <button
+            onClick={() => setCurrentView('home')}
+            style={{ 
+              ...styles.btn, 
+              padding: 'clamp(6px, 1.5vw, 8px) clamp(10px, 2vw, 16px)',
+              fontSize: 'clamp(12px, 2vw, 14px)'
+            }}
+          >
+            🌍 <span className="hide-on-mobile">Discover</span>
+          </button>
           
-          <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>Cheffinator</h1>
+          <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>My Recipes</h1>
           
           {/* User indicator */}
           <div style={{ position: 'relative' }}>

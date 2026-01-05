@@ -840,6 +840,57 @@ app.get('/api/public/users/:userCode', async (req, res) => {
   }
 });
 
+// Get random recipes from all users (PUBLIC - for homepage discovery)
+app.get('/api/public/discover', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
+    const offset = parseInt(req.query.offset) || 0;
+    
+    // Get random recipes with their first variation data
+    const recipesResult = await pool.query(`
+      SELECT r.id, r.name, r.user_code, r.share_id, r.updated_at,
+             rv.banner_image, rv.description, rv.tags
+      FROM recipes r
+      LEFT JOIN LATERAL (
+        SELECT banner_image, description, tags 
+        FROM recipe_variations 
+        WHERE recipe_id = r.id 
+        ORDER BY sort_order 
+        LIMIT 1
+      ) rv ON true
+      WHERE r.share_id IS NOT NULL
+      ORDER BY RANDOM()
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+    
+    // Get total count of shareable recipes
+    const countResult = await pool.query(
+      'SELECT COUNT(*) FROM recipes WHERE share_id IS NOT NULL'
+    );
+    
+    const recipes = recipesResult.rows.map(recipe => ({
+      id: recipe.id,
+      name: recipe.name,
+      userCode: recipe.user_code,
+      shareId: recipe.share_id,
+      bannerImage: recipe.banner_image,
+      description: recipe.description || '',
+      tags: recipe.tags ? JSON.parse(recipe.tags) : [],
+      updatedAt: recipe.updated_at
+    }));
+    
+    res.json({
+      recipes,
+      total: parseInt(countResult.rows[0].count),
+      limit,
+      offset
+    });
+  } catch (error) {
+    console.error('Error fetching discover recipes:', error);
+    res.status(500).json({ error: 'Failed to fetch recipes' });
+  }
+});
+
 // Upload image endpoint
 app.post('/api/upload', upload.single('image'), (req, res) => {
   try {
