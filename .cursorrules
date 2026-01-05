@@ -38,5 +38,6 @@ Cheffinator webapp/
 
 ## Important Notes
 always ask before pushing to main branch
+always update the version when pushing to main branch
 
 
