@@ -412,7 +412,7 @@ export default function App() {
     const shareMatch = path.match(/^\/r\/([a-zA-Z0-9]+)$/);
     if (shareMatch) {
       const shareId = shareMatch[1];
-      loadSharedRecipe(shareId);
+      loadSharedRecipe(shareId, false); // Don't push history on initial load
       return;
     }
     
@@ -423,6 +423,41 @@ export default function App() {
       loadPublicProfile(profileUserCode);
     }
   }, []);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = (event) => {
+      const path = window.location.pathname;
+      
+      // Homepage
+      if (path === '/') {
+        setIsPublicView(false);
+        setPublicRecipe(null);
+        setPublicProfile(null);
+        setCurrentView(userCode ? 'home' : 'login');
+        return;
+      }
+      
+      // Shared recipe URL (/r/:shareId)
+      const shareMatch = path.match(/^\/r\/([a-zA-Z0-9]+)$/);
+      if (shareMatch) {
+        const shareId = shareMatch[1];
+        loadSharedRecipe(shareId, false); // Don't push again
+        return;
+      }
+      
+      // Public profile URL (/u/:userCode)
+      const profileMatch = path.match(/^\/u\/([a-zA-Z0-9_-]+)$/i);
+      if (profileMatch) {
+        const profileUserCode = profileMatch[1];
+        loadPublicProfile(profileUserCode);
+        return;
+      }
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [userCode]);
 
   // Load discover recipes for homepage
   const loadDiscoverRecipes = async () => {
@@ -445,13 +480,18 @@ export default function App() {
   }, [currentView, userCode, showSplash]);
 
   // Load shared recipe by shareId
-  const loadSharedRecipe = async (shareId) => {
+  const loadSharedRecipe = async (shareId, pushHistory = true) => {
     try {
       setLoading(true);
       const data = await api.fetchSharedRecipe(shareId);
       setPublicRecipe(data);
       setIsPublicView(true);
       setCurrentView('view');
+      
+      // Push to history if navigating from within app (not initial load)
+      if (pushHistory) {
+        window.history.pushState({ view: 'publicRecipe', shareId }, '', `/r/${shareId}`);
+      }
       
       // Set up the view with first variation data
       if (data.variations && data.variations.length > 0) {
@@ -1451,9 +1491,9 @@ export default function App() {
                     cursor: 'pointer'
                   }}
                   onClick={() => {
-                    // Load the shared recipe
+                    // Load the shared recipe without page reload
                     if (recipe.shareId) {
-                      window.location.href = `/r/${recipe.shareId}`;
+                      loadSharedRecipe(recipe.shareId);
                     }
                   }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-green)'}
