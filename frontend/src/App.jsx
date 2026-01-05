@@ -268,6 +268,22 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [splashFading, setSplashFading] = useState(false);
   const [appFadingIn, setAppFadingIn] = useState(false);
+  const [loadingPercent, setLoadingPercent] = useState(0);
+  
+  // Random stop points for loading bar (generated once per load)
+  const loadingRandoms = React.useRef(() => {
+    // Generate 2 random stop points
+    const stop1 = 30 + Math.random() * 25;   // 30-55
+    const stop2 = 70 + Math.random() * 20;   // 70-90
+    
+    return {
+      stops: [stop1, stop2],
+      slowSpeeds: [
+        0.3 + Math.random() * 0.5,  // 0.3-0.8 (slow crawl speed)
+        0.2 + Math.random() * 0.4,  // 0.2-0.6
+      ]
+    };
+  });
   
   // User authentication state
   const [userCode, setUserCode] = useState(() => api.getUserCode());
@@ -335,6 +351,54 @@ export default function App() {
       clearTimeout(hideTimer);
     };
   }, []);
+
+  // Animate loading percentage with randomized stop points
+  useEffect(() => {
+    if (!showSplash) return;
+    const startTime = Date.now();
+    const duration = 4000;
+    const { stops, slowSpeeds } = loadingRandoms.current();
+    let lastPercent = 0;
+    
+    // Build timeline with guaranteed forward progress
+    // Each segment: { endTime (0-1), startPercent, endPercent }
+    const s1 = stops[0];
+    const s2 = stops[1];
+    
+    const timeline = [
+      { endTime: 0.25, startPct: 0, endPct: s1 },                      // Fast to stop 1
+      { endTime: 0.40, startPct: s1, endPct: s1 + 5 * slowSpeeds[0] }, // Slow crawl
+      { endTime: 0.55, startPct: s1 + 5 * slowSpeeds[0], endPct: s2 }, // Fast to stop 2
+      { endTime: 0.70, startPct: s2, endPct: s2 + 4 * slowSpeeds[1] }, // Slow crawl
+      { endTime: 0.80, startPct: s2 + 4 * slowSpeeds[1], endPct: 100 }, // Fast to 100
+      { endTime: 1.00, startPct: 100, endPct: 100 },                   // Hold at 100
+    ];
+    
+    const getPercent = (elapsed) => {
+      const t = elapsed / duration;
+      let prevEndTime = 0;
+      
+      for (const seg of timeline) {
+        if (t <= seg.endTime) {
+          const segmentProgress = (t - prevEndTime) / (seg.endTime - prevEndTime);
+          return seg.startPct + segmentProgress * (seg.endPct - seg.startPct);
+        }
+        prevEndTime = seg.endTime;
+      }
+      return 100;
+    };
+    
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const rawPercent = getPercent(elapsed);
+      // Never go backwards, cap at 100
+      const newPercent = Math.min(Math.max(Math.round(rawPercent), lastPercent), 100);
+      lastPercent = newPercent;
+      setLoadingPercent(newPercent);
+    }, 50);
+    
+    return () => clearInterval(interval);
+  }, [showSplash]);
 
   // Check for shared recipe or profile URL on app load
   useEffect(() => {
@@ -988,7 +1052,7 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.5</div>
+      <div>v0.0.6</div>
       <div>Jan 5, 2026</div>
     </div>
   );
@@ -1021,6 +1085,37 @@ export default function App() {
           }}
         />
         
+        {/* Loading bar */}
+        <div style={{
+          width: 'clamp(200px, 50vw, 280px)',
+          height: 4,
+          background: 'rgba(255,255,255,0.15)',
+          borderRadius: 2,
+          marginTop: 32,
+          overflow: 'hidden'
+        }}>
+          <div 
+            style={{
+              height: '100%',
+              background: 'linear-gradient(90deg, var(--accent-green-dark), var(--accent-green))',
+              borderRadius: 2,
+              width: `${loadingPercent}%`,
+              transition: 'width 0.05s linear'
+            }}
+          />
+        </div>
+        
+        {/* Loading percentage */}
+        <div style={{
+          marginTop: 12,
+          fontSize: 14,
+          color: 'rgba(255,255,255,0.6)',
+          fontFamily: 'var(--font-sans)',
+          fontVariantNumeric: 'tabular-nums'
+        }}>
+          {loadingPercent}%
+        </div>
+        
         {/* Version */}
         <div style={{ 
           position: 'absolute',
@@ -1029,7 +1124,7 @@ export default function App() {
           color: 'rgba(255,255,255,0.4)',
           fontFamily: 'var(--font-sans)'
         }}>
-          v0.0.5
+          v0.0.6
         </div>
         
         {/* Sprite animation keyframes - 25 frames at 12fps = 2.083s */}
