@@ -1104,6 +1104,33 @@ export default function App() {
     return results;
   }, [recipes, searchQuery]);
 
+  // Cheffinator loader component (reusable)
+  const CheffinatorLoader = ({ text = 'Loading...' }) => (
+    <div style={{ textAlign: 'center', padding: 60 }}>
+      <div 
+        className="logo-sprite-animation"
+        style={{ 
+          width: 'clamp(80px, 20vw, 120px)',
+          aspectRatio: '1 / 1',
+          backgroundImage: 'url(/logo_animation_spritesheet.webp)',
+          backgroundSize: '2500% 100%',
+          backgroundPosition: '0 0',
+          imageRendering: 'crisp-edges',
+          margin: '0 auto 16px'
+        }}
+      />
+      <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>{text}</p>
+      <style>{`
+        .logo-sprite-animation {
+          animation: playSprite 2.083s steps(24) infinite;
+        }
+        @keyframes playSprite {
+          to { background-position: -2400% 0; }
+        }
+      `}</style>
+    </div>
+  );
+
   // Version indicator component (reusable)
   const VersionIndicator = () => (
     <div style={{ 
@@ -1471,10 +1498,7 @@ export default function App() {
           </p>
           
           {discoverLoading ? (
-            <div style={{ textAlign: 'center', padding: 60 }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>🍳</div>
-              <p style={{ color: 'var(--text-muted)' }}>Loading recipes...</p>
-            </div>
+            <CheffinatorLoader text="Loading delicious recipes..." />
           ) : discoverRecipes.length === 0 ? (
             <div style={{ ...styles.surface, textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🍽️</div>
@@ -1714,10 +1738,7 @@ export default function App() {
           </div>
           
           {loading ? (
-            <div style={{ ...styles.surface, textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: 32, marginBottom: 16 }}>🍳</div>
-              Loading recipes...
-            </div>
+            <CheffinatorLoader text="Loading your recipes..." />
           ) : (
             <>
               <div 

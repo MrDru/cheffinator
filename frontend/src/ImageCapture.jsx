@@ -521,14 +521,19 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
           padding: '40px 50px',
           boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
         }}>
-          {/* Cooking pot animation */}
-          <div style={{ 
-            fontSize: 64, 
-            marginBottom: 24,
-            animation: 'bounce 0.6s ease-in-out infinite'
-          }}>
-            🍳
-          </div>
+          {/* Cheffinator sprite animation */}
+          <div 
+            className="logo-sprite-animation"
+            style={{ 
+              width: 120,
+              height: 120,
+              backgroundImage: 'url(/logo_animation_spritesheet.webp)',
+              backgroundSize: '2500% 100%',
+              backgroundPosition: '0 0',
+              imageRendering: 'crisp-edges',
+              margin: '0 auto 24px'
+            }}
+          />
           
           <h3 style={{ 
             margin: '0 0 8px', 
@@ -602,9 +607,11 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
         </div>
         
         <style>{`
-          @keyframes bounce {
-            0%, 100% { transform: translateY(0) rotate(-5deg); }
-            50% { transform: translateY(-10px) rotate(5deg); }
+          .logo-sprite-animation {
+            animation: playSprite 2.083s steps(24) infinite;
+          }
+          @keyframes playSprite {
+            to { background-position: -2400% 0; }
           }
           @keyframes shimmer {
             0% { transform: translateX(-100%); }
