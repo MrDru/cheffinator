@@ -1116,7 +1116,7 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.6</div>
+      <div>v0.0.7</div>
       <div>Jan 5, 2026</div>
     </div>
   );
@@ -1188,7 +1188,7 @@ export default function App() {
           color: 'rgba(255,255,255,0.4)',
           fontFamily: 'var(--font-sans)'
         }}>
-          v0.0.6
+          v0.0.7
         </div>
         
         {/* Sprite animation keyframes - 25 frames at 12fps = 2.083s */}
