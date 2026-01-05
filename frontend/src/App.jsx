@@ -1474,8 +1474,9 @@ export default function App() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 4 }}>{recipe.name}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
-                      by {recipe.userCode}
+                    <div style={{ fontSize: 13, marginBottom: 6 }}>
+                      <span style={{ color: 'var(--text-muted)' }}>by </span>
+                      <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{recipe.userCode}</span>
                     </div>
                     {recipe.tags && recipe.tags.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
