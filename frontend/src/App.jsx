@@ -264,6 +264,11 @@ const styles = {
 };
 
 export default function App() {
+  // Splash screen state
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashFading, setSplashFading] = useState(false);
+  const [appFadingIn, setAppFadingIn] = useState(false);
+  
   // User authentication state
   const [userCode, setUserCode] = useState(() => api.getUserCode());
   const [loginInput, setLoginInput] = useState('');
@@ -315,6 +320,21 @@ export default function App() {
   // Combine default tags with custom tags from database
   const allAvailableTags = [...new Set([...DEFAULT_TAGS, ...customTags])];
   const suggestions = tagInput ? allAvailableTags.filter(t => t.toLowerCase().startsWith(tagInput.toLowerCase()) && !tags.includes(t)) : [];
+
+  // Splash screen timer - show for 4 seconds (2 animation loops), then cross-fade
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => {
+      setSplashFading(true);
+      setAppFadingIn(true);
+    }, 4000);
+    const hideTimer = setTimeout(() => {
+      setShowSplash(false);
+    }, 5000); // 4s display + 1s fade
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(hideTimer);
+    };
+  }, []);
 
   // Check for shared recipe or profile URL on app load
   useEffect(() => {
@@ -973,6 +993,65 @@ export default function App() {
     </div>
   );
 
+  // SPLASH SCREEN - show for 8 seconds on app load with fade out
+  if (showSplash) {
+    return (
+      <div 
+        className={splashFading ? 'splash-fade-out' : ''}
+        style={{ 
+          ...styles.page, 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center', 
+          justifyContent: 'center',
+          padding: 24,
+          background: '#3d3d3d',
+          overflow: 'hidden'
+        }}>
+        {/* Sprite animation - 25 frames */}
+        <div 
+          className="logo-sprite-animation"
+          style={{ 
+            width: 'clamp(250px, 60vw, 350px)',
+            aspectRatio: '1 / 1',
+            backgroundImage: 'url(/logo_animation_spritesheet.webp)',
+            backgroundSize: '2500% 100%',
+            backgroundPosition: '0 0',
+            imageRendering: 'crisp-edges'
+          }}
+        />
+        
+        {/* Version */}
+        <div style={{ 
+          position: 'absolute',
+          bottom: 24,
+          fontSize: 11,
+          color: 'rgba(255,255,255,0.4)',
+          fontFamily: 'var(--font-sans)'
+        }}>
+          v0.0.4
+        </div>
+        
+        {/* Sprite animation keyframes - 25 frames at 12fps = 2.083s */}
+        <style>{`
+          .logo-sprite-animation {
+            animation: playSprite 2.083s steps(24) infinite;
+          }
+          @keyframes playSprite {
+            to { background-position: -2400% 0; }
+          }
+          .splash-fade-out {
+            animation: fadeOut 1s ease-out forwards;
+          }
+          @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   // Show loading while fetching a shared recipe or profile
   if ((window.location.pathname.startsWith('/r/') || window.location.pathname.startsWith('/u/')) && loading) {
     return (
@@ -996,13 +1075,16 @@ export default function App() {
   // LOGIN SCREEN - show when no user code (but skip if viewing a public recipe or profile)
   if (!userCode && !isPublicView && !window.location.pathname.startsWith('/r/') && !window.location.pathname.startsWith('/u/')) {
     return (
-      <div style={{ 
-        ...styles.page, 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        padding: 24
-      }}>
+      <div 
+        className={appFadingIn ? 'app-fade-in' : ''} 
+        style={{ 
+          ...styles.page, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          padding: 24
+        }}
+      >
         <VersionIndicator />
         <div style={{ 
           maxWidth: 400, 
@@ -1199,7 +1281,7 @@ export default function App() {
   // DASHBOARD VIEW
   if (currentView === 'dashboard') {
     return (
-      <div style={styles.page}>
+      <div className={appFadingIn ? 'app-fade-in' : ''} style={styles.page}>
         <VersionIndicator />
         
         <header style={{ ...styles.header, justifyContent: 'space-between' }}>

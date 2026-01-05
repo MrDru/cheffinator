@@ -79,3 +79,13 @@ a {
   }
 }
 
+/* App fade-in animation after splash */
+.app-fade-in {
+  animation: appFadeIn 1s ease-out forwards;
+}
+
+@keyframes appFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+

@@ -12,10 +12,10 @@
     "postinstall": "cd backend && npm install && cd ../frontend && npm install && npm run build"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "sharp": "^0.34.5"
   },
   "engines": {
     "node": ">=18.0.0"
   }
 }
-
