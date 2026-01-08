@@ -1176,6 +1176,19 @@ export default function App() {
           }}
         />
         
+        {/* Logo text */}
+        <div style={{
+          fontFamily: '"Berlin Sans FB", "Berlin Sans FB Demi", Arial Black, sans-serif',
+          fontWeight: 700,
+          fontSize: 'clamp(28px, 8vw, 48px)',
+          color: '#ffffff',
+          letterSpacing: '0.05em',
+          marginTop: 8,
+          textShadow: '0 2px 10px rgba(0,0,0,0.3)'
+        }}>
+          CHEFFINATOR
+        </div>
+        
         {/* Loading bar */}
         <div style={{
           width: 'clamp(200px, 50vw, 280px)',
