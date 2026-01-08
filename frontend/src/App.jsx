@@ -263,12 +263,36 @@ const styles = {
   },
 };
 
+// Terminator-inspired food taglines
+const SPLASH_TAGLINES = [
+  "Come with me if you want to eat",
+  "Pasta la vista, baby",
+  "I'll be back... for seconds",
+  "Hasta la pasta, baby",
+  "Get to the chopper!",
+  "I need your salt, your pepper, and your recipe",
+  "Consider that a dish served",
+  "Your leftovers. Give them to me.",
+  "It's not a tumor, it's a tomato",
+  "You're terminated... from the kitchen",
+  "I eat to live. I live to eat.",
+  "There is no spoon... use a fork",
+  "The Cuisinator has arrived",
+  "Judgment Day? More like Dinner Day",
+  "Talk to the pan",
+];
+
 export default function App() {
   // Splash screen state
   const [showSplash, setShowSplash] = useState(true);
   const [splashFading, setSplashFading] = useState(false);
   const [appFadingIn, setAppFadingIn] = useState(false);
   const [loadingPercent, setLoadingPercent] = useState(0);
+  
+  // Random tagline for splash screen (generated once per load)
+  const splashTagline = React.useRef(
+    SPLASH_TAGLINES[Math.floor(Math.random() * SPLASH_TAGLINES.length)]
+  );
   
   // Random stop points for loading bar (generated once per load)
   const loadingRandoms = React.useRef(() => {
@@ -1187,6 +1211,18 @@ export default function App() {
           textShadow: '0 2px 10px rgba(0,0,0,0.3)'
         }}>
           CHEFFINATOR
+        </div>
+        
+        {/* Tagline */}
+        <div style={{
+          fontFamily: '"Berlin Sans FB", Arial, sans-serif',
+          fontWeight: 400,
+          fontSize: 'clamp(14px, 4vw, 20px)',
+          color: 'rgba(255,255,255,0.7)',
+          marginTop: 8,
+          fontStyle: 'italic'
+        }}>
+          "{splashTagline.current}"
         </div>
         
         {/* Loading bar */}
