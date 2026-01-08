@@ -1161,7 +1161,7 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.9</div>
+      <div>v0.1.0</div>
       <div>Jan 8, 2026</div>
     </div>
   );
@@ -1178,7 +1178,7 @@ export default function App() {
           alignItems: 'center', 
           justifyContent: 'center',
           padding: 24,
-          background: '#3d3d3d',
+          background: 'var(--bg-primary)',
           overflow: 'hidden'
         }}>
         {/* Sprite animation - 25 frames */}
