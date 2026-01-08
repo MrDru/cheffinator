@@ -267,19 +267,13 @@ const styles = {
 const SPLASH_TAGLINES = [
   "Come with me if you want to eat",
   "Pasta la vista, baby",
-  "I'll be back... for seconds",
-  "Hasta la pasta, baby",
-  "Get to the chopper!",
+  "I'll be back... for dinner",
+  "Get to the oven!",
   "I need your salt, your pepper, and your recipe",
-  "Consider that a dish served",
   "Your leftovers. Give them to me.",
-  "It's not a tumor, it's a tomato",
   "You're terminated... from the kitchen",
-  "I eat to live. I live to eat.",
-  "There is no spoon... use a fork",
-  "The Cuisinator has arrived",
-  "Judgment Day? More like Dinner Day",
   "Talk to the pan",
+  "There is no fate but what we bake",
 ];
 
 export default function App() {
@@ -1167,8 +1161,8 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.8</div>
-      <div>Jan 5, 2026</div>
+      <div>v0.0.9</div>
+      <div>Jan 8, 2026</div>
     </div>
   );
 
