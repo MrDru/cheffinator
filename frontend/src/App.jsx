@@ -1110,8 +1110,8 @@ export default function App() {
       <div 
         className="logo-sprite-animation"
         style={{ 
-          width: 'clamp(80px, 20vw, 120px)',
-          aspectRatio: '1 / 1',
+          width: 'clamp(100px, 25vw, 150px)',
+          aspectRatio: '8 / 7',
           backgroundImage: 'url(/logo_animation_spritesheet.webp)',
           backgroundSize: '2500% 100%',
           backgroundPosition: '0 0',
@@ -1167,8 +1167,8 @@ export default function App() {
         <div 
           className="logo-sprite-animation"
           style={{ 
-            width: 'clamp(250px, 60vw, 350px)',
-            aspectRatio: '1 / 1',
+            width: 'clamp(250px, 60vw, 400px)',
+            aspectRatio: '8 / 7',
             backgroundImage: 'url(/logo_animation_spritesheet.webp)',
             backgroundSize: '2500% 100%',
             backgroundPosition: '0 0',

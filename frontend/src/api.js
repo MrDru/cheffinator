@@ -182,4 +182,3 @@ export async function fetchDiscoverRecipes(limit = 5, offset = 0) {
     };
   }
 }
-

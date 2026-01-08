@@ -525,8 +525,8 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
           <div 
             className="logo-sprite-animation"
             style={{ 
-              width: 120,
-              height: 120,
+              width: 140,
+              aspectRatio: '8 / 7',
               backgroundImage: 'url(/logo_animation_spritesheet.webp)',
               backgroundSize: '2500% 100%',
               backgroundPosition: '0 0',
