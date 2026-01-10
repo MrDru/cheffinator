@@ -439,31 +439,35 @@ app.post('/api/recipes', async (req, res) => {
       [variationId, recipeId, 'Original', description || '', servings || 4, JSON.stringify(tags || []), bannerImage || null, 0, now, now]
     );
     
-    // Insert ingredients for the variation
+    // Batch insert ingredients
     if (ingredients && ingredients.length > 0) {
-      for (let i = 0; i < ingredients.length; i++) {
-        const ing = ingredients[i];
-        if (ing.name && ing.name.trim()) {
-          await client.query(
-            `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [uuidv4(), recipeId, variationId, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]
-          );
-        }
+      const validIngs = ingredients.filter(ing => ing.name && ing.name.trim());
+      if (validIngs.length > 0) {
+        const ingData = validIngs.map((ing, i) => [uuidv4(), recipeId, variationId, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]);
+        const ingValues = ingData.map((_, i) => {
+          const offset = i * 8;
+          return `($${offset+1}, $${offset+2}, $${offset+3}, $${offset+4}, $${offset+5}, $${offset+6}, $${offset+7}, $${offset+8})`;
+        }).join(', ');
+        await client.query(
+          `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order) VALUES ${ingValues}`,
+          ingData.flat()
+        );
       }
     }
     
-    // Insert cooking steps for the variation
+    // Batch insert cooking steps
     if (stages && stages.length > 0) {
-      for (let i = 0; i < stages.length; i++) {
-        const step = stages[i];
-        if (step.text && step.text.trim()) {
-          await client.query(
-            `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [uuidv4(), recipeId, variationId, step.text, step.image || null, i]
-          );
-        }
+      const validSteps = stages.filter(step => step.text && step.text.trim());
+      if (validSteps.length > 0) {
+        const stepData = validSteps.map((step, i) => [uuidv4(), recipeId, variationId, step.text, step.image || null, i]);
+        const stepValues = stepData.map((_, i) => {
+          const offset = i * 6;
+          return `($${offset+1}, $${offset+2}, $${offset+3}, $${offset+4}, $${offset+5}, $${offset+6})`;
+        }).join(', ');
+        await client.query(
+          `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order) VALUES ${stepValues}`,
+          stepData.flat()
+        );
       }
     }
     
@@ -521,13 +525,17 @@ app.put('/api/recipes/:id', async (req, res) => {
         }
       }
       
+      // Collect all ingredients and steps for batch insert
+      const allIngredients = [];
+      const allSteps = [];
+      
       // Update or create each variation
       for (let vIndex = 0; vIndex < variations.length; vIndex++) {
         const variation = variations[vIndex];
         let variationId = variation.id;
         
-        // Save any custom tags
-        await saveCustomTags(variation.tags);
+        // Save any custom tags (fire and forget - don't await)
+        saveCustomTags(variation.tags);
         
         if (variationId && existingVarIds.includes(variationId)) {
           // Update existing variation
@@ -538,7 +546,7 @@ app.put('/api/recipes/:id', async (req, res) => {
             [variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, now, variationId]
           );
           
-          // Delete and re-insert ingredients/steps for this variation
+          // Delete existing ingredients/steps for this variation (will batch insert new ones later)
           await client.query('DELETE FROM ingredients WHERE variation_id = $1', [variationId]);
           await client.query('DELETE FROM cooking_steps WHERE variation_id = $1', [variationId]);
         } else {
@@ -551,31 +559,49 @@ app.put('/api/recipes/:id', async (req, res) => {
           );
         }
         
-        // Insert ingredients for this variation
+        // Collect ingredients for batch insert
         const ingredients = variation.ingredients || [];
         for (let i = 0; i < ingredients.length; i++) {
           const ing = ingredients[i];
           if (ing.name && ing.name.trim()) {
-            await client.query(
-              `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-              [uuidv4(), id, variationId, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]
-            );
+            allIngredients.push([uuidv4(), id, variationId, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]);
           }
         }
         
-        // Insert cooking steps for this variation
+        // Collect steps for batch insert
         const stages = variation.stages || [];
         for (let i = 0; i < stages.length; i++) {
           const step = stages[i];
           if (step.text && step.text.trim()) {
-            await client.query(
-              `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order)
-               VALUES ($1, $2, $3, $4, $5, $6)`,
-              [uuidv4(), id, variationId, step.text, step.image || null, i]
-            );
+            allSteps.push([uuidv4(), id, variationId, step.text, step.image || null, i]);
           }
         }
+      }
+      
+      // Batch insert all ingredients in one query
+      if (allIngredients.length > 0) {
+        const ingValues = allIngredients.map((_, i) => {
+          const offset = i * 8;
+          return `($${offset+1}, $${offset+2}, $${offset+3}, $${offset+4}, $${offset+5}, $${offset+6}, $${offset+7}, $${offset+8})`;
+        }).join(', ');
+        const ingParams = allIngredients.flat();
+        await client.query(
+          `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order) VALUES ${ingValues}`,
+          ingParams
+        );
+      }
+      
+      // Batch insert all steps in one query
+      if (allSteps.length > 0) {
+        const stepValues = allSteps.map((_, i) => {
+          const offset = i * 6;
+          return `($${offset+1}, $${offset+2}, $${offset+3}, $${offset+4}, $${offset+5}, $${offset+6})`;
+        }).join(', ');
+        const stepParams = allSteps.flat();
+        await client.query(
+          `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order) VALUES ${stepValues}`,
+          stepParams
+        );
       }
     }
     

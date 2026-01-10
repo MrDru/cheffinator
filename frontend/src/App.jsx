@@ -1195,7 +1195,7 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.13</div>
+      <div>v0.0.14</div>
       <div>Jan 10, 2026</div>
     </div>
   );
