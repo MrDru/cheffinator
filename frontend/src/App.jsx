@@ -949,8 +949,16 @@ export default function App() {
     };
     
     try {
+      let recipeId = editingId;
+      
       if (editingId) {
         await api.updateRecipe(editingId, data);
+        // Update local state instead of reloading all recipes
+        setRecipes(prev => prev.map(r => 
+          r.id === editingId 
+            ? { ...r, name: recipeName.trim(), variations: variationsToSave, updated: 'just now' }
+            : r
+        ));
       } else {
         const result = await api.createRecipe({
           name: recipeName.trim(),
@@ -961,10 +969,23 @@ export default function App() {
           ingredients: filteredIngredients,
           stages: filteredStages
         }, userCode);
+        recipeId = result.id;
         setEditingId(result.id);
+        // Add new recipe to local state
+        setRecipes(prev => [{
+          id: result.id,
+          name: recipeName.trim(),
+          variations: variationsToSave,
+          updated: 'just now'
+        }, ...prev]);
       }
-      await loadRecipes();
-      await loadCustomTags();
+      
+      // Update variations state with any server-assigned IDs
+      setVariations(variationsToSave);
+      
+      // Reload custom tags in background (fire and forget - small payload)
+      loadCustomTags();
+      
       setIsSaving(false);
       setSaveMessage('Saved!'); 
       setTimeout(() => { 
@@ -1174,7 +1195,7 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.12</div>
+      <div>v0.0.13</div>
       <div>Jan 10, 2026</div>
     </div>
   );
