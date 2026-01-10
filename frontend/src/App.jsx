@@ -274,6 +274,7 @@ const SPLASH_TAGLINES = [
   "You're terminated... from the kitchen",
   "Talk to the pan",
   "There is no fate but what we bake",
+  "I swear I will not cook anyone,"
 ];
 
 export default function App() {
@@ -1161,8 +1162,8 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.1.0</div>
-      <div>Jan 8, 2026</div>
+      <div>v0.0.11</div>
+      <div>Jan 10, 2026</div>
     </div>
   );
 
@@ -3023,7 +3024,7 @@ export default function App() {
           </h2>
         </div>
         
-        {ingredients.map(ing => (
+        {ingredients.map((ing, i) => (
           <div key={ing.id} style={{ ...styles.surface, marginBottom: 12 }}>
             {/* Ingredient name row */}
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
