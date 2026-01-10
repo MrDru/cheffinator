@@ -906,6 +906,45 @@ export default function App() {
     stages: filteredStages
   });
 
+  // Helper: Upload base64 images and return URL (or keep existing URL)
+  const processImage = async (imageData) => {
+    if (!imageData) return null;
+    if (api.isBase64Image(imageData)) {
+      try {
+        return await api.uploadBase64Image(imageData);
+      } catch (err) {
+        console.error('Failed to upload image:', err);
+        return imageData; // Keep base64 as fallback
+      }
+    }
+    return imageData; // Already a URL, keep it
+  };
+
+  // Helper: Process all images in a variation (upload base64, keep URLs)
+  const processVariationImages = async (variation) => {
+    const [processedBanner, processedIngs, processedStages] = await Promise.all([
+      // Process banner image
+      processImage(variation.bannerImage),
+      // Process ingredient images in parallel
+      Promise.all((variation.ingredients || []).map(async (ing) => ({
+        ...ing,
+        image: await processImage(ing.image)
+      }))),
+      // Process step images in parallel
+      Promise.all((variation.stages || []).map(async (stage) => ({
+        ...stage,
+        image: await processImage(stage.image)
+      })))
+    ]);
+    
+    return {
+      ...variation,
+      bannerImage: processedBanner,
+      ingredients: processedIngs,
+      stages: processedStages
+    };
+  };
+
   const saveRecipe = async () => {
     if (isSaving) return; // Prevent double-click
     
@@ -916,6 +955,7 @@ export default function App() {
     }
     
     setIsSaving(true);
+    setSaveMessage('Uploading images...');
     
     // Update current variation with form data before saving
     const updatedVariations = [...variations];
@@ -932,7 +972,7 @@ export default function App() {
     }
     
     // For new recipes or recipes without variations, create default variation
-    const variationsToSave = updatedVariations.length > 0 ? updatedVariations : [{
+    let variationsToSave = updatedVariations.length > 0 ? updatedVariations : [{
       id: null,
       name: 'Original',
       description: description.trim(),
@@ -943,12 +983,16 @@ export default function App() {
       stages: filteredStages
     }];
     
-    const data = { 
-      name: recipeName.trim(),
-      variations: variationsToSave
-    };
-    
     try {
+      // Process all images (upload base64 -> get URLs) before saving
+      variationsToSave = await Promise.all(variationsToSave.map(processVariationImages));
+      setSaveMessage('Saving...');
+      
+      const data = { 
+        name: recipeName.trim(),
+        variations: variationsToSave
+      };
+      
       let recipeId = editingId;
       
       if (editingId) {
@@ -980,8 +1024,15 @@ export default function App() {
         }, ...prev]);
       }
       
-      // Update variations state with any server-assigned IDs
+      // Update variations state with processed URLs (so next save is fast)
       setVariations(variationsToSave);
+      // Also update current form state with processed URLs
+      const currentVar = variationsToSave[currentVariationIndex];
+      if (currentVar) {
+        setBannerImage(currentVar.bannerImage);
+        setIngredients(currentVar.ingredients);
+        setStages(currentVar.stages);
+      }
       
       // Reload custom tags in background (fire and forget - small payload)
       loadCustomTags();
@@ -1195,7 +1246,7 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.16</div>
+      <div>v0.0.17</div>
       <div>Jan 10, 2026</div>
     </div>
   );
