@@ -339,6 +339,9 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saved', 'unsaved', 'saving'
+  const autoSaveTimeoutRef = React.useRef(null);
+  const lastSavedDataRef = React.useRef(null);
   const [cookingSlide, setCookingSlide] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteModal, setDeleteModal] = useState(null);
@@ -945,17 +948,20 @@ export default function App() {
     };
   };
 
-  const saveRecipe = async () => {
-    if (isSaving) return; // Prevent double-click
+  const saveRecipe = async (isAutoSave = false) => {
+    if (isSaving) return; // Prevent double-save
     
     if (!recipeName.trim()) { 
-      setSaveMessage('Please enter a name'); 
-      setTimeout(() => setSaveMessage(''), 2000); 
+      if (!isAutoSave) {
+        setSaveMessage('Please enter a name'); 
+        setTimeout(() => setSaveMessage(''), 2000); 
+      }
       return; 
     }
     
     setIsSaving(true);
-    setSaveMessage('Uploading images...');
+    setAutoSaveStatus('saving');
+    if (!isAutoSave) setSaveMessage('Uploading images...');
     
     // Update current variation with form data before saving
     const updatedVariations = [...variations];
@@ -1037,19 +1043,96 @@ export default function App() {
       // Reload custom tags in background (fire and forget - small payload)
       loadCustomTags();
       
+      // Store last saved data for change detection
+      lastSavedDataRef.current = JSON.stringify({
+        name: recipeName.trim(),
+        variations: variationsToSave
+      });
+      
       setIsSaving(false);
-      setSaveMessage('Saved!'); 
-      setTimeout(() => { 
-        setSaveMessage(''); 
-        setCurrentView('view'); 
-      }, 800);
+      setAutoSaveStatus('saved');
+      
+      if (!isAutoSave) {
+        setSaveMessage('Saved!'); 
+        setTimeout(() => { 
+          setSaveMessage(''); 
+          setCurrentView('view'); 
+        }, 800);
+      }
     } catch (error) {
       console.error('Failed to save recipe:', error);
       setIsSaving(false);
-      setSaveMessage('Error saving');
-      setTimeout(() => setSaveMessage(''), 2000);
+      setAutoSaveStatus('unsaved');
+      if (!isAutoSave) {
+        setSaveMessage('Error saving');
+        setTimeout(() => setSaveMessage(''), 2000);
+      }
     }
   };
+
+  // Auto-save effect: debounced save when data changes in edit mode
+  React.useEffect(() => {
+    // Only auto-save when editing an existing recipe
+    if (currentView !== 'edit' || !editingId) return;
+    
+    // Build current data snapshot
+    const currentData = JSON.stringify({
+      name: recipeName.trim(),
+      variations: variations.map((v, i) => i === currentVariationIndex ? {
+        ...v,
+        description: description.trim(),
+        servings: parseInt(servings) || 4,
+        tags,
+        bannerImage,
+        ingredients: filteredIngredients,
+        stages: filteredStages
+      } : v)
+    });
+    
+    // Skip if no changes or no data yet
+    if (!lastSavedDataRef.current || currentData === lastSavedDataRef.current) {
+      return;
+    }
+    
+    // Mark as unsaved
+    setAutoSaveStatus('unsaved');
+    
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
+    // Set new debounced save (2 seconds after last change)
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      saveRecipe(true); // Auto-save
+    }, 2000);
+    
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [recipeName, description, servings, tags, bannerImage, ingredients, stages, currentView, editingId, variations, currentVariationIndex]);
+
+  // Initialize lastSavedDataRef when entering edit mode
+  React.useEffect(() => {
+    if (currentView === 'edit' && editingId && variations.length > 0) {
+      const currentVar = variations[currentVariationIndex];
+      lastSavedDataRef.current = JSON.stringify({
+        name: recipeName.trim(),
+        variations: variations.map((v, i) => i === currentVariationIndex ? {
+          ...v,
+          description: description.trim(),
+          servings: parseInt(servings) || 4,
+          tags,
+          bannerImage,
+          ingredients: filteredIngredients,
+          stages: filteredStages
+        } : v)
+      });
+      setAutoSaveStatus('saved');
+    }
+  }, [currentView, editingId]);
 
   const addTag = (t) => { 
     if (t.trim() && !tags.includes(t.trim())) setTags([...tags, t.trim()]); 
@@ -2882,40 +2965,88 @@ export default function App() {
       }}>
         <button 
           style={styles.btn} 
-          onClick={() => editingId ? setCurrentView('view') : (resetForm(), setCurrentView('dashboard'))}
+          onClick={() => {
+            // Clear auto-save timeout
+            if (autoSaveTimeoutRef.current) {
+              clearTimeout(autoSaveTimeoutRef.current);
+            }
+            // If there are unsaved changes, save before leaving
+            if (editingId && autoSaveStatus === 'unsaved') {
+              saveRecipe(true).then(() => setCurrentView('view'));
+            } else if (editingId) {
+              setCurrentView('view');
+            } else {
+              resetForm();
+              setCurrentView('dashboard');
+            }
+          }}
         >
-          <Icon type="back" /> {editingId ? 'Cancel' : 'Back'}
+          <Icon type="back" /> {editingId ? 'Done' : 'Back'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {saveMessage && (
             <span style={{ 
               padding: '8px 16px', 
-              background: saveMessage.includes('Please') ? 'rgba(239,68,68,0.2)' : 'rgba(74,222,128,0.2)', 
+              background: saveMessage.includes('Please') || saveMessage.includes('Error') ? 'rgba(239,68,68,0.2)' : 'rgba(74,222,128,0.2)', 
               borderRadius: 8, 
               fontSize: 13, 
-              color: saveMessage.includes('Please') ? 'var(--accent-red)' : 'var(--accent-green)', 
+              color: saveMessage.includes('Please') || saveMessage.includes('Error') ? 'var(--accent-red)' : 'var(--accent-green)', 
               fontFamily: 'var(--font-sans)' 
             }}>
               {saveMessage}
             </span>
           )}
-          <button 
-            style={{ ...styles.btnPrimary, opacity: isSaving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 8 }} 
-            onClick={saveRecipe}
-            disabled={isSaving}
-          >
-            {isSaving && (
-              <span style={{
-                width: 16,
-                height: 16,
-                border: '2px solid rgba(0,0,0,0.2)',
-                borderTopColor: 'var(--bg-primary)',
-                borderRadius: '50%',
-                animation: 'spin 0.8s linear infinite'
-              }} />
-            )}
-            {isSaving ? 'Saving...' : (editingId ? 'Save Changes' : 'Save Recipe')}
-          </button>
+          
+          {/* Auto-save status for existing recipes */}
+          {editingId && !saveMessage && (
+            <span style={{ 
+              padding: '8px 16px', 
+              borderRadius: 8, 
+              fontSize: 13, 
+              fontFamily: 'var(--font-sans)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              color: autoSaveStatus === 'saving' ? 'var(--text-secondary)' : 
+                     autoSaveStatus === 'saved' ? 'var(--accent-green)' : 'var(--text-muted)',
+              background: autoSaveStatus === 'saving' ? 'rgba(255,255,255,0.05)' : 
+                          autoSaveStatus === 'saved' ? 'rgba(74,222,128,0.1)' : 'transparent'
+            }}>
+              {autoSaveStatus === 'saving' && (
+                <span style={{
+                  width: 12,
+                  height: 12,
+                  border: '2px solid rgba(255,255,255,0.2)',
+                  borderTopColor: 'var(--text-secondary)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite'
+                }} />
+              )}
+              {autoSaveStatus === 'saving' ? 'Saving...' : 
+               autoSaveStatus === 'saved' ? '✓ Saved' : 'Unsaved changes'}
+            </span>
+          )}
+          
+          {/* Manual save button for new recipes only */}
+          {!editingId && (
+            <button 
+              style={{ ...styles.btnPrimary, opacity: isSaving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 8 }} 
+              onClick={() => saveRecipe(false)}
+              disabled={isSaving}
+            >
+              {isSaving && (
+                <span style={{
+                  width: 16,
+                  height: 16,
+                  border: '2px solid rgba(0,0,0,0.2)',
+                  borderTopColor: 'var(--bg-primary)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite'
+                }} />
+              )}
+              {isSaving ? 'Saving...' : 'Save Recipe'}
+            </button>
+          )}
         </div>
       </header>
       

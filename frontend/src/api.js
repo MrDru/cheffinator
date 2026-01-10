@@ -1,4 +1,4 @@
-﻿// In production, API is served from the same origin
+// In production, API is served from the same origin
 // In development, Vite proxies /api to localhost:3001
 const API_BASE = '/api';
 
@@ -83,22 +83,6 @@ export async function addVariation(recipeId, name, sourceVariationId) {
   return response.json();
 }
 
-// Check if string is a base64 image
-export function isBase64Image(str) {
-  return str && typeof str === 'string' && str.startsWith('data:image/');
-}
-
-// Upload base64 image and return URL
-export async function uploadBase64Image(base64String) {
-  const response = await fetch(base64String);
-  const blob = await response.blob();
-  const extension = base64String.includes('image/gif') ? 'gif' : 
-                    base64String.includes('image/png') ? 'png' : 'jpg';
-  const file = new File([blob], `image.${extension}`, { type: blob.type });
-  const result = await uploadImage(file);
-  return result.url;
-}
-
 export async function uploadImage(file) {
   const formData = new FormData();
   formData.append('image', file);
@@ -108,6 +92,27 @@ export async function uploadImage(file) {
   });
   if (!response.ok) throw new Error('Failed to upload image');
   return response.json();
+}
+
+// Check if string is a base64 image
+export function isBase64Image(str) {
+  return str && typeof str === 'string' && str.startsWith('data:image/');
+}
+
+// Upload base64 image and return URL
+export async function uploadBase64Image(base64String) {
+  // Convert base64 to Blob
+  const response = await fetch(base64String);
+  const blob = await response.blob();
+  
+  // Create a File from the Blob
+  const extension = base64String.includes('image/gif') ? 'gif' : 
+                    base64String.includes('image/png') ? 'png' : 'jpg';
+  const file = new File([blob], `image.${extension}`, { type: blob.type });
+  
+  // Upload and return URL
+  const result = await uploadImage(file);
+  return result.url;
 }
 
 export async function fetchCustomTags() {
@@ -180,7 +185,7 @@ export async function fetchDiscoverRecipes(limit = 5, offset = 0) {
           name: 'Fluffy Japanese Pancakes',
           userCode: 'testchef2',
           shareId: 'jkl012',
-          description: 'Incredibly thick and jiggly soufflÃ© pancakes',
+          description: 'Incredibly thick and jiggly soufflé pancakes',
           tags: ['Breakfast', 'Dessert', 'Japanese']
         },
         {
@@ -198,4 +203,3 @@ export async function fetchDiscoverRecipes(limit = 5, offset = 0) {
     };
   }
 }
-
