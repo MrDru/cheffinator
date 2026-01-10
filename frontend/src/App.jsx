@@ -336,6 +336,9 @@ export default function App() {
   const [stages, setStages] = useState([{ id: 1, text: '', image: null }]);
   const [bannerImage, setBannerImage] = useState(null);
   const [saveMessage, setSaveMessage] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const [cookingSlide, setCookingSlide] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteModal, setDeleteModal] = useState(null);
@@ -904,11 +907,15 @@ export default function App() {
   });
 
   const saveRecipe = async () => {
+    if (isSaving) return; // Prevent double-click
+    
     if (!recipeName.trim()) { 
       setSaveMessage('Please enter a name'); 
       setTimeout(() => setSaveMessage(''), 2000); 
       return; 
     }
+    
+    setIsSaving(true);
     
     // Update current variation with form data before saving
     const updatedVariations = [...variations];
@@ -958,6 +965,7 @@ export default function App() {
       }
       await loadRecipes();
       await loadCustomTags();
+      setIsSaving(false);
       setSaveMessage('Saved!'); 
       setTimeout(() => { 
         setSaveMessage(''); 
@@ -965,6 +973,7 @@ export default function App() {
       }, 800);
     } catch (error) {
       console.error('Failed to save recipe:', error);
+      setIsSaving(false);
       setSaveMessage('Error saving');
       setTimeout(() => setSaveMessage(''), 2000);
     }
@@ -1050,13 +1059,16 @@ export default function App() {
   };
 
   const confirmDelete = async () => {
-    if (deleteModal) {
+    if (deleteModal && !isDeleting) {
       try {
+        setIsDeleting(true);
         await api.deleteRecipe(deleteModal.id);
         await loadRecipes();
         setDeleteModal(null);
       } catch (error) {
         console.error('Failed to delete recipe:', error);
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
@@ -1162,7 +1174,7 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.11</div>
+      <div>v0.0.12</div>
       <div>Jan 10, 2026</div>
     </div>
   );
@@ -1369,11 +1381,25 @@ export default function App() {
                 marginTop: 16,
                 padding: '14px 20px',
                 fontSize: 16,
-                opacity: loginLoading ? 0.7 : 1
+                opacity: loginLoading ? 0.7 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8
               }}
               onClick={() => handleLogin(loginInput)}
               disabled={!loginInput.trim() || loginLoading}
             >
+              {loginLoading && (
+                <span style={{
+                  width: 16,
+                  height: 16,
+                  border: '2px solid rgba(0,0,0,0.2)',
+                  borderTopColor: 'var(--bg-primary)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite'
+                }} />
+              )}
               {loginLoading ? 'Checking...' : 'Continue'}
             </button>
           </div>
@@ -1610,10 +1636,23 @@ export default function App() {
               style={{ 
                 ...styles.btn, 
                 padding: '12px 24px',
-                opacity: discoverLoading ? 0.5 : 1
+                opacity: discoverLoading ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
               }}
             >
-              🎲 Show Different Recipes
+              {discoverLoading ? (
+                <span style={{
+                  width: 16,
+                  height: 16,
+                  border: '2px solid rgba(255,255,255,0.2)',
+                  borderTopColor: 'var(--text-primary)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite'
+                }} />
+              ) : '🎲'}
+              {discoverLoading ? 'Loading...' : 'Show Different Recipes'}
             </button>
           </div>
         </main>
@@ -1980,8 +2019,24 @@ export default function App() {
                 Are you sure you want to delete "<strong style={{ color: 'var(--text-primary)' }}>{deleteModal.name}</strong>"? This cannot be undone.
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                <button style={styles.btn} onClick={() => setDeleteModal(null)}>Cancel</button>
-                <button style={{ ...styles.btnPrimary, background: 'var(--accent-red)' }} onClick={confirmDelete}>Delete</button>
+                <button style={styles.btn} onClick={() => setDeleteModal(null)} disabled={isDeleting}>Cancel</button>
+                <button 
+                  style={{ ...styles.btnPrimary, background: 'var(--accent-red)', display: 'flex', alignItems: 'center', gap: 8, opacity: isDeleting ? 0.7 : 1 }} 
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting && (
+                    <span style={{
+                      width: 16,
+                      height: 16,
+                      border: '2px solid rgba(0,0,0,0.2)',
+                      borderTopColor: '#fff',
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite'
+                    }} />
+                  )}
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
               </div>
             </div>
           </div>
@@ -2361,12 +2416,16 @@ export default function App() {
     
     // Handle share button click
     const handleShare = async () => {
+      if (isSharing) return;
       try {
+        setIsSharing(true);
         const result = await api.generateShareLink(editingId);
         const shareUrl = `${window.location.origin}/r/${result.shareId}`;
         setShareModal({ recipeId: editingId, shareUrl });
       } catch (error) {
         console.error('Failed to generate share link:', error);
+      } finally {
+        setIsSharing(false);
       }
     };
     
@@ -2412,10 +2471,21 @@ export default function App() {
             {!isPublicView && (
               <>
                 <button 
-                  style={{ ...styles.btn, color: 'var(--accent-orange)', borderColor: 'var(--accent-orange)' }} 
+                  style={{ ...styles.btn, color: 'var(--accent-orange)', borderColor: 'var(--accent-orange)', display: 'flex', alignItems: 'center', gap: 6, opacity: isSharing ? 0.7 : 1 }} 
                   onClick={handleShare}
+                  disabled={isSharing}
                 >
-                  <Icon type="share" /> Share
+                  {isSharing ? (
+                    <span style={{
+                      width: 14,
+                      height: 14,
+                      border: '2px solid rgba(255,165,0,0.2)',
+                      borderTopColor: 'var(--accent-orange)',
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite'
+                    }} />
+                  ) : <Icon type="share" />}
+                  {isSharing ? 'Sharing...' : 'Share'}
                 </button>
                 <button style={{ ...styles.btnPrimary, display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => {
                     window.history.pushState({ view: 'edit' }, '', window.location.pathname);
@@ -2757,8 +2827,22 @@ export default function App() {
               {saveMessage}
             </span>
           )}
-          <button style={styles.btnPrimary} onClick={saveRecipe}>
-            {editingId ? 'Save Changes' : 'Save Recipe'}
+          <button 
+            style={{ ...styles.btnPrimary, opacity: isSaving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 8 }} 
+            onClick={saveRecipe}
+            disabled={isSaving}
+          >
+            {isSaving && (
+              <span style={{
+                width: 16,
+                height: 16,
+                border: '2px solid rgba(0,0,0,0.2)',
+                borderTopColor: 'var(--bg-primary)',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite'
+              }} />
+            )}
+            {isSaving ? 'Saving...' : (editingId ? 'Save Changes' : 'Save Recipe')}
           </button>
         </div>
       </header>
