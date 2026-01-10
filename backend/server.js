@@ -439,33 +439,24 @@ app.post('/api/recipes', async (req, res) => {
       [variationId, recipeId, 'Original', description || '', servings || 4, JSON.stringify(tags || []), bannerImage || null, 0, now, now]
     );
     
-    // Insert ingredients for the variation
-    if (ingredients && ingredients.length > 0) {
-      for (let i = 0; i < ingredients.length; i++) {
-        const ing = ingredients[i];
-        if (ing.name && ing.name.trim()) {
-          await client.query(
-            `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [uuidv4(), recipeId, variationId, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]
-          );
-        }
-      }
-    }
+    // Insert ingredients and steps in PARALLEL
+    const ingredientPromises = (ingredients || [])
+      .filter(ing => ing.name && ing.name.trim())
+      .map((ing, i) => client.query(
+        `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [uuidv4(), recipeId, variationId, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]
+      ));
     
-    // Insert cooking steps for the variation
-    if (stages && stages.length > 0) {
-      for (let i = 0; i < stages.length; i++) {
-        const step = stages[i];
-        if (step.text && step.text.trim()) {
-          await client.query(
-            `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [uuidv4(), recipeId, variationId, step.text, step.image || null, i]
-          );
-        }
-      }
-    }
+    const stepPromises = (stages || [])
+      .filter(step => step.text && step.text.trim())
+      .map((step, i) => client.query(
+        `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [uuidv4(), recipeId, variationId, step.text, step.image || null, i]
+      ));
+    
+    await Promise.all([...ingredientPromises, ...stepPromises]);
     
     await client.query('COMMIT');
     res.status(201).json({ id: recipeId, message: 'Recipe created successfully' });
@@ -538,9 +529,11 @@ app.put('/api/recipes/:id', async (req, res) => {
             [variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, now, variationId]
           );
           
-          // Delete and re-insert ingredients/steps for this variation
-          await client.query('DELETE FROM ingredients WHERE variation_id = $1', [variationId]);
-          await client.query('DELETE FROM cooking_steps WHERE variation_id = $1', [variationId]);
+          // Delete ingredients/steps in parallel
+          await Promise.all([
+            client.query('DELETE FROM ingredients WHERE variation_id = $1', [variationId]),
+            client.query('DELETE FROM cooking_steps WHERE variation_id = $1', [variationId])
+          ]);
         } else {
           // Create new variation
           variationId = uuidv4();
@@ -551,31 +544,28 @@ app.put('/api/recipes/:id', async (req, res) => {
           );
         }
         
-        // Insert ingredients for this variation
+        // Insert ingredients and steps in PARALLEL using Promise.all
         const ingredients = variation.ingredients || [];
-        for (let i = 0; i < ingredients.length; i++) {
-          const ing = ingredients[i];
-          if (ing.name && ing.name.trim()) {
-            await client.query(
-              `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-              [uuidv4(), id, variationId, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]
-            );
-          }
-        }
-        
-        // Insert cooking steps for this variation
         const stages = variation.stages || [];
-        for (let i = 0; i < stages.length; i++) {
-          const step = stages[i];
-          if (step.text && step.text.trim()) {
-            await client.query(
-              `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order)
-               VALUES ($1, $2, $3, $4, $5, $6)`,
-              [uuidv4(), id, variationId, step.text, step.image || null, i]
-            );
-          }
-        }
+        
+        const ingredientPromises = ingredients
+          .filter(ing => ing.name && ing.name.trim())
+          .map((ing, i) => client.query(
+            `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [uuidv4(), id, variationId, ing.name, ing.amount || '', ing.unit || 'g', ing.image || null, i]
+          ));
+        
+        const stepPromises = stages
+          .filter(step => step.text && step.text.trim())
+          .map((step, i) => client.query(
+            `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [uuidv4(), id, variationId, step.text, step.image || null, i]
+          ));
+        
+        // Run all inserts in parallel
+        await Promise.all([...ingredientPromises, ...stepPromises]);
       }
     }
     
