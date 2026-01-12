@@ -829,10 +829,62 @@ export default function App() {
     setCurrentVariationIndex(0);
   };
 
-  const openNew = () => { 
-    resetForm(); 
-    window.history.pushState({ view: 'edit' }, '', window.location.pathname);
-    setCurrentView('edit'); 
+  const openNew = async () => { 
+    resetForm();
+    
+    // Create a blank recipe immediately so auto-save works
+    try {
+      const result = await api.createRecipe({
+        name: 'Untitled Recipe',
+        description: '',
+        servings: 4,
+        tags: [],
+        bannerImage: null,
+        ingredients: [],
+        stages: []
+      }, userCode);
+      
+      setEditingId(result.id);
+      setRecipeName('Untitled Recipe');
+      setVariations([{
+        id: null,
+        name: 'Original',
+        description: '',
+        servings: 4,
+        tags: [],
+        bannerImage: null,
+        ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
+        stages: [{ id: 1, text: '', image: null }]
+      }]);
+      
+      // Initialize lastSavedDataRef for auto-save
+      lastSavedDataRef.current = JSON.stringify({
+        name: 'Untitled Recipe',
+        variations: [{
+          name: 'Original',
+          description: '',
+          servings: 4,
+          tags: [],
+          bannerImage: null,
+          ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
+          stages: [{ id: 1, text: '', image: null }]
+        }]
+      });
+      setAutoSaveStatus('saved');
+      
+      // Add to local state
+      setRecipes(prev => [{
+        id: result.id,
+        name: 'Untitled Recipe',
+        variations: [],
+        updated: 'just now'
+      }, ...prev]);
+      
+      window.history.pushState({ view: 'edit' }, '', window.location.pathname);
+      setCurrentView('edit');
+    } catch (error) {
+      console.error('Failed to create recipe:', error);
+    }
   };
 
   // Load a specific variation's data into the form fields
@@ -2971,17 +3023,14 @@ export default function App() {
               clearTimeout(autoSaveTimeoutRef.current);
             }
             // If there are unsaved changes, save before leaving
-            if (editingId && autoSaveStatus === 'unsaved') {
+            if (autoSaveStatus === 'unsaved') {
               saveRecipe(true).then(() => setCurrentView('view'));
-            } else if (editingId) {
-              setCurrentView('view');
             } else {
-              resetForm();
-              setCurrentView('dashboard');
+              setCurrentView('view');
             }
           }}
         >
-          <Icon type="back" /> {editingId ? 'Done' : 'Back'}
+          <Icon type="back" /> Done
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {saveMessage && (
@@ -2997,8 +3046,8 @@ export default function App() {
             </span>
           )}
           
-          {/* Auto-save status for existing recipes */}
-          {editingId && !saveMessage && (
+          {/* Auto-save status indicator */}
+          {!saveMessage && (
             <span style={{ 
               padding: '8px 16px', 
               borderRadius: 8, 
@@ -3025,27 +3074,6 @@ export default function App() {
               {autoSaveStatus === 'saving' ? 'Saving...' : 
                autoSaveStatus === 'saved' ? '✓ Saved' : 'Unsaved changes'}
             </span>
-          )}
-          
-          {/* Manual save button for new recipes only */}
-          {!editingId && (
-            <button 
-              style={{ ...styles.btnPrimary, opacity: isSaving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 8 }} 
-              onClick={() => saveRecipe(false)}
-              disabled={isSaving}
-            >
-              {isSaving && (
-                <span style={{
-                  width: 16,
-                  height: 16,
-                  border: '2px solid rgba(0,0,0,0.2)',
-                  borderTopColor: 'var(--bg-primary)',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite'
-                }} />
-              )}
-              {isSaving ? 'Saving...' : 'Save Recipe'}
-            </button>
           )}
         </div>
       </header>
