@@ -342,6 +342,7 @@ export default function App() {
   const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saved', 'unsaved', 'saving'
   const autoSaveTimeoutRef = React.useRef(null);
   const lastSavedDataRef = React.useRef(null);
+  const [uploadProgress, setUploadProgress] = useState(null); // null = hidden, 0-100 = progress
   const [cookingSlide, setCookingSlide] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteModal, setDeleteModal] = useState(null);
@@ -1164,23 +1165,73 @@ export default function App() {
   
   const removeTag = (t) => setTags(tags.filter(x => x !== t));
 
-  // Handle image capture from camera/gallery/GIF
-  const handleImageCapture = (imageData) => {
+  // Handle image capture from camera/gallery/GIF - uploads with progress
+  const handleImageCapture = async (imageData) => {
     if (!captureTarget) return;
     
-    if (captureTarget.type === 'banner') {
-      setBannerImage(imageData);
-    } else if (captureTarget.type === 'ingredient') {
-      setIngredients(prev => prev.map((ing, i) => 
-        i === captureTarget.index ? { ...ing, image: imageData } : ing
-      ));
-    } else if (captureTarget.type === 'stage') {
-      setStages(prev => prev.map((stage, i) => 
-        i === captureTarget.index ? { ...stage, image: imageData } : stage
-      ));
+    const target = captureTarget;
+    setCaptureTarget(null); // Close capture modal immediately
+    
+    // If it's base64, upload it with progress
+    if (imageData && imageData.startsWith('data:image/')) {
+      try {
+        setUploadProgress(0);
+        
+        // Convert base64 to blob for upload
+        const response = await fetch(imageData);
+        const blob = await response.blob();
+        const extension = imageData.includes('image/gif') ? 'gif' : 
+                          imageData.includes('image/png') ? 'png' : 'jpg';
+        const file = new File([blob], `image.${extension}`, { type: blob.type });
+        
+        // Upload with XMLHttpRequest for progress tracking
+        const uploadedUrl = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const formData = new FormData();
+          formData.append('image', file);
+          
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              setUploadProgress(Math.round((e.loaded / e.total) * 100));
+            }
+          };
+          
+          xhr.onload = () => {
+            if (xhr.status === 200) {
+              const result = JSON.parse(xhr.responseText);
+              resolve(result.url);
+            } else {
+              reject(new Error('Upload failed'));
+            }
+          };
+          
+          xhr.onerror = () => reject(new Error('Upload failed'));
+          
+          xhr.open('POST', '/api/upload');
+          xhr.send(formData);
+        });
+        
+        setUploadProgress(null);
+        imageData = uploadedUrl; // Use the URL instead of base64
+      } catch (error) {
+        console.error('Failed to upload image:', error);
+        setUploadProgress(null);
+        // Keep base64 as fallback
+      }
     }
     
-    setCaptureTarget(null);
+    // Set the image data (URL or base64 fallback)
+    if (target.type === 'banner') {
+      setBannerImage(imageData);
+    } else if (target.type === 'ingredient') {
+      setIngredients(prev => prev.map((ing, i) => 
+        i === target.index ? { ...ing, image: imageData } : ing
+      ));
+    } else if (target.type === 'stage') {
+      setStages(prev => prev.map((stage, i) => 
+        i === target.index ? { ...stage, image: imageData } : stage
+      ));
+    }
   };
 
   // Open image capture modal (mobile shows camera options, desktop shows upload only)
@@ -1252,11 +1303,40 @@ export default function App() {
 
   const handleImageUpload = async (file, callback) => {
     try {
-      // Upload to server for better performance
-      const result = await api.uploadImage(file);
-      callback(result.url);
+      setUploadProgress(0);
+      
+      // Upload with XMLHttpRequest for progress tracking
+      const uploadedUrl = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+        
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            const result = JSON.parse(xhr.responseText);
+            resolve(result.url);
+          } else {
+            reject(new Error('Upload failed'));
+          }
+        };
+        
+        xhr.onerror = () => reject(new Error('Upload failed'));
+        
+        xhr.open('POST', '/api/upload');
+        xhr.send(formData);
+      });
+      
+      setUploadProgress(null);
+      callback(uploadedUrl);
     } catch (error) {
       console.error('Failed to upload image:', error);
+      setUploadProgress(null);
       // Fallback to base64 if upload fails
       const reader = new FileReader();
       reader.onload = (ev) => callback(ev.target.result);
@@ -3661,6 +3741,54 @@ export default function App() {
             null
           }
         />
+      )}
+      
+      {/* Upload Progress Modal */}
+      {uploadProgress !== null && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          backdropFilter: 'blur(8px)'
+        }}>
+          <div style={{
+            background: 'var(--bg-secondary)',
+            borderRadius: 20,
+            padding: 32,
+            maxWidth: 360,
+            width: '90%',
+            textAlign: 'center',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>📤</div>
+            <h3 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 600 }}>
+              Uploading Image
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', margin: '0 0 24px', fontSize: 14 }}>
+              {uploadProgress}% complete
+            </p>
+            
+            {/* Progress bar */}
+            <div style={{
+              background: 'var(--bg-tertiary)',
+              borderRadius: 8,
+              height: 8,
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                background: 'var(--accent-green)',
+                height: '100%',
+                width: `${uploadProgress}%`,
+                borderRadius: 8,
+                transition: 'width 0.2s ease-out'
+              }} />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
