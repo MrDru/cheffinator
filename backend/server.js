@@ -475,7 +475,7 @@ app.put('/api/recipes/:id', async (req, res) => {
   try {
     await client.query('BEGIN');
     
-    const { name, variations } = req.body;
+    const { name, variations, newUserCode } = req.body;
     const { id } = req.params;
     
     // Check if recipe exists
@@ -487,11 +487,18 @@ app.put('/api/recipes/:id', async (req, res) => {
     
     const now = new Date();
     
-    // Update recipe name and timestamp
-    await client.query(
-      `UPDATE recipes SET name = $1, updated_at = $2 WHERE id = $3`,
-      [name, now, id]
-    );
+    // Update recipe name, timestamp, and optionally user_code (for admin transfers)
+    if (newUserCode) {
+      await client.query(
+        `UPDATE recipes SET name = $1, user_code = $2, updated_at = $3 WHERE id = $4`,
+        [name, newUserCode.toLowerCase(), now, id]
+      );
+    } else {
+      await client.query(
+        `UPDATE recipes SET name = $1, updated_at = $2 WHERE id = $3`,
+        [name, now, id]
+      );
+    }
     
     // Handle variations
     if (variations && variations.length > 0) {
