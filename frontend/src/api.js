@@ -147,59 +147,7 @@ export async function fetchPublicProfile(userCode) {
 
 // Fetch random recipes for homepage discovery
 export async function fetchDiscoverRecipes(limit = 5, offset = 0) {
-  try {
-    const response = await fetch(`${API_BASE}/public/discover?limit=${limit}&offset=${offset}`);
-    if (!response.ok) throw new Error('Failed to fetch recipes');
-    return response.json();
-  } catch (error) {
-    // Return mock data for local testing when API is unavailable
-    console.log('Using mock discover data for testing');
-    return {
-      recipes: [
-        {
-          id: 'mock-d1',
-          name: 'Spicy Thai Basil Chicken',
-          userCode: 'testchef1',
-          shareId: 'abc123',
-          description: 'A quick and flavorful Thai street food classic',
-          tags: ['Asian', 'Spicy', 'Quick', 'Dinner']
-        },
-        {
-          id: 'mock-d2',
-          name: 'Classic Margherita Pizza',
-          userCode: 'testchef2',
-          shareId: 'def456',
-          description: 'Simple Italian perfection with fresh mozzarella',
-          tags: ['Italian', 'Vegetarian', 'Baking']
-        },
-        {
-          id: 'mock-d3',
-          name: 'Honey Garlic Salmon',
-          userCode: 'testchef3',
-          shareId: 'ghi789',
-          description: 'Pan-seared salmon with sweet and savory glaze',
-          tags: ['Fish', 'Healthy', 'Quick']
-        },
-        {
-          id: 'mock-d4',
-          name: 'Fluffy Japanese Pancakes',
-          userCode: 'testchef2',
-          shareId: 'jkl012',
-          description: 'Incredibly thick and jiggly soufflé pancakes',
-          tags: ['Breakfast', 'Dessert', 'Japanese']
-        },
-        {
-          id: 'mock-d5',
-          name: 'Korean Beef Bulgogi',
-          userCode: 'testchef1',
-          shareId: 'mno345',
-          description: 'Sweet and savory marinated beef, grilled to perfection',
-          tags: ['Korean', 'Asian', 'Meat', 'Dinner']
-        }
-      ].sort(() => Math.random() - 0.5).slice(0, limit), // Randomize order
-      total: 5,
-      limit,
-      offset
-    };
-  }
+  const response = await fetch(`${API_BASE}/public/discover?limit=${limit}&offset=${offset}`);
+  if (!response.ok) throw new Error('Failed to fetch recipes');
+  return response.json();
 }
