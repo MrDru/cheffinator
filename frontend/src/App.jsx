@@ -274,7 +274,6 @@ const SPLASH_TAGLINES = [
   "You're terminated... from the kitchen",
   "Talk to the pan",
   "There is no fate but what we bake",
-  "I swear I will not cook anyone,"
 ];
 
 export default function App() {
@@ -336,13 +335,6 @@ export default function App() {
   const [stages, setStages] = useState([{ id: 1, text: '', image: null }]);
   const [bannerImage, setBannerImage] = useState(null);
   const [saveMessage, setSaveMessage] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
-  const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saved', 'unsaved', 'saving'
-  const autoSaveTimeoutRef = React.useRef(null);
-  const lastSavedDataRef = React.useRef(null);
-  const [uploadProgress, setUploadProgress] = useState(null); // null = hidden, 0-100 = progress
   const [cookingSlide, setCookingSlide] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteModal, setDeleteModal] = useState(null);
@@ -830,62 +822,10 @@ export default function App() {
     setCurrentVariationIndex(0);
   };
 
-  const openNew = async () => { 
-    resetForm();
-    
-    // Create a blank recipe immediately so auto-save works
-    try {
-      const result = await api.createRecipe({
-        name: 'Untitled Recipe',
-        description: '',
-        servings: 4,
-        tags: [],
-        bannerImage: null,
-        ingredients: [],
-        stages: []
-      }, userCode);
-      
-      setEditingId(result.id);
-      setRecipeName('Untitled Recipe');
-      setVariations([{
-        id: null,
-        name: 'Original',
-        description: '',
-        servings: 4,
-        tags: [],
-        bannerImage: null,
-        ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
-        stages: [{ id: 1, text: '', image: null }]
-      }]);
-      
-      // Initialize lastSavedDataRef for auto-save
-      lastSavedDataRef.current = JSON.stringify({
-        name: 'Untitled Recipe',
-        variations: [{
-          name: 'Original',
-          description: '',
-          servings: 4,
-          tags: [],
-          bannerImage: null,
-          ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
-          stages: [{ id: 1, text: '', image: null }]
-        }]
-      });
-      setAutoSaveStatus('saved');
-      
-      // Add to local state
-      setRecipes(prev => [{
-        id: result.id,
-        name: 'Untitled Recipe',
-        variations: [],
-        updated: 'just now'
-      }, ...prev]);
-      
-      window.history.pushState({ view: 'edit' }, '', window.location.pathname);
-      setCurrentView('edit');
-    } catch (error) {
-      console.error('Failed to create recipe:', error);
-    }
+  const openNew = () => { 
+    resetForm(); 
+    window.history.pushState({ view: 'edit' }, '', window.location.pathname);
+    setCurrentView('edit'); 
   };
 
   // Load a specific variation's data into the form fields
@@ -962,59 +902,12 @@ export default function App() {
     stages: filteredStages
   });
 
-  // Helper: Upload base64 images and return URL (or keep existing URL)
-  const processImage = async (imageData) => {
-    if (!imageData) return null;
-    if (api.isBase64Image(imageData)) {
-      try {
-        return await api.uploadBase64Image(imageData);
-      } catch (err) {
-        console.error('Failed to upload image:', err);
-        return imageData; // Keep base64 as fallback
-      }
-    }
-    return imageData; // Already a URL, keep it
-  };
-
-  // Helper: Process all images in a variation (upload base64, keep URLs)
-  const processVariationImages = async (variation) => {
-    const [processedBanner, processedIngs, processedStages] = await Promise.all([
-      // Process banner image
-      processImage(variation.bannerImage),
-      // Process ingredient images in parallel
-      Promise.all((variation.ingredients || []).map(async (ing) => ({
-        ...ing,
-        image: await processImage(ing.image)
-      }))),
-      // Process step images in parallel
-      Promise.all((variation.stages || []).map(async (stage) => ({
-        ...stage,
-        image: await processImage(stage.image)
-      })))
-    ]);
-    
-    return {
-      ...variation,
-      bannerImage: processedBanner,
-      ingredients: processedIngs,
-      stages: processedStages
-    };
-  };
-
-  const saveRecipe = async (isAutoSave = false) => {
-    if (isSaving) return; // Prevent double-save
-    if (!editingId) return; // Must have a recipe ID
-    
+  const saveRecipe = async () => {
     if (!recipeName.trim()) { 
-      if (!isAutoSave) {
-        setSaveMessage('Please enter a name'); 
-        setTimeout(() => setSaveMessage(''), 2000); 
-      }
+      setSaveMessage('Please enter a name'); 
+      setTimeout(() => setSaveMessage(''), 2000); 
       return; 
     }
-    
-    setIsSaving(true);
-    setAutoSaveStatus('saving');
     
     // Update current variation with form data before saving
     const updatedVariations = [...variations];
@@ -1031,7 +924,7 @@ export default function App() {
     }
     
     // For new recipes or recipes without variations, create default variation
-    let variationsToSave = updatedVariations.length > 0 ? updatedVariations : [{
+    const variationsToSave = updatedVariations.length > 0 ? updatedVariations : [{
       id: null,
       name: 'Original',
       description: description.trim(),
@@ -1042,120 +935,39 @@ export default function App() {
       stages: filteredStages
     }];
     
-    try {
-      // Skip image processing for now - just save text data directly
-      
-      const data = { 
-        name: recipeName.trim(),
-        variations: variationsToSave
-      };
-      
-      let recipeId = editingId;
-      
-      // Save directly to database
-      await api.updateRecipe(editingId, data);
-      
-      // Update local state
-      setRecipes(prev => prev.map(r => 
-        r.id === editingId 
-          ? { ...r, name: recipeName.trim(), variations: variationsToSave, updated: 'just now' }
-          : r
-      ));
-      setVariations(variationsToSave);
-      
-      // Reload custom tags in background (fire and forget - small payload)
-      loadCustomTags();
-      
-      // Store last saved data for change detection
-      lastSavedDataRef.current = JSON.stringify({
-        name: recipeName.trim(),
-        variations: variationsToSave
-      });
-      
-      setIsSaving(false);
-      setAutoSaveStatus('saved');
-      
-      if (!isAutoSave) {
-        setSaveMessage('Saved!'); 
-        setTimeout(() => { 
-          setSaveMessage(''); 
-          setCurrentView('view'); 
-        }, 800);
-      }
-    } catch (error) {
-      console.error('Failed to save recipe:', error);
-      setIsSaving(false);
-      setAutoSaveStatus('unsaved');
-      if (!isAutoSave) {
-        setSaveMessage('Error saving');
-        setTimeout(() => setSaveMessage(''), 2000);
-      }
-    }
-  };
-
-  // Auto-save effect: debounced save when data changes in edit mode
-  React.useEffect(() => {
-    // Only auto-save when editing an existing recipe
-    if (currentView !== 'edit' || !editingId) return;
-    
-    // Build current data snapshot
-    const currentData = JSON.stringify({
+    const data = { 
       name: recipeName.trim(),
-      variations: variations.map((v, i) => i === currentVariationIndex ? {
-        ...v,
-        description: description.trim(),
-        servings: parseInt(servings) || 4,
-        tags,
-        bannerImage,
-        ingredients: filteredIngredients,
-        stages: filteredStages
-      } : v)
-    });
-    
-    // Skip if no changes or no data yet
-    if (!lastSavedDataRef.current || currentData === lastSavedDataRef.current) {
-      return;
-    }
-    
-    // Mark as unsaved
-    setAutoSaveStatus('unsaved');
-    
-    // Clear existing timeout
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
-    
-    // Set new debounced save (300ms after last change - nearly instant)
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      saveRecipe(true); // Auto-save
-    }, 300);
-    
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-      }
+      variations: variationsToSave
     };
-  }, [recipeName, description, servings, tags, bannerImage, ingredients, stages, currentView, editingId, variations, currentVariationIndex]);
-
-  // Initialize lastSavedDataRef when entering edit mode
-  React.useEffect(() => {
-    if (currentView === 'edit' && editingId && variations.length > 0) {
-      const currentVar = variations[currentVariationIndex];
-      lastSavedDataRef.current = JSON.stringify({
-        name: recipeName.trim(),
-        variations: variations.map((v, i) => i === currentVariationIndex ? {
-          ...v,
+    
+    try {
+      if (editingId) {
+        await api.updateRecipe(editingId, data);
+      } else {
+        const result = await api.createRecipe({
+          name: recipeName.trim(),
           description: description.trim(),
           servings: parseInt(servings) || 4,
           tags,
           bannerImage,
           ingredients: filteredIngredients,
           stages: filteredStages
-        } : v)
-      });
-      setAutoSaveStatus('saved');
+        }, userCode);
+        setEditingId(result.id);
+      }
+      await loadRecipes();
+      await loadCustomTags();
+      setSaveMessage('Saved!'); 
+      setTimeout(() => { 
+        setSaveMessage(''); 
+        setCurrentView('view'); 
+      }, 800);
+    } catch (error) {
+      console.error('Failed to save recipe:', error);
+      setSaveMessage('Error saving');
+      setTimeout(() => setSaveMessage(''), 2000);
     }
-  }, [currentView, editingId]);
+  };
 
   const addTag = (t) => { 
     if (t.trim() && !tags.includes(t.trim())) setTags([...tags, t.trim()]); 
@@ -1165,73 +977,23 @@ export default function App() {
   
   const removeTag = (t) => setTags(tags.filter(x => x !== t));
 
-  // Handle image capture from camera/gallery/GIF - uploads with progress
-  const handleImageCapture = async (imageData) => {
+  // Handle image capture from camera/gallery/GIF
+  const handleImageCapture = (imageData) => {
     if (!captureTarget) return;
     
-    const target = captureTarget;
-    setCaptureTarget(null); // Close capture modal immediately
-    
-    // If it's base64, upload it with progress
-    if (imageData && imageData.startsWith('data:image/')) {
-      try {
-        setUploadProgress(0);
-        
-        // Convert base64 to blob for upload
-        const response = await fetch(imageData);
-        const blob = await response.blob();
-        const extension = imageData.includes('image/gif') ? 'gif' : 
-                          imageData.includes('image/png') ? 'png' : 'jpg';
-        const file = new File([blob], `image.${extension}`, { type: blob.type });
-        
-        // Upload with XMLHttpRequest for progress tracking
-        const uploadedUrl = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          const formData = new FormData();
-          formData.append('image', file);
-          
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              setUploadProgress(Math.round((e.loaded / e.total) * 100));
-            }
-          };
-          
-          xhr.onload = () => {
-            if (xhr.status === 200) {
-              const result = JSON.parse(xhr.responseText);
-              resolve(result.url);
-            } else {
-              reject(new Error('Upload failed'));
-            }
-          };
-          
-          xhr.onerror = () => reject(new Error('Upload failed'));
-          
-          xhr.open('POST', '/api/upload');
-          xhr.send(formData);
-        });
-        
-        setUploadProgress(null);
-        imageData = uploadedUrl; // Use the URL instead of base64
-      } catch (error) {
-        console.error('Failed to upload image:', error);
-        setUploadProgress(null);
-        // Keep base64 as fallback
-      }
-    }
-    
-    // Set the image data (URL or base64 fallback)
-    if (target.type === 'banner') {
+    if (captureTarget.type === 'banner') {
       setBannerImage(imageData);
-    } else if (target.type === 'ingredient') {
+    } else if (captureTarget.type === 'ingredient') {
       setIngredients(prev => prev.map((ing, i) => 
-        i === target.index ? { ...ing, image: imageData } : ing
+        i === captureTarget.index ? { ...ing, image: imageData } : ing
       ));
-    } else if (target.type === 'stage') {
+    } else if (captureTarget.type === 'stage') {
       setStages(prev => prev.map((stage, i) => 
-        i === target.index ? { ...stage, image: imageData } : stage
+        i === captureTarget.index ? { ...stage, image: imageData } : stage
       ));
     }
+    
+    setCaptureTarget(null);
   };
 
   // Open image capture modal (mobile shows camera options, desktop shows upload only)
@@ -1287,60 +1049,26 @@ export default function App() {
   };
 
   const confirmDelete = async () => {
-    if (deleteModal && !isDeleting) {
+    if (deleteModal) {
       try {
-        setIsDeleting(true);
         await api.deleteRecipe(deleteModal.id);
         await loadRecipes();
         setDeleteModal(null);
       } catch (error) {
         console.error('Failed to delete recipe:', error);
-      } finally {
-        setIsDeleting(false);
       }
     }
   };
 
   const handleImageUpload = async (file, callback) => {
     try {
-      setUploadProgress(0);
-      
-      // Upload with XMLHttpRequest for progress tracking
-      const uploadedUrl = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const formData = new FormData();
-        formData.append('image', file);
-        
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            setUploadProgress(Math.round((e.loaded / e.total) * 100));
-          }
-        };
-        
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            const result = JSON.parse(xhr.responseText);
-            resolve(result.url);
-          } else {
-            reject(new Error('Upload failed'));
-          }
-        };
-        
-        xhr.onerror = () => reject(new Error('Upload failed'));
-        
-        xhr.open('POST', '/api/upload');
-        xhr.send(formData);
-      });
-      
-      setUploadProgress(null);
-      callback(uploadedUrl);
+      // Upload to server - no base64 fallback to prevent memory crashes
+      const result = await api.uploadImage(file);
+      callback(result.url);
     } catch (error) {
       console.error('Failed to upload image:', error);
-      setUploadProgress(null);
-      // Fallback to base64 if upload fails
-      const reader = new FileReader();
-      reader.onload = (ev) => callback(ev.target.result);
-      reader.readAsDataURL(file);
+      alert('Failed to upload image. Please try again.');
+      callback(null);
     }
   };
 
@@ -1431,8 +1159,8 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.18</div>
-      <div>Jan 12, 2026</div>
+      <div>v0.0.8</div>
+      <div>Jan 5, 2026</div>
     </div>
   );
 
@@ -1448,7 +1176,7 @@ export default function App() {
           alignItems: 'center', 
           justifyContent: 'center',
           padding: 24,
-          background: 'var(--bg-primary)',
+          background: '#3d3d3d',
           overflow: 'hidden'
         }}>
         {/* Sprite animation - 25 frames */}
@@ -1638,25 +1366,11 @@ export default function App() {
                 marginTop: 16,
                 padding: '14px 20px',
                 fontSize: 16,
-                opacity: loginLoading ? 0.7 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8
+                opacity: loginLoading ? 0.7 : 1
               }}
               onClick={() => handleLogin(loginInput)}
               disabled={!loginInput.trim() || loginLoading}
             >
-              {loginLoading && (
-                <span style={{
-                  width: 16,
-                  height: 16,
-                  border: '2px solid rgba(0,0,0,0.2)',
-                  borderTopColor: 'var(--bg-primary)',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite'
-                }} />
-              )}
               {loginLoading ? 'Checking...' : 'Continue'}
             </button>
           </div>
@@ -1893,23 +1607,10 @@ export default function App() {
               style={{ 
                 ...styles.btn, 
                 padding: '12px 24px',
-                opacity: discoverLoading ? 0.5 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8
+                opacity: discoverLoading ? 0.5 : 1
               }}
             >
-              {discoverLoading ? (
-                <span style={{
-                  width: 16,
-                  height: 16,
-                  border: '2px solid rgba(255,255,255,0.2)',
-                  borderTopColor: 'var(--text-primary)',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite'
-                }} />
-              ) : '🎲'}
-              {discoverLoading ? 'Loading...' : 'Show Different Recipes'}
+              🎲 Show Different Recipes
             </button>
           </div>
         </main>
@@ -2276,24 +1977,8 @@ export default function App() {
                 Are you sure you want to delete "<strong style={{ color: 'var(--text-primary)' }}>{deleteModal.name}</strong>"? This cannot be undone.
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                <button style={styles.btn} onClick={() => setDeleteModal(null)} disabled={isDeleting}>Cancel</button>
-                <button 
-                  style={{ ...styles.btnPrimary, background: 'var(--accent-red)', display: 'flex', alignItems: 'center', gap: 8, opacity: isDeleting ? 0.7 : 1 }} 
-                  onClick={confirmDelete}
-                  disabled={isDeleting}
-                >
-                  {isDeleting && (
-                    <span style={{
-                      width: 16,
-                      height: 16,
-                      border: '2px solid rgba(0,0,0,0.2)',
-                      borderTopColor: '#fff',
-                      borderRadius: '50%',
-                      animation: 'spin 0.8s linear infinite'
-                    }} />
-                  )}
-                  {isDeleting ? 'Deleting...' : 'Delete'}
-                </button>
+                <button style={styles.btn} onClick={() => setDeleteModal(null)}>Cancel</button>
+                <button style={{ ...styles.btnPrimary, background: 'var(--accent-red)' }} onClick={confirmDelete}>Delete</button>
               </div>
             </div>
           </div>
@@ -2673,16 +2358,12 @@ export default function App() {
     
     // Handle share button click
     const handleShare = async () => {
-      if (isSharing) return;
       try {
-        setIsSharing(true);
         const result = await api.generateShareLink(editingId);
         const shareUrl = `${window.location.origin}/r/${result.shareId}`;
         setShareModal({ recipeId: editingId, shareUrl });
       } catch (error) {
         console.error('Failed to generate share link:', error);
-      } finally {
-        setIsSharing(false);
       }
     };
     
@@ -2728,21 +2409,10 @@ export default function App() {
             {!isPublicView && (
               <>
                 <button 
-                  style={{ ...styles.btn, color: 'var(--accent-orange)', borderColor: 'var(--accent-orange)', display: 'flex', alignItems: 'center', gap: 6, opacity: isSharing ? 0.7 : 1 }} 
+                  style={{ ...styles.btn, color: 'var(--accent-orange)', borderColor: 'var(--accent-orange)' }} 
                   onClick={handleShare}
-                  disabled={isSharing}
                 >
-                  {isSharing ? (
-                    <span style={{
-                      width: 14,
-                      height: 14,
-                      border: '2px solid rgba(255,165,0,0.2)',
-                      borderTopColor: 'var(--accent-orange)',
-                      borderRadius: '50%',
-                      animation: 'spin 0.8s linear infinite'
-                    }} />
-                  ) : <Icon type="share" />}
-                  {isSharing ? 'Sharing...' : 'Share'}
+                  <Icon type="share" /> Share
                 </button>
                 <button style={{ ...styles.btnPrimary, display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => {
                     window.history.pushState({ view: 'edit' }, '', window.location.pathname);
@@ -3067,64 +2737,26 @@ export default function App() {
       }}>
         <button 
           style={styles.btn} 
-          onClick={() => {
-            // Clear auto-save timeout
-            if (autoSaveTimeoutRef.current) {
-              clearTimeout(autoSaveTimeoutRef.current);
-            }
-            // If there are unsaved changes, save before leaving
-            if (autoSaveStatus === 'unsaved') {
-              saveRecipe(true).then(() => setCurrentView('view'));
-            } else {
-              setCurrentView('view');
-            }
-          }}
+          onClick={() => editingId ? setCurrentView('view') : (resetForm(), setCurrentView('dashboard'))}
         >
-          <Icon type="back" /> Done
+          <Icon type="back" /> {editingId ? 'Cancel' : 'Back'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {saveMessage && (
             <span style={{ 
               padding: '8px 16px', 
-              background: saveMessage.includes('Please') || saveMessage.includes('Error') ? 'rgba(239,68,68,0.2)' : 'rgba(74,222,128,0.2)', 
+              background: saveMessage.includes('Please') ? 'rgba(239,68,68,0.2)' : 'rgba(74,222,128,0.2)', 
               borderRadius: 8, 
               fontSize: 13, 
-              color: saveMessage.includes('Please') || saveMessage.includes('Error') ? 'var(--accent-red)' : 'var(--accent-green)', 
+              color: saveMessage.includes('Please') ? 'var(--accent-red)' : 'var(--accent-green)', 
               fontFamily: 'var(--font-sans)' 
             }}>
               {saveMessage}
             </span>
           )}
-          
-          {/* Auto-save status indicator */}
-          {!saveMessage && (
-            <span style={{ 
-              padding: '8px 16px', 
-              borderRadius: 8, 
-              fontSize: 13, 
-              fontFamily: 'var(--font-sans)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              color: autoSaveStatus === 'saving' ? 'var(--text-secondary)' : 
-                     autoSaveStatus === 'saved' ? 'var(--accent-green)' : 'var(--text-muted)',
-              background: autoSaveStatus === 'saving' ? 'rgba(255,255,255,0.05)' : 
-                          autoSaveStatus === 'saved' ? 'rgba(74,222,128,0.1)' : 'transparent'
-            }}>
-              {autoSaveStatus === 'saving' && (
-                <span style={{
-                  width: 12,
-                  height: 12,
-                  border: '2px solid rgba(255,255,255,0.2)',
-                  borderTopColor: 'var(--text-secondary)',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite'
-                }} />
-              )}
-              {autoSaveStatus === 'saving' ? 'Saving...' : 
-               autoSaveStatus === 'saved' ? '✓ Saved' : 'Unsaved changes'}
-            </span>
-          )}
+          <button style={styles.btnPrimary} onClick={saveRecipe}>
+            {editingId ? 'Save Changes' : 'Save Recipe'}
+          </button>
         </div>
       </header>
       
@@ -3389,7 +3021,7 @@ export default function App() {
           </h2>
         </div>
         
-        {ingredients.map((ing, i) => (
+        {ingredients.map(ing => (
           <div key={ing.id} style={{ ...styles.surface, marginBottom: 12 }}>
             {/* Ingredient name row */}
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
@@ -3741,54 +3373,6 @@ export default function App() {
             null
           }
         />
-      )}
-      
-      {/* Upload Progress Modal */}
-      {uploadProgress !== null && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.85)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000,
-          backdropFilter: 'blur(8px)'
-        }}>
-          <div style={{
-            background: 'var(--bg-secondary)',
-            borderRadius: 20,
-            padding: 32,
-            maxWidth: 360,
-            width: '90%',
-            textAlign: 'center',
-            border: '1px solid var(--border-color)'
-          }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>📤</div>
-            <h3 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 600 }}>
-              Uploading Image
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', margin: '0 0 24px', fontSize: 14 }}>
-              {uploadProgress}% complete
-            </p>
-            
-            {/* Progress bar */}
-            <div style={{
-              background: 'var(--bg-tertiary)',
-              borderRadius: 8,
-              height: 8,
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                background: 'var(--accent-green)',
-                height: '100%',
-                width: `${uploadProgress}%`,
-                borderRadius: 8,
-                transition: 'width 0.2s ease-out'
-              }} />
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

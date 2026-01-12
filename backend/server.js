@@ -244,7 +244,7 @@ async function saveCustomTags(tags) {
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '5mb' })); // Reduced from 50mb to prevent memory crashes
 app.use('/uploads', express.static(uploadsDir));
 
 // Validate user code
