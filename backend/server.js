@@ -837,6 +837,41 @@ app.get('/api/public/users/:userCode', async (req, res) => {
   }
 });
 
+// Admin endpoint: Get ALL recipes from all users
+app.get('/api/admin/recipes', async (req, res) => {
+  try {
+    const recipesResult = await pool.query(`
+      SELECT r.id, r.name, r.user_code, r.share_id, r.updated_at,
+             rv.banner_image, rv.description, rv.tags
+      FROM recipes r
+      LEFT JOIN LATERAL (
+        SELECT banner_image, description, tags 
+        FROM recipe_variations 
+        WHERE recipe_id = r.id 
+        ORDER BY sort_order 
+        LIMIT 1
+      ) rv ON true
+      ORDER BY r.updated_at DESC
+    `);
+    
+    const recipes = recipesResult.rows.map(recipe => ({
+      id: recipe.id,
+      name: recipe.name,
+      user_code: recipe.user_code,
+      shareId: recipe.share_id,
+      bannerImage: recipe.banner_image,
+      description: recipe.description || '',
+      tags: recipe.tags ? JSON.parse(recipe.tags) : [],
+      updated: timeAgo(recipe.updated_at)
+    }));
+    
+    res.json(recipes);
+  } catch (error) {
+    console.error('Error fetching admin recipes:', error);
+    res.status(500).json({ error: 'Failed to fetch recipes' });
+  }
+});
+
 // Get random recipes from all users (PUBLIC - for homepage discovery)
 app.get('/api/public/discover', async (req, res) => {
   try {
