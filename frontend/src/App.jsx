@@ -1002,6 +1002,7 @@ export default function App() {
 
   const saveRecipe = async (isAutoSave = false) => {
     if (isSaving) return; // Prevent double-save
+    if (!editingId) return; // Must have a recipe ID
     
     if (!recipeName.trim()) { 
       if (!isAutoSave) {
@@ -1013,7 +1014,6 @@ export default function App() {
     
     setIsSaving(true);
     setAutoSaveStatus('saving');
-    if (!isAutoSave) setSaveMessage('Uploading images...');
     
     // Update current variation with form data before saving
     const updatedVariations = [...variations];
@@ -1042,9 +1042,7 @@ export default function App() {
     }];
     
     try {
-      // Process all images (upload base64 -> get URLs) before saving
-      variationsToSave = await Promise.all(variationsToSave.map(processVariationImages));
-      setSaveMessage('Saving...');
+      // Skip image processing for now - just save text data directly
       
       const data = { 
         name: recipeName.trim(),
@@ -1053,44 +1051,16 @@ export default function App() {
       
       let recipeId = editingId;
       
-      if (editingId) {
-        await api.updateRecipe(editingId, data);
-        // Update local state instead of reloading all recipes
-        setRecipes(prev => prev.map(r => 
-          r.id === editingId 
-            ? { ...r, name: recipeName.trim(), variations: variationsToSave, updated: 'just now' }
-            : r
-        ));
-      } else {
-        const result = await api.createRecipe({
-          name: recipeName.trim(),
-          description: description.trim(),
-          servings: parseInt(servings) || 4,
-          tags,
-          bannerImage,
-          ingredients: filteredIngredients,
-          stages: filteredStages
-        }, userCode);
-        recipeId = result.id;
-        setEditingId(result.id);
-        // Add new recipe to local state
-        setRecipes(prev => [{
-          id: result.id,
-          name: recipeName.trim(),
-          variations: variationsToSave,
-          updated: 'just now'
-        }, ...prev]);
-      }
+      // Save directly to database
+      await api.updateRecipe(editingId, data);
       
-      // Update variations state with processed URLs (so next save is fast)
+      // Update local state
+      setRecipes(prev => prev.map(r => 
+        r.id === editingId 
+          ? { ...r, name: recipeName.trim(), variations: variationsToSave, updated: 'just now' }
+          : r
+      ));
       setVariations(variationsToSave);
-      // Also update current form state with processed URLs
-      const currentVar = variationsToSave[currentVariationIndex];
-      if (currentVar) {
-        setBannerImage(currentVar.bannerImage);
-        setIngredients(currentVar.ingredients);
-        setStages(currentVar.stages);
-      }
       
       // Reload custom tags in background (fire and forget - small payload)
       loadCustomTags();
@@ -1154,10 +1124,10 @@ export default function App() {
       clearTimeout(autoSaveTimeoutRef.current);
     }
     
-    // Set new debounced save (2 seconds after last change)
+    // Set new debounced save (300ms after last change - nearly instant)
     autoSaveTimeoutRef.current = setTimeout(() => {
       saveRecipe(true); // Auto-save
-    }, 2000);
+    }, 300);
     
     return () => {
       if (autoSaveTimeoutRef.current) {
