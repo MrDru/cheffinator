@@ -88,3 +88,20 @@ a {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+/* Hebrew/RTL Support - Auto text direction */
+input, textarea {
+  unicode-bidi: plaintext;
+}
+
+/* Auto direction for recipe content */
+.recipe-name,
+.recipe-description,
+.ingredient-name,
+.step-text {
+  unicode-bidi: plaintext;
+}
+
+/* Ensure proper RTL rendering */
+[dir="auto"] {
+  unicode-bidi: plaintext;
+}
