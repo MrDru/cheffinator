@@ -29,6 +29,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# Admin tools (local only, contains credentials)
+tools/
+backend/admin.js
+
 
 
 
