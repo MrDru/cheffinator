@@ -309,7 +309,17 @@ export default function App() {
   });
   
   // User authentication state
-  const [userCode, setUserCode] = useState(() => api.getUserCode());
+  // In local dev, auto-login as 'designer' if no existing user code
+  const [userCode, setUserCode] = useState(() => {
+    const existingCode = api.getUserCode();
+    if (existingCode) return existingCode;
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isDev) {
+      api.setUserCode('designer');
+      return 'designer';
+    }
+    return null;
+  });
   const [loginInput, setLoginInput] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
@@ -489,6 +499,55 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [userCode]);
 
+  // Mock discover recipes for local development
+  const MOCK_DISCOVER_RECIPES = [
+    {
+      id: 'mock-d1',
+      name: 'Classic Shakshuka',
+      description: 'A delicious Middle Eastern dish of poached eggs in spiced tomato sauce',
+      tags: ['Israeli', 'Breakfast', 'Vegetarian'],
+      bannerImage: null,
+      chefName: 'Chef Demo',
+      shareId: 'mock1'
+    },
+    {
+      id: 'mock-d2', 
+      name: 'Creamy Pasta Primavera',
+      description: 'Fresh vegetables in a light cream sauce over pasta',
+      tags: ['Italian', 'Pasta', 'Vegetarian'],
+      bannerImage: null,
+      chefName: 'Chef Demo',
+      shareId: 'mock2'
+    },
+    {
+      id: 'mock-d3',
+      name: 'Teriyaki Salmon Bowl',
+      description: 'Glazed salmon over rice with fresh vegetables',
+      tags: ['Asian', 'Fish', 'Healthy'],
+      bannerImage: null,
+      chefName: 'Chef Demo',
+      shareId: 'mock3'
+    },
+    {
+      id: 'mock-d4',
+      name: 'Classic Hummus',
+      description: 'Smooth and creamy chickpea dip with tahini',
+      tags: ['Israeli', 'Vegan', 'Quick'],
+      bannerImage: null,
+      chefName: 'Chef Demo',
+      shareId: 'mock4'
+    },
+    {
+      id: 'mock-d5',
+      name: 'Chocolate Lava Cake',
+      description: 'Decadent chocolate cake with a molten center',
+      tags: ['Dessert', 'Baking'],
+      bannerImage: null,
+      chefName: 'Chef Demo',
+      shareId: 'mock5'
+    }
+  ];
+
   // Load discover recipes for homepage
   const loadDiscoverRecipes = async () => {
     try {
@@ -497,6 +556,8 @@ export default function App() {
       setDiscoverRecipes(data.recipes);
     } catch (error) {
       console.error('Failed to load discover recipes:', error);
+      // Use mock data for local development when backend is unavailable
+      setDiscoverRecipes(MOCK_DISCOVER_RECIPES);
     } finally {
       setDiscoverLoading(false);
     }
@@ -644,12 +705,23 @@ export default function App() {
     setLoginLoading(true);
     setLoginError('');
     
+    // In local dev, allow any name without server validation
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
     try {
-      // Validate code with server
-      const result = await api.validateCode(code.trim());
-      api.setUserCode(result.code);
-      setUserCode(result.code);
-      setLoginInput('');
+      if (isDev) {
+        // Skip server validation in local dev
+        const normalizedCode = code.trim().toLowerCase().replace(/\s+/g, '');
+        api.setUserCode(normalizedCode);
+        setUserCode(normalizedCode);
+        setLoginInput('');
+      } else {
+        // Validate code with server in production
+        const result = await api.validateCode(code.trim());
+        api.setUserCode(result.code);
+        setUserCode(result.code);
+        setLoginInput('');
+      }
     } catch (error) {
       setLoginError(error.message || 'Invalid access code');
     } finally {
@@ -1803,27 +1875,137 @@ export default function App() {
           <div style={{ width: 'clamp(40px, 10vw, 100px)' }} />
           
           <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>
-            Discover
+            Cheffinator
           </h1>
           
-          <button
-            onClick={() => setCurrentView('dashboard')}
-            style={{ 
-              ...styles.btn, 
-              padding: 'clamp(6px, 1.5vw, 8px) clamp(10px, 2vw, 16px)',
-              background: 'linear-gradient(135deg, var(--accent-green-dark), var(--accent-green))',
-              color: 'var(--bg-primary)',
-              fontWeight: 600,
-              border: 'none'
-            }}
-          >
-            My Recipes
-          </button>
+          {/* User indicator */}
+          <div style={{ 
+            position: 'relative', 
+            display: 'flex', 
+            alignItems: 'stretch',
+            background: 'transparent',
+            borderRadius: 10,
+            border: '1px solid var(--border-color)'
+          }}>
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              style={{ 
+                background: 'transparent',
+                border: 'none',
+                padding: 'clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 12px)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'clamp(4px, 1vw, 8px)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)'
+              }}
+            >
+              <span style={{ 
+                width: 'clamp(24px, 5vw, 28px)', 
+                height: 'clamp(24px, 5vw, 28px)', 
+                borderRadius: '50%', 
+                background: 'linear-gradient(135deg, var(--accent-green-dark), var(--accent-green))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--bg-primary)',
+                fontSize: 'clamp(10px, 2vw, 12px)',
+                fontWeight: 700,
+                flexShrink: 0
+              }}>
+                {userCode?.charAt(0).toUpperCase()}
+              </span>
+              <span className="hide-on-mobile" style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{userCode}</span>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowUserMenu(!showUserMenu); }}
+              style={{ 
+                background: 'transparent',
+                border: 'none',
+                borderLeft: '1px solid var(--border-color)',
+                padding: '0 clamp(8px, 1.5vw, 12px)',
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <span style={{ fontSize: 8, color: 'var(--text-muted)' }}>▼</span>
+            </button>
+            
+            {showUserMenu && (
+              <div 
+                style={{ 
+                  position: 'absolute', 
+                  top: '100%', 
+                  right: 0, 
+                  marginTop: 8,
+                  background: 'var(--bg-secondary)', 
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: 12, 
+                  padding: 6,
+                  minWidth: 160,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                  zIndex: 100
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div style={{ 
+                  padding: '10px 14px', 
+                  borderBottom: '1px solid var(--border-color)',
+                  marginBottom: 6
+                }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Logged in as</div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{userCode}</div>
+                </div>
+                <button
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 8,
+                    color: 'var(--text-secondary)',
+                    fontSize: 14,
+                    fontFamily: 'var(--font-sans)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8
+                  }}
+                  onClick={() => { setCurrentView('dashboard'); setShowUserMenu(false); }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  📖 My Recipes
+                </button>
+                <button
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 8,
+                    color: 'var(--accent-red)',
+                    fontSize: 14,
+                    fontFamily: 'var(--font-sans)',
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onClick={handleLogout}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  Log out
+                </button>
+              </div>
+            )}
+          </div>
         </header>
         
         <main style={styles.main}>
           <p style={{ color: 'var(--text-muted)', marginBottom: 24, textAlign: 'center' }}>
-            Random recipes from the community
+            Random recipes
           </p>
           
           {discoverLoading ? (
@@ -1941,15 +2123,25 @@ export default function App() {
           <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>My Recipes</h1>
           
           {/* User indicator */}
-          <div style={{ position: 'relative' }}>
+          <div style={{ 
+            position: 'relative', 
+            display: 'flex', 
+            alignItems: 'stretch',
+            background: 'transparent',
+            borderRadius: 10,
+            border: '1px solid var(--border-color)'
+          }}>
             <button
-              onClick={(e) => { e.stopPropagation(); setShowUserMenu(!showUserMenu); }}
+              onClick={() => setCurrentView('home')}
               style={{ 
-                ...styles.btn, 
-                padding: 'clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 14px)',
+                background: 'transparent',
+                border: 'none',
+                padding: 'clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 12px)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 'clamp(4px, 1vw, 8px)'
+                gap: 'clamp(4px, 1vw, 8px)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)'
               }}
             >
               <span style={{ 
@@ -1968,6 +2160,20 @@ export default function App() {
                 {userCode.charAt(0).toUpperCase()}
               </span>
               <span className="hide-on-mobile" style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{userCode}</span>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowUserMenu(!showUserMenu); }}
+              style={{ 
+                background: 'transparent',
+                border: 'none',
+                borderLeft: '1px solid var(--border-color)',
+                padding: '0 clamp(8px, 1.5vw, 12px)',
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <span style={{ fontSize: 8, color: 'var(--text-muted)' }}>▼</span>
             </button>
             
             {showUserMenu && (
