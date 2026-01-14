@@ -970,7 +970,7 @@ export default function App() {
         return await api.uploadBase64Image(imageData);
       } catch (err) {
         console.error('Failed to upload image:', err);
-        return imageData; // Keep base64 as fallback
+        return null; // Don't keep base64 - it causes memory crashes
       }
     }
     return imageData; // Already a URL, keep it
@@ -1216,11 +1216,11 @@ export default function App() {
       } catch (error) {
         console.error('Failed to upload image:', error);
         setUploadProgress(null);
-        // Keep base64 as fallback
+        imageData = null; // Don't keep base64 - it causes memory crashes
       }
     }
     
-    // Set the image data (URL or base64 fallback)
+    // Set the image data (URL only, null if upload failed)
     if (target.type === 'banner') {
       setBannerImage(imageData);
     } else if (target.type === 'ingredient') {
@@ -1337,10 +1337,8 @@ export default function App() {
     } catch (error) {
       console.error('Failed to upload image:', error);
       setUploadProgress(null);
-      // Fallback to base64 if upload fails
-      const reader = new FileReader();
-      reader.onload = (ev) => callback(ev.target.result);
-      reader.readAsDataURL(file);
+      // Don't fallback to base64 - it causes memory crashes
+      callback(null);
     }
   };
 
