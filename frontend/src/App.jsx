@@ -2,6 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import * as api from './api';
 import ImageCapture from './ImageCapture';
 
+// App version - update this single place when releasing new versions
+const APP_VERSION = 'v0.0.20';
+const APP_DATE = 'Jan 14, 2026';
+
 const UNITS = ['g', 'kg', 'ml', 'L', 'cup', 'tbsp', 'tsp', 'piece', 'pinch', 'to taste'];
 const DEFAULT_TAGS = [
   'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Quick', 'Easy', 
@@ -1429,8 +1433,8 @@ export default function App() {
       zIndex: 1000,
       fontFamily: 'var(--font-sans)'
     }}>
-      <div>v0.0.19</div>
-      <div>Jan 12, 2026</div>
+      <div>{APP_VERSION}</div>
+      <div>{APP_DATE}</div>
     </div>
   );
 
@@ -1526,7 +1530,7 @@ export default function App() {
           color: 'rgba(255,255,255,0.4)',
           fontFamily: 'var(--font-sans)'
         }}>
-          v0.0.8
+          {APP_VERSION}
         </div>
         
         {/* Sprite animation keyframes - 25 frames at 12fps = 2.083s */}
