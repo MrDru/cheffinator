@@ -1548,8 +1548,19 @@ export default function App() {
     if (deleteModal && !isDeleting) {
       try {
         setIsDeleting(true);
-        await api.deleteRecipe(deleteModal.id);
-        await loadRecipes();
+        
+        const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isMockRecipe = deleteModal.id && deleteModal.id.toString().startsWith('mock-');
+        
+        if (isDev && isMockRecipe) {
+          // For mock recipes in dev mode, just remove from local state
+          setRecipes(prev => prev.filter(r => r.id !== deleteModal.id));
+        } else {
+          // For real recipes, call the API
+          await api.deleteRecipe(deleteModal.id);
+          await loadRecipes();
+        }
+        
         setDeleteModal(null);
       } catch (error) {
         console.error('Failed to delete recipe:', error);
