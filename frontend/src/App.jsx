@@ -1550,13 +1550,16 @@ export default function App() {
         setIsDeleting(true);
         
         const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const isMockRecipe = deleteModal.id && deleteModal.id.toString().startsWith('mock-');
+        const isMockRecipe = deleteModal.isMock || (deleteModal.id && deleteModal.id.toString().startsWith('mock-'));
         
         if (isDev && isMockRecipe) {
           // For mock recipes in dev mode, just remove from local state
           setRecipes(prev => prev.filter(r => r.id !== deleteModal.id));
+        } else if (isDev) {
+          // In dev mode, just remove from local state (API might not be available)
+          setRecipes(prev => prev.filter(r => r.id !== deleteModal.id));
         } else {
-          // For real recipes, call the API
+          // For real recipes in production, call the API
           await api.deleteRecipe(deleteModal.id);
           await loadRecipes();
         }
@@ -2655,20 +2658,17 @@ export default function App() {
                           color: 'var(--accent-red)',
                           fontSize: 14,
                           fontFamily: 'var(--font-sans)',
-                          cursor: r.isMock ? 'not-allowed' : 'pointer',
-                          opacity: r.isMock ? 0.4 : 1,
+                          cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           gap: 10,
                           textAlign: 'left'
                         }}
                         onClick={() => { 
-                          if (!r.isMock) {
-                            handleDelete(r); 
-                            setOpenMenuId(null);
-                          }
+                          handleDelete(r); 
+                          setOpenMenuId(null);
                         }}
-                        onMouseEnter={e => !r.isMock && (e.currentTarget.style.background = 'rgba(239,68,68,0.1)')}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
                         <Icon type="trash" /> Delete
