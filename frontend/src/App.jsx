@@ -325,13 +325,14 @@ export default function App() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   
+  // Default view is 'home' (discover page)
   const [currentView, setCurrentView] = useState('home');
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Discover/homepage state
   const [discoverRecipes, setDiscoverRecipes] = useState([]);
-  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverLoading, setDiscoverLoading] = useState(true); // Start with loading true
   
   // Public/shared recipe state
   const [isPublicView, setIsPublicView] = useState(false);
@@ -499,7 +500,7 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [userCode]);
 
-  // Mock discover recipes for local development
+  // Mock discover recipes for local development (full recipe data for viewing)
   const MOCK_DISCOVER_RECIPES = [
     {
       id: 'mock-d1',
@@ -507,8 +508,30 @@ export default function App() {
       description: 'A delicious Middle Eastern dish of poached eggs in spiced tomato sauce',
       tags: ['Israeli', 'Breakfast', 'Vegetarian'],
       bannerImage: null,
-      chefName: 'Chef Demo',
-      shareId: 'mock1'
+      userCode: 'chefdemo',
+      shareId: 'mock1',
+      servings: 4,
+      variations: [{
+        id: 'mock-d1-v1',
+        name: 'Original',
+        description: 'A delicious Middle Eastern dish of poached eggs in spiced tomato sauce',
+        servings: 4,
+        tags: ['Israeli', 'Breakfast', 'Vegetarian'],
+        bannerImage: null,
+        ingredients: [
+          { id: 1, name: 'Crushed tomatoes', amount: '400', unit: 'g' },
+          { id: 2, name: 'Eggs', amount: '4', unit: 'piece' },
+          { id: 3, name: 'Onion', amount: '1', unit: 'piece' },
+          { id: 4, name: 'Cumin', amount: '1', unit: 'tsp' },
+          { id: 5, name: 'Paprika', amount: '1', unit: 'tsp' }
+        ],
+        stages: [
+          { id: 1, text: 'Sauté diced onion in olive oil until golden' },
+          { id: 2, text: 'Add crushed tomatoes, cumin, and paprika. Simmer for 10 minutes' },
+          { id: 3, text: 'Make small wells and crack eggs into them' },
+          { id: 4, text: 'Cover and cook until eggs are set, about 5-7 minutes' }
+        ]
+      }]
     },
     {
       id: 'mock-d2', 
@@ -516,8 +539,30 @@ export default function App() {
       description: 'Fresh vegetables in a light cream sauce over pasta',
       tags: ['Italian', 'Pasta', 'Vegetarian'],
       bannerImage: null,
-      chefName: 'Chef Demo',
-      shareId: 'mock2'
+      userCode: 'italianmama',
+      shareId: 'mock2',
+      servings: 6,
+      variations: [{
+        id: 'mock-d2-v1',
+        name: 'Original',
+        description: 'Fresh vegetables in a light cream sauce over pasta',
+        servings: 6,
+        tags: ['Italian', 'Pasta', 'Vegetarian'],
+        bannerImage: null,
+        ingredients: [
+          { id: 1, name: 'Penne pasta', amount: '500', unit: 'g' },
+          { id: 2, name: 'Heavy cream', amount: '250', unit: 'ml' },
+          { id: 3, name: 'Mixed vegetables', amount: '300', unit: 'g' },
+          { id: 4, name: 'Parmesan', amount: '100', unit: 'g' },
+          { id: 5, name: 'Garlic', amount: '3', unit: 'piece' }
+        ],
+        stages: [
+          { id: 1, text: 'Cook pasta according to package directions, reserve 1 cup pasta water' },
+          { id: 2, text: 'Sauté garlic and vegetables until tender-crisp' },
+          { id: 3, text: 'Add cream and parmesan, simmer until thickened' },
+          { id: 4, text: 'Toss with pasta, adding pasta water to reach desired consistency' }
+        ]
+      }]
     },
     {
       id: 'mock-d3',
@@ -525,8 +570,30 @@ export default function App() {
       description: 'Glazed salmon over rice with fresh vegetables',
       tags: ['Asian', 'Fish', 'Healthy'],
       bannerImage: null,
-      chefName: 'Chef Demo',
-      shareId: 'mock3'
+      userCode: 'sushimaster',
+      shareId: 'mock3',
+      servings: 2,
+      variations: [{
+        id: 'mock-d3-v1',
+        name: 'Original',
+        description: 'Glazed salmon over rice with fresh vegetables',
+        servings: 2,
+        tags: ['Asian', 'Fish', 'Healthy'],
+        bannerImage: null,
+        ingredients: [
+          { id: 1, name: 'Salmon fillet', amount: '300', unit: 'g' },
+          { id: 2, name: 'Sushi rice', amount: '200', unit: 'g' },
+          { id: 3, name: 'Soy sauce', amount: '3', unit: 'tbsp' },
+          { id: 4, name: 'Honey', amount: '2', unit: 'tbsp' },
+          { id: 5, name: 'Edamame', amount: '100', unit: 'g' }
+        ],
+        stages: [
+          { id: 1, text: 'Cook sushi rice according to package directions' },
+          { id: 2, text: 'Mix soy sauce and honey for teriyaki glaze' },
+          { id: 3, text: 'Pan-sear salmon, brushing with glaze' },
+          { id: 4, text: 'Serve over rice with edamame and pickled ginger' }
+        ]
+      }]
     },
     {
       id: 'mock-d4',
@@ -534,8 +601,30 @@ export default function App() {
       description: 'Smooth and creamy chickpea dip with tahini',
       tags: ['Israeli', 'Vegan', 'Quick'],
       bannerImage: null,
-      chefName: 'Chef Demo',
-      shareId: 'mock4'
+      userCode: 'mezzeking',
+      shareId: 'mock4',
+      servings: 8,
+      variations: [{
+        id: 'mock-d4-v1',
+        name: 'Original',
+        description: 'Smooth and creamy chickpea dip with tahini',
+        servings: 8,
+        tags: ['Israeli', 'Vegan', 'Quick'],
+        bannerImage: null,
+        ingredients: [
+          { id: 1, name: 'Chickpeas', amount: '400', unit: 'g' },
+          { id: 2, name: 'Tahini', amount: '60', unit: 'g' },
+          { id: 3, name: 'Lemon juice', amount: '3', unit: 'tbsp' },
+          { id: 4, name: 'Garlic', amount: '2', unit: 'piece' },
+          { id: 5, name: 'Olive oil', amount: '3', unit: 'tbsp' }
+        ],
+        stages: [
+          { id: 1, text: 'Drain chickpeas, reserving liquid (aquafaba)' },
+          { id: 2, text: 'Blend tahini with lemon juice and garlic until smooth' },
+          { id: 3, text: 'Add chickpeas and blend, adding aquafaba for desired consistency' },
+          { id: 4, text: 'Serve drizzled with olive oil and paprika' }
+        ]
+      }]
     },
     {
       id: 'mock-d5',
@@ -543,8 +632,30 @@ export default function App() {
       description: 'Decadent chocolate cake with a molten center',
       tags: ['Dessert', 'Baking'],
       bannerImage: null,
-      chefName: 'Chef Demo',
-      shareId: 'mock5'
+      userCode: 'sweetooth',
+      shareId: 'mock5',
+      servings: 4,
+      variations: [{
+        id: 'mock-d5-v1',
+        name: 'Original',
+        description: 'Decadent chocolate cake with a molten center',
+        servings: 4,
+        tags: ['Dessert', 'Baking'],
+        bannerImage: null,
+        ingredients: [
+          { id: 1, name: 'Dark chocolate', amount: '200', unit: 'g' },
+          { id: 2, name: 'Butter', amount: '100', unit: 'g' },
+          { id: 3, name: 'Eggs', amount: '4', unit: 'piece' },
+          { id: 4, name: 'Sugar', amount: '100', unit: 'g' },
+          { id: 5, name: 'Flour', amount: '50', unit: 'g' }
+        ],
+        stages: [
+          { id: 1, text: 'Melt chocolate and butter together, let cool slightly' },
+          { id: 2, text: 'Whisk eggs and sugar until pale and fluffy' },
+          { id: 3, text: 'Fold in chocolate mixture and flour' },
+          { id: 4, text: 'Bake at 200°C for 12 minutes - center should be jiggly' }
+        ]
+      }]
     }
   ];
 
@@ -2017,19 +2128,39 @@ export default function App() {
               <p style={{ fontSize: 14, marginTop: 8 }}>Be the first to share!</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {discoverRecipes.map(recipe => (
-                <div 
+                <li 
                   key={recipe.id}
                   style={{ 
-                    ...styles.card, 
-                    cursor: 'pointer'
+                    marginBottom: 12,
+                    padding: '18px 20px',
+                    background: 'var(--bg-secondary)', 
+                    borderRadius: 12, 
+                    border: '1px solid var(--border-color)', 
+                    cursor: 'pointer',
+                    display: 'flex',
+                    gap: 16,
+                    alignItems: 'center',
+                    transition: 'border-color 0.2s'
                   }}
                   onClick={() => {
-                    // Load the shared recipe without page reload
-                    if (recipe.shareId) {
-                      loadSharedRecipe(recipe.shareId);
+                    // For mock recipes, open directly
+                    setPublicRecipe(recipe);
+                    setIsPublicView(true);
+                    if (recipe.variations && recipe.variations.length > 0) {
+                      const firstVar = recipe.variations[0];
+                      setRecipeName(recipe.name);
+                      setVariations(recipe.variations);
+                      setCurrentVariationIndex(0);
+                      setDescription(firstVar.description || '');
+                      setServings(String(firstVar.servings || 4));
+                      setTags(firstVar.tags || []);
+                      setBannerImage(firstVar.bannerImage || null);
+                      setIngredients(firstVar.ingredients || [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+                      setStages(firstVar.stages || [{ id: 1, text: '', image: null }]);
                     }
+                    setCurrentView('view');
                   }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-green)'}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
@@ -2056,7 +2187,14 @@ export default function App() {
                     {recipe.tags && recipe.tags.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                         {recipe.tags.slice(0, 3).map(tag => (
-                          <span key={tag} style={{ ...styles.tag, fontSize: 11, padding: '2px 8px' }}>{tag}</span>
+                          <span key={tag} style={{ 
+                            display: 'inline-block', 
+                            padding: '2px 8px', 
+                            background: 'rgba(74,222,128,0.15)', 
+                            borderRadius: 20, 
+                            fontSize: 11, 
+                            color: 'var(--accent-green)' 
+                          }}>{tag}</span>
                         ))}
                         {recipe.tags.length > 3 && (
                           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{recipe.tags.length - 3}</span>
@@ -2064,9 +2202,9 @@ export default function App() {
                       </div>
                     )}
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
           
           {/* Refresh button */}
