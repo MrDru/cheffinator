@@ -1020,6 +1020,69 @@ export default function App() {
   const openNew = async () => { 
     resetForm();
     
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    // In dev mode, create a mock recipe locally without API
+    if (isDev) {
+      const mockId = `mock-new-${Date.now()}`;
+      setEditingId(mockId);
+      setRecipeName('Untitled Recipe');
+      setVariations([{
+        id: null,
+        name: 'Original',
+        description: '',
+        servings: 4,
+        tags: [],
+        bannerImage: null,
+        ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
+        stages: [{ id: 1, text: '', image: null }]
+      }]);
+      setCurrentVariationIndex(0);
+      setDescription('');
+      setServings('4');
+      setTags([]);
+      setBannerImage(null);
+      setIngredients([{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+      setStages([{ id: 1, text: '', image: null }]);
+      
+      // Initialize lastSavedDataRef for auto-save
+      lastSavedDataRef.current = JSON.stringify({
+        name: 'Untitled Recipe',
+        variations: [{
+          name: 'Original',
+          description: '',
+          servings: 4,
+          tags: [],
+          bannerImage: null,
+          ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
+          stages: [{ id: 1, text: '', image: null }]
+        }]
+      });
+      setAutoSaveStatus('saved');
+      
+      // Add to local state
+      setRecipes(prev => [{
+        id: mockId,
+        name: 'Untitled Recipe',
+        variations: [{
+          id: `${mockId}-v1`,
+          name: 'Original',
+          description: '',
+          servings: 4,
+          tags: [],
+          bannerImage: null,
+          ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
+          stages: [{ id: 1, text: '', image: null }]
+        }],
+        updated: 'just now',
+        isMock: true
+      }, ...prev]);
+      
+      window.history.pushState({ view: 'edit' }, '', window.location.pathname);
+      setCurrentView('edit');
+      return;
+    }
+    
     // Create a blank recipe immediately so auto-save works
     try {
       const result = await api.createRecipe({
@@ -1239,8 +1302,14 @@ export default function App() {
       
       let recipeId = editingId;
       
-      // Save directly to database
-      await api.updateRecipe(editingId, data);
+      // In dev mode with mock recipes, skip API call
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const isMockRecipe = editingId && editingId.toString().startsWith('mock-');
+      
+      if (!isDev || !isMockRecipe) {
+        // Save directly to database
+        await api.updateRecipe(editingId, data);
+      }
       
       // Update local state
       setRecipes(prev => prev.map(r => 
@@ -1251,7 +1320,9 @@ export default function App() {
       setVariations(variationsToSave);
       
       // Reload custom tags in background (fire and forget - small payload)
-      loadCustomTags();
+      if (!isDev || !isMockRecipe) {
+        loadCustomTags();
+      }
       
       // Store last saved data for change detection
       lastSavedDataRef.current = JSON.stringify({
@@ -2427,13 +2498,16 @@ export default function App() {
             <CheffinatorLoader text="Loading your recipes..." />
           ) : (
             <>
-              <div 
+              <button 
                 style={{ 
                   ...styles.card, 
                   borderStyle: 'dashed',
                   borderColor: 'var(--accent-green)',
                   background: 'transparent',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  width: '100%',
+                  textAlign: 'left',
+                  fontFamily: 'inherit'
                 }} 
                 onClick={openNew}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
@@ -2462,7 +2536,7 @@ export default function App() {
                     Create a new recipe
                   </div>
                 </div>
-              </div>
+              </button>
               {filteredRecipes.length === 0 && recipes.length > 0 ? (
                 <div style={{ ...styles.surface, textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
                   No recipes match your search.
