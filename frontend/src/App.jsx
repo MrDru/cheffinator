@@ -2567,7 +2567,7 @@ export default function App() {
                             borderRadius: 20, 
                             fontSize: 11, 
                             color: 'var(--accent-green)' 
-                          }}>{tag}</span>
+                          }}>{tTag(tag)}</span>
                         ))}
                         {recipe.tags.length > 3 && (
                           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{recipe.tags.length - 3}</span>
