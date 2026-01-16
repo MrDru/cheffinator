@@ -1293,41 +1293,50 @@ export default function App() {
     }];
     
     try {
-      // Skip image processing for now - just save text data directly
-      
-      const data = { 
-        name: recipeName.trim(),
-        variations: variationsToSave
-      };
-      
-      let recipeId = editingId;
-      
       // In dev mode with mock recipes, skip API call
       const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const isMockRecipe = editingId && editingId.toString().startsWith('mock-');
       
+      let processedVariations = variationsToSave;
+      
+      // Only process images when saving to real API (not mock)
       if (!isDev || !isMockRecipe) {
-        // Save directly to database
+        // Upload any base64 images and replace with URLs before saving
+        // This prevents huge payloads that cause memory crashes
+        processedVariations = await Promise.all(
+          variationsToSave.map(v => processVariationImages(v))
+        );
+      }
+      
+      const data = { 
+        name: recipeName.trim(),
+        variations: processedVariations
+      };
+      
+      let recipeId = editingId;
+      
+      if (!isDev || !isMockRecipe) {
+        // Save to database with processed (URL-only) images
         await api.updateRecipe(editingId, data);
       }
       
-      // Update local state
+      // Update local state with processed variations (URLs instead of base64)
       setRecipes(prev => prev.map(r => 
         r.id === editingId 
-          ? { ...r, name: recipeName.trim(), variations: variationsToSave, updated: 'just now' }
+          ? { ...r, name: recipeName.trim(), variations: processedVariations, updated: 'just now' }
           : r
       ));
-      setVariations(variationsToSave);
+      setVariations(processedVariations);
       
       // Reload custom tags in background (fire and forget - small payload)
       if (!isDev || !isMockRecipe) {
         loadCustomTags();
       }
       
-      // Store last saved data for change detection
+      // Store last saved data for change detection (with processed URLs)
       lastSavedDataRef.current = JSON.stringify({
         name: recipeName.trim(),
-        variations: variationsToSave
+        variations: processedVariations
       });
       
       setIsSaving(false);
