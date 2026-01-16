@@ -282,8 +282,14 @@ const SPLASH_TAGLINES = [
 ];
 
 export default function App() {
-  // Splash screen state
-  const [showSplash, setShowSplash] = useState(true);
+  // Splash screen state - only show once per session
+  const [showSplash, setShowSplash] = useState(() => {
+    // Check if splash was already shown this session
+    if (sessionStorage.getItem('cheffinator_splash_shown')) {
+      return false;
+    }
+    return true;
+  });
   const [splashFading, setSplashFading] = useState(false);
   const [appFadingIn, setAppFadingIn] = useState(false);
   const [loadingPercent, setLoadingPercent] = useState(0);
@@ -383,13 +389,18 @@ export default function App() {
   const suggestions = tagInput ? allAvailableTags.filter(t => t.toLowerCase().startsWith(tagInput.toLowerCase()) && !tags.includes(t)) : [];
 
   // Splash screen timer - show for 4 seconds (2 animation loops), then cross-fade
+  // Only runs if splash is being shown (not skipped via sessionStorage)
   useEffect(() => {
+    if (!showSplash) return; // Skip if splash already hidden
+    
     const fadeTimer = setTimeout(() => {
       setSplashFading(true);
       setAppFadingIn(true);
     }, 4000);
     const hideTimer = setTimeout(() => {
       setShowSplash(false);
+      // Mark splash as shown for this session
+      sessionStorage.setItem('cheffinator_splash_shown', 'true');
     }, 5000); // 4s display + 1s fade
     return () => {
       clearTimeout(fadeTimer);
