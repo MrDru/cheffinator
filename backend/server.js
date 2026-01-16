@@ -38,8 +38,8 @@ const DEFAULT_TAGS = [
   'Baking', 'Holiday', 'Shabbat', 'Passover'
 ];
 
-// Approved user codes for alpha testing (case-insensitive)
-const VALID_CODES = [
+// Default user codes for initial seeding (used only if users table is empty)
+const DEFAULT_USERS = [
   'cheffinator',
   'mrdru3000',
   'dante',
@@ -131,6 +131,15 @@ async function initDatabase() {
       )
     `);
     
+    // Users table for managing access codes
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        code TEXT UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
     // Migration: Add variation_id column if it doesn't exist
     const colCheck = await client.query(`
       SELECT column_name FROM information_schema.columns 
@@ -205,6 +214,19 @@ async function initDatabase() {
       console.log('Migration complete: share support added');
     }
     
+    // Seed users table with default users if empty
+    const usersCount = await client.query('SELECT COUNT(*) FROM users');
+    if (parseInt(usersCount.rows[0].count) === 0) {
+      console.log('Seeding users table with default users...');
+      for (const code of DEFAULT_USERS) {
+        await client.query(
+          'INSERT INTO users (code) VALUES ($1) ON CONFLICT (code) DO NOTHING',
+          [code.toLowerCase()]
+        );
+      }
+      console.log('Users table seeded with', DEFAULT_USERS.length, 'users');
+    }
+    
     console.log('Database tables initialized');
   } finally {
     client.release();
@@ -247,20 +269,28 @@ app.use(cors());
 app.use(express.json({ limit: '5mb' })); // Reduced from 50mb to prevent memory crashes
 app.use('/uploads', express.static(uploadsDir));
 
-// Validate user code
-app.post('/api/auth/validate', (req, res) => {
+// Validate user code (checks database)
+app.post('/api/auth/validate', async (req, res) => {
   const { code } = req.body;
   if (!code) {
     return res.status(400).json({ valid: false, error: 'Code is required' });
   }
   
-  const normalizedCode = code.trim().toLowerCase();
-  const isValid = VALID_CODES.some(c => c.toLowerCase() === normalizedCode);
-  
-  if (isValid) {
-    res.json({ valid: true, code: normalizedCode });
-  } else {
-    res.status(401).json({ valid: false, error: 'Invalid access code' });
+  try {
+    const normalizedCode = code.trim().toLowerCase();
+    const result = await pool.query(
+      'SELECT code FROM users WHERE LOWER(code) = $1',
+      [normalizedCode]
+    );
+    
+    if (result.rows.length > 0) {
+      res.json({ valid: true, code: normalizedCode });
+    } else {
+      res.status(401).json({ valid: false, error: 'Invalid access code' });
+    }
+  } catch (error) {
+    console.error('Error validating user code:', error);
+    res.status(500).json({ valid: false, error: 'Server error' });
   }
 });
 
@@ -869,6 +899,100 @@ app.get('/api/admin/recipes', async (req, res) => {
   } catch (error) {
     console.error('Error fetching admin recipes:', error);
     res.status(500).json({ error: 'Failed to fetch recipes' });
+  }
+});
+
+// Admin endpoint: Get all users
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, code, created_at FROM users ORDER BY created_at DESC'
+    );
+    
+    // Get recipe count for each user
+    const users = await Promise.all(result.rows.map(async (user) => {
+      const recipeCount = await pool.query(
+        'SELECT COUNT(*) FROM recipes WHERE LOWER(user_code) = $1',
+        [user.code.toLowerCase()]
+      );
+      return {
+        id: user.id,
+        code: user.code,
+        recipeCount: parseInt(recipeCount.rows[0].count),
+        createdAt: user.created_at
+      };
+    }));
+    
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Admin endpoint: Create new user
+app.post('/api/admin/users', async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code || !code.trim()) {
+      return res.status(400).json({ error: 'User code is required' });
+    }
+    
+    const normalizedCode = code.trim().toLowerCase();
+    
+    // Check if user already exists
+    const existing = await pool.query(
+      'SELECT code FROM users WHERE LOWER(code) = $1',
+      [normalizedCode]
+    );
+    
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'User code already exists' });
+    }
+    
+    const result = await pool.query(
+      'INSERT INTO users (code) VALUES ($1) RETURNING id, code, created_at',
+      [normalizedCode]
+    );
+    
+    res.status(201).json({
+      id: result.rows[0].id,
+      code: result.rows[0].code,
+      recipeCount: 0,
+      createdAt: result.rows[0].created_at
+    });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+// Admin endpoint: Delete user
+app.delete('/api/admin/users/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const normalizedCode = code.toLowerCase();
+    
+    // Check if user exists
+    const existing = await pool.query(
+      'SELECT code FROM users WHERE LOWER(code) = $1',
+      [normalizedCode]
+    );
+    
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Delete user (recipes remain but user can't log in anymore)
+    await pool.query(
+      'DELETE FROM users WHERE LOWER(code) = $1',
+      [normalizedCode]
+    );
+    
+    res.json({ deleted: true, code: normalizedCode });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
   }
 });
 
