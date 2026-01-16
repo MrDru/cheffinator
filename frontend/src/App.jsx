@@ -853,10 +853,12 @@ export default function App() {
     }
   };
 
-  // Logout
+  // Logout - clear both session and remembered username
   const handleLogout = () => {
     api.clearUserCode();
+    localStorage.removeItem('cheffinator_remembered_user'); // Force re-type on next login
     setUserCode(null);
+    setLoginInput(''); // Clear the input field too
     setRecipes([]);
     setShowUserMenu(false);
   };
