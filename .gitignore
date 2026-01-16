@@ -29,5 +29,5 @@ Thumbs.db
 *.swp
 *.swo
 
-# Admin tools (local only)
-tools/
+# Admin tools - tracked (no credentials in files)
+# tools/
