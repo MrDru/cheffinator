@@ -3,7 +3,7 @@
 ## 🚀 Planned Features
 
 ### High Priority
-- [ ] **Server-side WebP conversion** - Convert uploaded GIFs to animated WebP (70-80% smaller) using Sharp
+- [ ] **Video → WebP pipeline** - Replace client-side GIF encoding with: record WebM → upload → convert to animated WebP server-side (ffmpeg). Faster, smaller uploads, better quality.
 
 ### Medium Priority
 - [ ] _Add your features here_
