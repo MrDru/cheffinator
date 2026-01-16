@@ -32,9 +32,9 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
   const framesRef = useRef([]);
   const frameIntervalRef = useRef(null);
 
-  const MAX_RECORDING_TIME = 5; // 5 seconds max
-  const GIF_WIDTH = 480;
-  const GIF_FPS = 10;
+  const MAX_RECORDING_TIME = 3; // 3 seconds max (reduced for smaller file size)
+  const GIF_WIDTH = 320; // Reduced from 480 for smaller file size
+  const GIF_FPS = 8; // Reduced from 10 for smaller file size
 
   // Cleanup on unmount
   useEffect(() => {

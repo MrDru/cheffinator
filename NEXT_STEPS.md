@@ -3,7 +3,7 @@
 ## 🚀 Planned Features
 
 ### High Priority
-- [ ] _Add your features here_
+- [ ] **Server-side WebP conversion** - Convert uploaded GIFs to animated WebP (70-80% smaller) using Sharp
 
 ### Medium Priority
 - [ ] _Add your features here_
@@ -13,11 +13,11 @@
 
 ---
 
-## 🔄 In Progress (Preview Branch: `camera-use`)
+## 🔄 In Progress (Preview Branch: `home-page`)
 - [ ] **Mobile Camera/GIF Capture** - On mobile/tablet, users can:
   - 📁 Upload from gallery
   - 📷 Take a photo with camera
-  - 🎬 Record 5-sec video → auto-convert to looping GIF
+  - 🎬 Record 3-sec video → auto-convert to looping GIF (320px, 8fps for smaller size)
   - Includes animated cooking loader while processing GIF
 
 ---
@@ -85,4 +85,4 @@ const VALID_CODES = [
 
 ---
 
-Last updated: December 2024
+Last updated: January 2026
