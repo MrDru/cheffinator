@@ -3703,7 +3703,9 @@ export default function App() {
               style={{ ...styles.input, fontSize: 34, fontWeight: 600, marginBottom: 10, textShadow: bannerImage ? '0 2px 8px rgba(0,0,0,0.5)' : 'none' }} 
               placeholder="Recipe name..." 
               value={recipeName} 
-              onChange={e => setRecipeName(e.target.value)} 
+              onChange={e => setRecipeName(e.target.value)}
+              onFocus={e => { if (recipeName === 'Untitled Recipe') setRecipeName(''); }}
+              onBlur={e => { if (!recipeName.trim()) setRecipeName('Untitled Recipe'); }}
             />
             <textarea 
               style={{ 
