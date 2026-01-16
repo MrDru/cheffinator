@@ -7,6 +7,217 @@ const APP_VERSION = 'v0.0.20';
 const APP_DATE = 'Jan 14, 2026';
 
 const UNITS = ['g', 'kg', 'ml', 'L', 'cup', 'tbsp', 'tsp', 'piece', 'pinch', 'to taste'];
+
+// Translations
+const TRANSLATIONS = {
+  en: {
+    // App
+    appName: 'Cheffinator',
+    
+    // Login
+    whatsYourName: "What's your chef's name?",
+    enterName: 'Enter your name...',
+    checking: 'Checking...',
+    continue: 'Continue',
+    alphaAccess: 'Alpha Testing • Contact admin for access',
+    loadingProfile: 'Loading profile...',
+    loadingRecipe: 'Loading recipe...',
+    
+    // Dashboard
+    yourRecipes: 'Your Recipes',
+    searchPlaceholder: 'Search recipes by name or tag...',
+    loadingRecipes: 'Loading your recipes...',
+    addRecipe: 'Add Recipe',
+    createNewRecipe: 'Create a new recipe',
+    noRecipesMatch: 'No recipes match your search.',
+    updated: 'Updated',
+    loggedInAs: 'Logged in as',
+    shareProfile: 'Share Profile',
+    logOut: 'Log out',
+    myRecipes: 'My Recipes',
+    
+    // Home/Discover
+    randomRecipes: 'Random recipes',
+    loadingDelicious: 'Loading delicious recipes...',
+    noSharedRecipes: 'No shared recipes yet',
+    beFirstToShare: 'Be the first to share!',
+    by: 'by',
+    
+    // Recipe View
+    untitled: 'Untitled',
+    servings: 'servings',
+    ingredients: 'Ingredients',
+    instructions: 'Instructions',
+    noContentYet: 'This recipe has no content yet',
+    recipeEmpty: 'This recipe is empty',
+    addContent: 'Add content',
+    share: 'Share',
+    sharing: 'Sharing...',
+    edit: 'Edit',
+    back: 'Back',
+    done: 'Done',
+    add: 'Add',
+    
+    // Edit
+    recipeName: 'Recipe name...',
+    shortDescription: 'A short description...',
+    untitledRecipe: 'Untitled Recipe',
+    clickToAddBanner: 'Click + to add banner',
+    serves: 'Serves',
+    addTags: 'Add tags...',
+    ingredient: 'Ingredient',
+    describeStep: 'Describe this step...',
+    addIngredient: '+ Add ingredient',
+    addStep: '+ Add step',
+    
+    // Save status
+    saving: 'Saving...',
+    saved: '✓ Saved',
+    unsavedChanges: 'Unsaved changes',
+    pleaseEnterName: 'Please enter a name',
+    
+    // Variation
+    newVariation: 'New Variation',
+    variationName: 'Variation Name',
+    startFrom: 'Start From',
+    emptyVariation: 'Empty variation',
+    copyCurrentVariation: 'Copy current variation',
+    cancel: 'Cancel',
+    create: 'Create',
+    
+    // Public Profile
+    recipes: 'Recipes',
+    recipe: 'recipe',
+    noRecipesYet: 'No recipes yet',
+    backToCheffinator: 'Back to Cheffinator',
+    
+    // Delete/Share modals
+    deleteRecipe: 'Delete Recipe',
+    deleteConfirm: 'Delete recipe and all variations?',
+    delete: 'Delete',
+    copyLink: 'Copy Link',
+    linkCopied: 'Link copied!',
+    shareRecipe: 'Share Recipe',
+    shareRecipeDesc: 'Anyone with this link can view',
+    
+    // Tags
+    tags: {
+      'Vegetarian': 'Vegetarian', 'Vegan': 'Vegan', 'Gluten-Free': 'Gluten-Free',
+      'Dairy-Free': 'Dairy-Free', 'Quick': 'Quick', 'Easy': 'Easy',
+      'Dessert': 'Dessert', 'Breakfast': 'Breakfast', 'Lunch': 'Lunch',
+      'Dinner': 'Dinner', 'Snack': 'Snack', 'Israeli': 'Israeli',
+      'Italian': 'Italian', 'Asian': 'Asian', 'Mexican': 'Mexican',
+      'Healthy': 'Healthy', 'Comfort Food': 'Comfort Food', 'Kid-Friendly': 'Kid-Friendly',
+      'Spicy': 'Spicy', 'Soup': 'Soup', 'Salad': 'Salad', 'Pasta': 'Pasta',
+      'Meat': 'Meat', 'Fish': 'Fish', 'Chicken': 'Chicken',
+      'Baking': 'Baking', 'Holiday': 'Holiday', 'Shabbat': 'Shabbat', 'Passover': 'Passover'
+    }
+  },
+  he: {
+    // App
+    appName: 'שפינטור',
+    
+    // Login
+    whatsYourName: 'מה שם השף שלך?',
+    enterName: 'הכנס את שמך...',
+    checking: 'בודק...',
+    continue: 'המשך',
+    alphaAccess: 'גרסת אלפא • צור קשר למנהל לגישה',
+    loadingProfile: 'טוען פרופיל...',
+    loadingRecipe: 'טוען מתכון...',
+    
+    // Dashboard
+    yourRecipes: 'המתכונים שלך',
+    searchPlaceholder: 'חפש מתכונים לפי שם או תגית...',
+    loadingRecipes: 'טוען את המתכונים שלך...',
+    addRecipe: 'הוסף מתכון',
+    createNewRecipe: 'צור מתכון חדש',
+    noRecipesMatch: 'לא נמצאו מתכונים תואמים.',
+    updated: 'עודכן',
+    loggedInAs: 'מחובר בתור',
+    shareProfile: 'שתף פרופיל',
+    logOut: 'התנתק',
+    myRecipes: 'המתכונים שלי',
+    
+    // Home/Discover
+    randomRecipes: 'מתכונים אקראיים',
+    loadingDelicious: 'טוען מתכונים טעימים...',
+    noSharedRecipes: 'אין עדיין מתכונים משותפים',
+    beFirstToShare: 'היה הראשון לשתף!',
+    by: 'מאת',
+    
+    // Recipe View
+    untitled: 'ללא שם',
+    servings: 'מנות',
+    ingredients: 'מצרכים',
+    instructions: 'הוראות הכנה',
+    noContentYet: 'למתכון זה אין עדיין תוכן',
+    recipeEmpty: 'המתכון ריק',
+    addContent: 'הוסף תוכן',
+    share: 'שתף',
+    sharing: 'משתף...',
+    edit: 'ערוך',
+    back: 'חזור',
+    done: 'סיום',
+    add: 'הוסף',
+    
+    // Edit
+    recipeName: 'שם המתכון...',
+    shortDescription: 'תיאור קצר...',
+    untitledRecipe: 'מתכון ללא שם',
+    clickToAddBanner: 'לחץ + להוספת תמונה',
+    serves: 'מנות',
+    addTags: 'הוסף תגיות...',
+    ingredient: 'מצרך',
+    describeStep: 'תאר את השלב הזה...',
+    addIngredient: '+ הוסף מצרך',
+    addStep: '+ הוסף שלב',
+    
+    // Save status
+    saving: 'שומר...',
+    saved: '✓ נשמר',
+    unsavedChanges: 'שינויים לא נשמרו',
+    pleaseEnterName: 'נא להזין שם',
+    
+    // Variation
+    newVariation: 'וריאציה חדשה',
+    variationName: 'שם הוריאציה',
+    startFrom: 'התחל מ',
+    emptyVariation: 'וריאציה ריקה',
+    copyCurrentVariation: 'העתק וריאציה נוכחית',
+    cancel: 'ביטול',
+    create: 'צור',
+    
+    // Public Profile
+    recipes: 'מתכונים',
+    recipe: 'מתכון',
+    noRecipesYet: 'אין עדיין מתכונים',
+    backToCheffinator: 'חזרה לשפינטור',
+    
+    // Delete/Share modals
+    deleteRecipe: 'מחק מתכון',
+    deleteConfirm: 'למחוק את המתכון וכל הוריאציות?',
+    delete: 'מחק',
+    copyLink: 'העתק קישור',
+    linkCopied: 'הקישור הועתק!',
+    shareRecipe: 'שתף מתכון',
+    shareRecipeDesc: 'כל מי שיש לו את הקישור יוכל לצפות',
+    
+    // Tags
+    tags: {
+      'Vegetarian': 'צמחוני', 'Vegan': 'טבעוני', 'Gluten-Free': 'ללא גלוטן',
+      'Dairy-Free': 'ללא חלב', 'Quick': 'מהיר', 'Easy': 'קל',
+      'Dessert': 'קינוח', 'Breakfast': 'ארוחת בוקר', 'Lunch': 'ארוחת צהריים',
+      'Dinner': 'ארוחת ערב', 'Snack': 'חטיף', 'Israeli': 'ישראלי',
+      'Italian': 'איטלקי', 'Asian': 'אסייתי', 'Mexican': 'מקסיקני',
+      'Healthy': 'בריא', 'Comfort Food': 'אוכל נחמה', 'Kid-Friendly': 'לילדים',
+      'Spicy': 'חריף', 'Soup': 'מרק', 'Salad': 'סלט', 'Pasta': 'פסטה',
+      'Meat': 'בשר', 'Fish': 'דג', 'Chicken': 'עוף',
+      'Baking': 'אפייה', 'Holiday': 'חג', 'Shabbat': 'שבת', 'Passover': 'פסח'
+    }
+  }
+};
+
 const DEFAULT_TAGS = [
   'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Quick', 'Easy', 
   'Dessert', 'Breakfast', 'Lunch', 'Dinner', 'Snack',
@@ -282,6 +493,21 @@ const SPLASH_TAGLINES = [
 ];
 
 export default function App() {
+  // Language state - persisted in localStorage
+  const [lang, setLang] = useState(() => localStorage.getItem('cheffinator_lang') || 'en');
+  const isRTL = lang === 'he';
+  
+  // Translation helper
+  const t = (key) => TRANSLATIONS[lang]?.[key] ?? TRANSLATIONS.en[key] ?? key;
+  const tTag = (tag) => TRANSLATIONS[lang]?.tags?.[tag] ?? tag;
+  
+  // Toggle language
+  const toggleLanguage = () => {
+    const newLang = lang === 'en' ? 'he' : 'en';
+    setLang(newLang);
+    localStorage.setItem('cheffinator_lang', newLang);
+  };
+  
   // Splash screen state - only show once per session
   const [showSplash, setShowSplash] = useState(() => {
     // Check if splash was already shown this session
@@ -1870,6 +2096,7 @@ export default function App() {
     return (
       <div 
         className={appFadingIn ? 'app-fade-in' : ''} 
+        dir={isRTL ? 'rtl' : 'ltr'}
         style={{ 
           ...styles.page, 
           display: 'flex', 
@@ -1878,6 +2105,27 @@ export default function App() {
           padding: 24
         }}
       >
+        {/* Language toggle */}
+        <button
+          onClick={toggleLanguage}
+          style={{
+            position: 'fixed',
+            top: 16,
+            right: isRTL ? 'auto' : 16,
+            left: isRTL ? 16 : 'auto',
+            padding: '8px 14px',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 8,
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            fontSize: 14,
+            fontFamily: 'var(--font-sans)',
+            zIndex: 100
+          }}
+        >
+          {lang === 'en' ? 'עב' : 'EN'}
+        </button>
         <VersionIndicator />
         <div style={{ 
           maxWidth: 400, 
@@ -1886,10 +2134,10 @@ export default function App() {
         }}>
           <div style={{ fontSize: 64, marginBottom: 24 }}>🍳</div>
           <h1 style={{ fontSize: 36, fontWeight: 600, margin: '0 0 12px', letterSpacing: '-0.5px' }}>
-            Cheffinator
+            {t('appName')}
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginBottom: 40, fontSize: 16 }}>
-            What's your chef's name?
+            {t('whatsYourName')}
           </p>
           
           <div style={{ ...styles.surface, padding: 24 }}>
@@ -1907,7 +2155,7 @@ export default function App() {
                 textAlign: 'center',
                 fontFamily: 'var(--font-sans)'
               }}
-              placeholder="Enter your name..."
+              placeholder={t('enterName')}
               value={loginInput}
               onChange={e => { setLoginInput(e.target.value); setLoginError(''); }}
               onKeyDown={e => e.key === 'Enter' && !loginLoading && handleLogin(loginInput)}
@@ -1951,12 +2199,12 @@ export default function App() {
                   animation: 'spin 0.8s linear infinite'
                 }} />
               )}
-              {loginLoading ? 'Checking...' : 'Continue'}
+              {loginLoading ? t('checking') : t('continue')}
             </button>
           </div>
           
           <p style={{ color: 'var(--text-muted)', marginTop: 32, fontSize: 13 }}>
-            Alpha Testing • Contact admin for access
+            {t('alphaAccess')}
           </p>
         </div>
       </div>
@@ -2088,14 +2336,30 @@ export default function App() {
   // HOMEPAGE VIEW - Discover recipes from all users
   if (currentView === 'home') {
     return (
-      <div className={appFadingIn ? 'app-fade-in' : ''} style={styles.page}>
+      <div className={appFadingIn ? 'app-fade-in' : ''} dir={isRTL ? 'rtl' : 'ltr'} style={styles.page}>
         <VersionIndicator />
         
         <header style={{ ...styles.header, justifyContent: 'space-between' }}>
-          <div style={{ width: 'clamp(40px, 10vw, 100px)' }} />
+          {/* Language toggle */}
+          <button
+            onClick={toggleLanguage}
+            style={{
+              padding: '8px 14px',
+              background: 'transparent',
+              border: '1px solid var(--border-color)',
+              borderRadius: 8,
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: 14,
+              fontFamily: 'var(--font-sans)',
+              minWidth: 'clamp(40px, 10vw, 60px)'
+            }}
+          >
+            {lang === 'en' ? 'עב' : 'EN'}
+          </button>
           
           <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>
-            Cheffinator
+            {t('appName')}
           </h1>
           
           {/* User indicator */}
@@ -2174,7 +2438,7 @@ export default function App() {
                   borderBottom: '1px solid var(--border-color)',
                   marginBottom: 6
                 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Logged in as</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{t('loggedInAs')}</div>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{userCode}</div>
                 </div>
                 <button
@@ -2188,7 +2452,7 @@ export default function App() {
                     fontSize: 14,
                     fontFamily: 'var(--font-sans)',
                     cursor: 'pointer',
-                    textAlign: 'left',
+                    textAlign: isRTL ? 'right' : 'left',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8
@@ -2197,7 +2461,7 @@ export default function App() {
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-tertiary)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  📖 My Recipes
+                  📖 {t('myRecipes')}
                 </button>
                 <button
                   style={{
@@ -2210,13 +2474,13 @@ export default function App() {
                     fontSize: 14,
                     fontFamily: 'var(--font-sans)',
                     cursor: 'pointer',
-                    textAlign: 'left'
+                    textAlign: isRTL ? 'right' : 'left'
                   }}
                   onClick={handleLogout}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  Log out
+                  {t('logOut')}
                 </button>
               </div>
             )}
@@ -2225,16 +2489,16 @@ export default function App() {
         
         <main style={styles.main}>
           <p style={{ color: 'var(--text-muted)', marginBottom: 24, textAlign: 'center' }}>
-            Random recipes
+            {t('randomRecipes')}
           </p>
           
           {discoverLoading ? (
-            <CheffinatorLoader text="Loading delicious recipes..." />
+            <CheffinatorLoader text={t('loadingDelicious')} />
           ) : discoverRecipes.length === 0 ? (
             <div style={{ ...styles.surface, textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🍽️</div>
-              <p>No shared recipes yet</p>
-              <p style={{ fontSize: 14, marginTop: 8 }}>Be the first to share!</p>
+              <p>{t('noSharedRecipes')}</p>
+              <p style={{ fontSize: 14, marginTop: 8 }}>{t('beFirstToShare')}</p>
             </div>
           ) : (
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
@@ -2290,7 +2554,7 @@ export default function App() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 4 }}>{recipe.name}</div>
                     <div style={{ fontSize: 13, marginBottom: 6 }}>
-                      <span style={{ color: 'var(--text-muted)' }}>by </span>
+                      <span style={{ color: 'var(--text-muted)' }}>{t('by')} </span>
                       <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{recipe.userCode}</span>
                     </div>
                     {recipe.tags && recipe.tags.length > 0 && (
@@ -2351,23 +2615,28 @@ export default function App() {
   // DASHBOARD VIEW
   if (currentView === 'dashboard') {
     return (
-      <div className={appFadingIn ? 'app-fade-in' : ''} style={styles.page}>
+      <div className={appFadingIn ? 'app-fade-in' : ''} dir={isRTL ? 'rtl' : 'ltr'} style={styles.page}>
         <VersionIndicator />
         
         <header style={{ ...styles.header, justifyContent: 'space-between' }}>
-          {/* Discover button */}
+          {/* Language toggle */}
           <button
-            onClick={() => setCurrentView('home')}
-            style={{ 
-              ...styles.btn, 
-              padding: 'clamp(6px, 1.5vw, 8px) clamp(10px, 2vw, 16px)',
-              fontSize: 'clamp(12px, 2vw, 14px)'
+            onClick={toggleLanguage}
+            style={{
+              padding: '8px 14px',
+              background: 'transparent',
+              border: '1px solid var(--border-color)',
+              borderRadius: 8,
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: 14,
+              fontFamily: 'var(--font-sans)'
             }}
           >
-            🌍 <span className="hide-on-mobile">Discover</span>
+            {lang === 'en' ? 'עב' : 'EN'}
           </button>
           
-          <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>My Recipes</h1>
+          <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>{t('myRecipes')}</h1>
           
           {/* User indicator */}
           <div style={{ 
@@ -2445,7 +2714,7 @@ export default function App() {
                   borderBottom: '1px solid var(--border-color)',
                   marginBottom: 6
                 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Logged in as</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{t('loggedInAs')}</div>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{userCode}</div>
                 </div>
                 <button
@@ -2459,7 +2728,7 @@ export default function App() {
                     fontSize: 14,
                     fontFamily: 'var(--font-sans)',
                     cursor: 'pointer',
-                    textAlign: 'left',
+                    textAlign: isRTL ? 'right' : 'left',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8
@@ -2468,7 +2737,7 @@ export default function App() {
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-tertiary)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <Icon type="share" /> Share Profile
+                  <Icon type="share" /> {t('shareProfile')}
                 </button>
                 <button
                   style={{
@@ -2481,13 +2750,13 @@ export default function App() {
                     fontSize: 14,
                     fontFamily: 'var(--font-sans)',
                     cursor: 'pointer',
-                    textAlign: 'left'
+                    textAlign: isRTL ? 'right' : 'left'
                   }}
                   onClick={handleLogout}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  Log out
+                  {t('logOut')}
                 </button>
               </div>
             )}
@@ -2504,7 +2773,7 @@ export default function App() {
             marginBottom: 16, 
             fontFamily: 'var(--font-sans)' 
           }}>
-            Your Recipes
+            {t('yourRecipes')}
           </h2>
           
           <div style={{ 
@@ -2518,7 +2787,7 @@ export default function App() {
             <Icon type="search" />
             <input 
               style={{ ...styles.input, fontSize: 15, fontFamily: 'var(--font-sans)' }} 
-              placeholder="Search recipes by name or tag..." 
+              placeholder={t('searchPlaceholder')} 
               value={searchQuery} 
               onChange={e => setSearchQuery(e.target.value)} 
             />
@@ -2533,7 +2802,7 @@ export default function App() {
           </div>
           
           {loading ? (
-            <CheffinatorLoader text="Loading your recipes..." />
+            <CheffinatorLoader text={t('loadingRecipes')} />
           ) : (
             <>
               <button 
@@ -2544,7 +2813,7 @@ export default function App() {
                   background: 'transparent',
                   justifyContent: 'center',
                   width: '100%',
-                  textAlign: 'left',
+                  textAlign: isRTL ? 'right' : 'left',
                   fontFamily: 'inherit'
                 }} 
                 onClick={openNew}
@@ -2568,16 +2837,16 @@ export default function App() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 17, fontWeight: 500, color: 'var(--accent-green)' }}>
-                    Add Recipe
+                    {t('addRecipe')}
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
-                    Create a new recipe
+                    {t('createNewRecipe')}
                   </div>
                 </div>
               </button>
               {filteredRecipes.length === 0 && recipes.length > 0 ? (
                 <div style={{ ...styles.surface, textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-                  No recipes match your search.
+                  {t('noRecipesMatch')}
                 </div>
               ) : (
                 filteredRecipes.map((r, idx) => (
@@ -3149,8 +3418,8 @@ export default function App() {
           // Show brief feedback
           const btn = document.getElementById('copy-share-btn');
           if (btn) {
-            btn.textContent = 'Copied!';
-            setTimeout(() => { btn.textContent = 'Copy Link'; }, 2000);
+            btn.textContent = t('linkCopied');
+            setTimeout(() => { btn.textContent = t('copyLink'); }, 2000);
           }
         } catch (error) {
           console.error('Failed to copy:', error);
@@ -3159,7 +3428,7 @@ export default function App() {
     };
     
     return (
-      <div style={styles.page}>
+      <div dir={isRTL ? 'rtl' : 'ltr'} style={styles.page}>
         <header style={{ 
           ...styles.header, 
           position: 'sticky', 
@@ -3169,7 +3438,7 @@ export default function App() {
           zIndex: 100 
         }}>
           <button style={styles.btn} onClick={handleBack}>
-            <Icon type="back" /> {isPublicView ? 'Home' : 'Back'}
+            <Icon type="back" /> {isPublicView ? t('appName') : t('back')}
           </button>
           <div style={{ display: 'flex', gap: 10 }}>
             {(filteredIngredients.length > 0 || filteredStages.length > 0) && (
@@ -3197,13 +3466,13 @@ export default function App() {
                       animation: 'spin 0.8s linear infinite'
                     }} />
                   ) : <Icon type="share" />}
-                  {isSharing ? 'Sharing...' : 'Share'}
+                  {isSharing ? t('sharing') : t('share')}
                 </button>
                 <button style={{ ...styles.btnPrimary, display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => {
                     window.history.pushState({ view: 'edit' }, '', window.location.pathname);
                     setCurrentView('edit');
                   }}>
-                  <Icon type="edit" /> Edit
+                  <Icon type="edit" /> {t('edit')}
                 </button>
               </>
             )}
@@ -3279,18 +3548,18 @@ export default function App() {
             padding: '48px 24px 36px' 
           }}>
             <h1 style={{ fontSize: 40, fontWeight: 600, margin: 0, marginBottom: description ? 14 : 0, letterSpacing: '-0.5px' }}>
-              {recipeName || 'Untitled'}
+              {recipeName || t('untitled')}
             </h1>
             {description && <p style={{ fontSize: 17, color: '#999', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{description}</p>}
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '28px 0 36px', borderBottom: '1px solid var(--bg-secondary)', flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-sans)' }}>
-              <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{servings}</span> servings
+              <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{servings}</span> {t('servings')}
             </span>
-            {tags.map(t => (
-              <span key={t} style={{ padding: '7px 16px', background: 'rgba(74,222,128,0.1)', borderRadius: 20, fontSize: 13, color: 'var(--accent-green)', fontFamily: 'var(--font-sans)' }}>
-                {t}
+            {tags.map(tag => (
+              <span key={tag} style={{ padding: '7px 16px', background: 'rgba(74,222,128,0.1)', borderRadius: 20, fontSize: 13, color: 'var(--accent-green)', fontFamily: 'var(--font-sans)' }}>
+                {tTag(tag)}
               </span>
             ))}
           </div>
@@ -3298,7 +3567,7 @@ export default function App() {
           {filteredIngredients.length > 0 && (
             <section style={{ padding: '36px 0', borderBottom: '1px solid var(--bg-secondary)' }}>
               <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-green)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, fontFamily: 'var(--font-sans)' }}>
-                Ingredients
+                {t('ingredients')}
               </h2>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {filteredIngredients.map((ing, i) => (
@@ -3326,7 +3595,7 @@ export default function App() {
           {filteredStages.length > 0 && (
             <section style={{ paddingTop: 36 }}>
               <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-green)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 28, fontFamily: 'var(--font-sans)' }}>
-                Instructions
+                {t('instructions')}
               </h2>
               <ol style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {filteredStages.map((stage, i) => (
@@ -3369,7 +3638,7 @@ export default function App() {
           {filteredIngredients.length === 0 && filteredStages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '70px 20px', color: '#555' }}>
               <div style={{ fontSize: 48, marginBottom: 20 }}>{isPublicView ? '🍳' : '📝'}</div>
-              <p style={{ margin: '0 0 20px' }}>{isPublicView ? 'This recipe has no content yet' : 'This recipe is empty'}</p>
+              <p style={{ margin: '0 0 20px' }}>{isPublicView ? t('noContentYet') : t('recipeEmpty')}</p>
               {!isPublicView && (
                 <button 
                   style={{ ...styles.btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 8 }} 
@@ -3511,7 +3780,7 @@ export default function App() {
 
   // EDIT MODE
   return (
-    <div style={styles.page}>
+    <div dir={isRTL ? 'rtl' : 'ltr'} style={styles.page}>
       <header style={{ 
         ...styles.header, 
         position: 'sticky', 
@@ -3535,16 +3804,16 @@ export default function App() {
             }
           }}
         >
-          <Icon type="back" /> Done
+          <Icon type="back" /> {t('done')}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {saveMessage && (
             <span style={{ 
               padding: '8px 16px', 
-              background: saveMessage.includes('Please') || saveMessage.includes('Error') ? 'rgba(239,68,68,0.2)' : 'rgba(74,222,128,0.2)', 
+              background: saveMessage.includes('Please') || saveMessage.includes('Error') || saveMessage.includes('נא') ? 'rgba(239,68,68,0.2)' : 'rgba(74,222,128,0.2)', 
               borderRadius: 8, 
               fontSize: 13, 
-              color: saveMessage.includes('Please') || saveMessage.includes('Error') ? 'var(--accent-red)' : 'var(--accent-green)', 
+              color: saveMessage.includes('Please') || saveMessage.includes('Error') || saveMessage.includes('נא') ? 'var(--accent-red)' : 'var(--accent-green)', 
               fontFamily: 'var(--font-sans)' 
             }}>
               {saveMessage}
@@ -3576,8 +3845,8 @@ export default function App() {
                   animation: 'spin 0.8s linear infinite'
                 }} />
               )}
-              {autoSaveStatus === 'saving' ? 'Saving...' : 
-               autoSaveStatus === 'saved' ? '✓ Saved' : 'Unsaved changes'}
+              {autoSaveStatus === 'saving' ? t('saving') : 
+               autoSaveStatus === 'saved' ? t('saved') : t('unsavedChanges')}
             </span>
           )}
         </div>
@@ -3696,16 +3965,16 @@ export default function App() {
           <div style={{ padding: '70px 24px 28px', minHeight: 220, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
             {!bannerImage && !recipeName && (
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#555', fontSize: 13, fontFamily: 'var(--font-sans)' }}>
-                Click + to add banner
+                {t('clickToAddBanner')}
               </div>
             )}
             <input 
               style={{ ...styles.input, fontSize: 34, fontWeight: 600, marginBottom: 10, textShadow: bannerImage ? '0 2px 8px rgba(0,0,0,0.5)' : 'none' }} 
-              placeholder="Recipe name..." 
+              placeholder={t('recipeName')} 
               value={recipeName} 
               onChange={e => setRecipeName(e.target.value)}
-              onFocus={e => { if (recipeName === 'Untitled Recipe') setRecipeName(''); }}
-              onBlur={e => { if (!recipeName.trim()) setRecipeName('Untitled Recipe'); }}
+              onFocus={e => { if (recipeName === 'Untitled Recipe' || recipeName === 'מתכון ללא שם') setRecipeName(''); }}
+              onBlur={e => { if (!recipeName.trim()) setRecipeName(t('untitledRecipe')); }}
             />
             <textarea 
               style={{ 
@@ -3718,9 +3987,9 @@ export default function App() {
                 color: bannerImage ? '#ccc' : 'var(--text-secondary)', 
                 textShadow: bannerImage ? '0 1px 4px rgba(0,0,0,0.5)' : 'none' 
               }} 
-              placeholder="A short description..." 
+              placeholder={t('shortDescription')} 
               value={description} 
-              onChange={e => { const t = e.target.value; if ((t.match(/\n/g) || []).length <= 1) setDescription(t); }} 
+              onChange={e => { const txt = e.target.value; if ((txt.match(/\n/g) || []).length <= 1) setDescription(txt); }} 
               onKeyDown={e => { if (e.key === 'Enter' && (description.match(/\n/g) || []).length >= 1) e.preventDefault(); }} 
             />
           </div>
@@ -3736,7 +4005,7 @@ export default function App() {
         {/* Servings and Tags */}
         <div style={{ display: 'flex', gap: 14, marginBottom: 44, flexWrap: 'wrap' }}>
           <div style={{ ...styles.surface, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px' }}>
-            <span style={{ fontSize: 14, color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>Serves</span>
+            <span style={{ fontSize: 14, color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>{t('serves')}</span>
             <input 
               type="number" 
               min="1" 
@@ -3759,8 +4028,8 @@ export default function App() {
           </div>
           <div style={{ ...styles.surface, flex: 1, minWidth: 250, position: 'relative', padding: '8px 14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              {tags.map(t => (
-                <span key={t} style={{ 
+              {tags.map(tag => (
+                <span key={tag} style={{ 
                   display: 'inline-flex', 
                   alignItems: 'center', 
                   gap: 6, 
@@ -3771,7 +4040,7 @@ export default function App() {
                   color: 'var(--accent-green)', 
                   fontFamily: 'var(--font-sans)' 
                 }}>
-                  {t}
+                  {tTag(tag)}
                   <button 
                     style={{ 
                       width: 18, 
@@ -3785,7 +4054,7 @@ export default function App() {
                       justifyContent: 'center', 
                       padding: 0 
                     }} 
-                    onClick={() => removeTag(t)}
+                    onClick={() => removeTag(tag)}
                   >
                     <Icon type="x" />
                   </button>
@@ -3793,7 +4062,7 @@ export default function App() {
               ))}
               <input 
                 style={{ ...styles.input, flex: 1, minWidth: 100, padding: '6px 0', fontSize: 14, fontFamily: 'var(--font-sans)' }} 
-                placeholder={tags.length ? '' : 'Add tags...'} 
+                placeholder={tags.length ? '' : t('addTags')} 
                 value={tagInput} 
                 enterKeyHint="done"
                 onChange={e => { setTagInput(e.target.value); setShowSuggestions(true); }} 
@@ -3842,7 +4111,7 @@ export default function App() {
         {/* Ingredients Section */}
         <div style={{ marginBottom: 18 }}>
           <h2 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 2, margin: 0, fontFamily: 'var(--font-sans)' }}>
-            Ingredients
+            {t('ingredients')}
           </h2>
         </div>
         
@@ -3852,7 +4121,7 @@ export default function App() {
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
               <input 
                 style={{ ...styles.input, flex: 1, fontSize: 15, minWidth: 0 }} 
-                placeholder="Ingredient" 
+                placeholder={t('ingredient')} 
                 value={ing.name} 
                 onChange={e => setIngredients(ingredients.map(x => x.id === ing.id ? { ...x, name: e.target.value } : x))}
                 onKeyDown={e => {
@@ -3861,7 +4130,7 @@ export default function App() {
                     const newId = Date.now();
                     setIngredients([...ingredients, { id: newId, name: '', amount: '', unit: 'g', image: null }]);
                     setTimeout(() => {
-                      const inputs = document.querySelectorAll('input[placeholder="Ingredient"]');
+                      const inputs = document.querySelectorAll(`input[placeholder="${t('ingredient')}"]`);
                       inputs[inputs.length - 1]?.focus();
                     }, 10);
                   }
@@ -3989,18 +4258,18 @@ export default function App() {
           onClick={() => {
             setIngredients([...ingredients, { id: Date.now(), name: '', amount: '', unit: 'g', image: null }]);
             setTimeout(() => {
-              const inputs = document.querySelectorAll('input[placeholder="Ingredient"]');
+              const inputs = document.querySelectorAll(`input[placeholder="${t('ingredient')}"]`);
               inputs[inputs.length - 1]?.focus();
             }, 10);
           }}
         >
-          <Icon type="plus" /> Add Ingredient
+          <Icon type="plus" /> {t('addIngredient')}
         </button>
 
         {/* Cooking Steps Section */}
         <div style={{ marginTop: 44, marginBottom: 18 }}>
           <h2 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 2, margin: 0, fontFamily: 'var(--font-sans)' }}>
-            Cooking Steps
+            {t('instructions')}
           </h2>
         </div>
         
@@ -4025,7 +4294,7 @@ export default function App() {
               </div>
               <textarea 
                 style={{ ...styles.input, flex: 1, fontSize: 15, lineHeight: 1.7, resize: 'none', minHeight: 80 }} 
-                placeholder="Describe this step..." 
+                placeholder={t('describeStep')} 
                 value={stage.text} 
                 onChange={e => setStages(stages.map(x => x.id === stage.id ? { ...x, text: e.target.value } : x))}
                 onKeyDown={e => {
@@ -4034,7 +4303,7 @@ export default function App() {
                     const newId = Date.now();
                     setStages([...stages, { id: newId, text: '', image: null }]);
                     setTimeout(() => {
-                      const textareas = document.querySelectorAll('textarea[placeholder="Describe this step..."]');
+                      const textareas = document.querySelectorAll(`textarea[placeholder="${t('describeStep')}"]`);
                       textareas[textareas.length - 1]?.focus();
                     }, 10);
                   }
@@ -4125,12 +4394,12 @@ export default function App() {
           onClick={() => {
             setStages([...stages, { id: Date.now(), text: '', image: null }]);
             setTimeout(() => {
-              const textareas = document.querySelectorAll('textarea[placeholder="Describe this step..."]');
+              const textareas = document.querySelectorAll(`textarea[placeholder="${t('describeStep')}"]`);
               textareas[textareas.length - 1]?.focus();
             }, 10);
           }}
         >
-          <Icon type="plus" /> Add Step
+          <Icon type="plus" /> {t('addStep')}
         </button>
       </main>
 
@@ -4144,10 +4413,10 @@ export default function App() {
             style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 400, width: '90%', border: '1px solid var(--border-color)' }} 
             onClick={e => e.stopPropagation()}
           >
-            <h3 style={{ margin: '0 0 24px', fontSize: 22, fontWeight: 600 }}>New Variation</h3>
+            <h3 style={{ margin: '0 0 24px', fontSize: 22, fontWeight: 600 }}>{t('newVariation')}</h3>
             <div style={{ marginBottom: 24 }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, fontFamily: 'var(--font-sans)' }}>
-                Variation Name
+                {t('variationName')}
               </label>
               <input 
                 style={{ 
@@ -4170,16 +4439,16 @@ export default function App() {
               />
             </div>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.5 }}>
-              This will create a copy of the current variation that you can customize.
+              {t('copyCurrentVariation')}
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-              <button style={styles.btn} onClick={() => setVariationModal(null)}>Cancel</button>
+              <button style={styles.btn} onClick={() => setVariationModal(null)}>{t('cancel')}</button>
               <button 
                 style={{ ...styles.btnPrimary, opacity: newVariationName.trim() ? 1 : 0.5 }} 
                 onClick={confirmAddVariation}
                 disabled={!newVariationName.trim()}
               >
-                Create Variation
+                {t('create')}
               </button>
             </div>
           </div>
