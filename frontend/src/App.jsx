@@ -326,7 +326,7 @@ export default function App() {
     }
     return null;
   });
-  const [loginInput, setLoginInput] = useState('');
+  const [loginInput, setLoginInput] = useState(() => api.getRememberedUsername());
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -835,12 +835,14 @@ export default function App() {
         // Skip server validation in local dev
         const normalizedCode = code.trim().toLowerCase().replace(/\s+/g, '');
         api.setUserCode(normalizedCode);
+        api.setRememberedUsername(normalizedCode); // Remember for next time
         setUserCode(normalizedCode);
         setLoginInput('');
       } else {
         // Validate code with server in production
         const result = await api.validateCode(code.trim());
         api.setUserCode(result.code);
+        api.setRememberedUsername(result.code); // Remember for next time
         setUserCode(result.code);
         setLoginInput('');
       }

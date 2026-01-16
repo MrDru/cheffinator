@@ -17,6 +17,16 @@ export function clearUserCode() {
   localStorage.removeItem('cheffinator_user_code');
 }
 
+// Get last used username (remembered even after logout)
+export function getRememberedUsername() {
+  return localStorage.getItem('cheffinator_remembered_user') || '';
+}
+
+// Save last used username
+export function setRememberedUsername(username) {
+  localStorage.setItem('cheffinator_remembered_user', username);
+}
+
 // Validate user code with the server
 export async function validateCode(code) {
   const response = await fetch(`${API_BASE}/auth/validate`, {
