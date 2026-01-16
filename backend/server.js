@@ -967,6 +967,64 @@ app.post('/api/admin/users', async (req, res) => {
   }
 });
 
+// Admin endpoint: Update user (rename)
+app.put('/api/admin/users/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const { newCode } = req.body;
+    
+    if (!newCode || !newCode.trim()) {
+      return res.status(400).json({ error: 'New user code is required' });
+    }
+    
+    const oldCode = code.toLowerCase();
+    const normalizedNewCode = newCode.trim().toLowerCase();
+    
+    // Check if old user exists
+    const existing = await pool.query(
+      'SELECT code FROM users WHERE LOWER(code) = $1',
+      [oldCode]
+    );
+    
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Check if new code already exists (and it's not the same user)
+    if (oldCode !== normalizedNewCode) {
+      const newExists = await pool.query(
+        'SELECT code FROM users WHERE LOWER(code) = $1',
+        [normalizedNewCode]
+      );
+      
+      if (newExists.rows.length > 0) {
+        return res.status(409).json({ error: 'User code already exists' });
+      }
+    }
+    
+    // Update user code
+    await pool.query(
+      'UPDATE users SET code = $1 WHERE LOWER(code) = $2',
+      [normalizedNewCode, oldCode]
+    );
+    
+    // Update all recipes owned by this user
+    await pool.query(
+      'UPDATE recipes SET user_code = $1 WHERE LOWER(user_code) = $2',
+      [normalizedNewCode, oldCode]
+    );
+    
+    res.json({ 
+      success: true, 
+      oldCode: oldCode, 
+      newCode: normalizedNewCode 
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
 // Admin endpoint: Delete user
 app.delete('/api/admin/users/:code', async (req, res) => {
   try {

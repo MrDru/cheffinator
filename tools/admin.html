@@ -899,7 +899,11 @@
 
       const rows = allUsers.map(u => `
         <tr data-code="${u.code}">
-          <td><span class="user-badge">${escapeHtml(u.code)}</span></td>
+          <td>
+            <div class="editable" onclick="startEditUser(this, '${escapeHtml(u.code)}')">
+              <span class="user-badge">${escapeHtml(u.code)}</span>
+            </div>
+          </td>
           <td>${u.recipeCount}</td>
           <td class="date">${new Date(u.createdAt).toLocaleDateString()}</td>
           <td>
@@ -960,6 +964,60 @@
         showToast('User created successfully!', 'success');
       } catch (error) {
         showToast('Failed to create user: ' + error.message, 'error');
+      }
+    }
+
+    // Start editing user code inline
+    function startEditUser(element, userCode) {
+      if (element.classList.contains('editing')) return;
+
+      element.classList.add('editing');
+      element.innerHTML = `<input type="text" value="${escapeHtml(userCode)}" 
+        onblur="finishEditUser(this, '${escapeHtml(userCode)}')"
+        onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${escapeHtml(userCode)}';this.blur();}" />`;
+      element.querySelector('input').focus();
+      element.querySelector('input').select();
+    }
+
+    // Finish editing user code
+    async function finishEditUser(input, oldCode) {
+      const newCode = input.value.trim();
+      const parent = input.parentElement;
+      parent.classList.remove('editing');
+
+      if (newCode === oldCode || !newCode) {
+        // Restore original value
+        parent.innerHTML = `<span class="user-badge">${escapeHtml(oldCode)}</span>`;
+        return;
+      }
+
+      // Show loading state
+      parent.innerHTML = `<span style="color: var(--text-muted);">Saving...</span>`;
+
+      try {
+        const response = await fetch(`${API_URL}/api/admin/users/${encodeURIComponent(oldCode)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newCode })
+        });
+
+        if (response.status === 409) {
+          showToast('User code already exists', 'error');
+          parent.innerHTML = `<span class="user-badge">${escapeHtml(oldCode)}</span>`;
+          return;
+        }
+
+        if (!response.ok) throw new Error('Failed to rename user');
+
+        // Update local data
+        const user = allUsers.find(u => u.code === oldCode);
+        if (user) user.code = newCode.toLowerCase();
+
+        showToast('User renamed successfully!', 'success');
+        renderUsersTable();
+      } catch (error) {
+        showToast('Failed to rename: ' + error.message, 'error');
+        parent.innerHTML = `<span class="user-badge">${escapeHtml(oldCode)}</span>`;
       }
     }
 
