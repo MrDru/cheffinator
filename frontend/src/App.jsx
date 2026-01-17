@@ -508,6 +508,28 @@ export default function App() {
     localStorage.setItem('cheffinator_lang', newLang);
   };
   
+  // Detect if text contains Hebrew characters
+  const isHebrewText = (text) => {
+    if (!text) return false;
+    // Hebrew Unicode range: \u0590-\u05FF
+    const hebrewPattern = /[\u0590-\u05FF]/;
+    return hebrewPattern.test(text);
+  };
+  
+  // Detect if recipe content is primarily in Hebrew
+  const isRecipeHebrew = () => {
+    // Check recipe name, description, and first ingredient/stage
+    const textsToCheck = [
+      recipeName,
+      description,
+      ingredients[0]?.name,
+      stages[0]?.text
+    ].filter(Boolean);
+    
+    // If any text contains Hebrew, consider it Hebrew
+    return textsToCheck.some(isHebrewText);
+  };
+  
   // Splash screen state - only show once per session
   const [showSplash, setShowSplash] = useState(() => {
     // Check if splash was already shown this session
@@ -3564,9 +3586,11 @@ export default function App() {
         )}
         
         <main style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 80px' }}>
-          <div style={{ 
+          {/* Recipe content - auto-detect language direction */}
+          <div dir={isRecipeHebrew() ? 'rtl' : 'ltr'} style={{ 
             width: 'calc(100% + 48px)', 
-            marginLeft: -24, 
+            marginLeft: isRecipeHebrew() ? 0 : -24,
+            marginRight: isRecipeHebrew() ? -24 : 0,
             height: bannerImage ? 300 : 200, 
             background: bannerImage 
               ? `linear-gradient(to top, rgba(13,13,13,1) 0%, rgba(13,13,13,0.4) 50%, rgba(13,13,13,0.1) 100%), url(${bannerImage}) center/cover` 
@@ -3574,7 +3598,8 @@ export default function App() {
             display: 'flex', 
             flexDirection: 'column', 
             justifyContent: 'flex-end', 
-            padding: '48px 24px 36px' 
+            padding: '48px 24px 36px',
+            textAlign: isRecipeHebrew() ? 'right' : 'left'
           }}>
             <h1 style={{ fontSize: 40, fontWeight: 600, margin: 0, marginBottom: description ? 14 : 0, letterSpacing: '-0.5px' }}>
               {recipeName || t('untitled')}
@@ -3594,7 +3619,7 @@ export default function App() {
           </div>
           
           {filteredIngredients.length > 0 && (
-            <section style={{ padding: '36px 0', borderBottom: '1px solid var(--bg-secondary)' }}>
+            <section dir={isRecipeHebrew() ? 'rtl' : 'ltr'} style={{ padding: '36px 0', borderBottom: '1px solid var(--bg-secondary)' }}>
               <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-green)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, fontFamily: 'var(--font-sans)' }}>
                 {t('ingredients')}
               </h2>
@@ -3622,14 +3647,14 @@ export default function App() {
           )}
           
           {filteredStages.length > 0 && (
-            <section style={{ paddingTop: 36 }}>
+            <section dir={isRecipeHebrew() ? 'rtl' : 'ltr'} style={{ paddingTop: 36 }}>
               <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-green)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 28, fontFamily: 'var(--font-sans)' }}>
                 {t('instructions')}
               </h2>
               <ol style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {filteredStages.map((stage, i) => (
                   <li key={stage.id} style={{ marginBottom: 32 }}>
-                    <div style={{ display: 'flex', gap: 20 }}>
+                    <div style={{ display: 'flex', gap: 20, flexDirection: isRecipeHebrew() ? 'row-reverse' : 'row' }}>
                       <div style={{ 
                         width: 36, 
                         height: 36, 
@@ -3647,7 +3672,7 @@ export default function App() {
                       }}>
                         {i + 1}
                       </div>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, textAlign: isRecipeHebrew() ? 'right' : 'left' }}>
                         <p style={{ margin: 0, fontSize: 17, lineHeight: 1.8, color: '#CCC' }}>{stage.text}</p>
                         {stage.image && (
                           <img 
