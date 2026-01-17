@@ -2517,12 +2517,16 @@ export default function App() {
                     alignItems: 'center',
                     transition: 'border-color 0.2s'
                   }}
-                  onClick={() => {
-                    // For mock recipes, open directly
-                    setPublicRecipe(recipe);
-                    setIsPublicView(true);
-                    if (recipe.variations && recipe.variations.length > 0) {
+                  onClick={async () => {
+                    // Check if this is a mock recipe with full data
+                    const hasMockData = recipe.variations && recipe.variations.length > 0 && 
+                                        recipe.variations[0].ingredients && recipe.variations[0].ingredients.length > 0;
+                    
+                    if (hasMockData) {
+                      // Use mock data directly
                       const firstVar = recipe.variations[0];
+                      setPublicRecipe(recipe);
+                      setIsPublicView(true);
                       setRecipeName(recipe.name);
                       setVariations(recipe.variations);
                       setCurrentVariationIndex(0);
@@ -2530,10 +2534,35 @@ export default function App() {
                       setServings(String(firstVar.servings || 4));
                       setTags(firstVar.tags || []);
                       setBannerImage(firstVar.bannerImage || null);
-                      setIngredients(firstVar.ingredients || [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+                      setIngredients(firstVar.ingredients);
                       setStages(firstVar.stages || [{ id: 1, text: '', image: null }]);
+                      setCurrentView('view');
+                    } else {
+                      // Fetch full recipe data from API
+                      try {
+                        setLoading(true);
+                        const data = await api.fetchRecipe(recipe.id);
+                        setPublicRecipe(data);
+                        setIsPublicView(true);
+                        if (data.variations && data.variations.length > 0) {
+                          const firstVar = data.variations[0];
+                          setRecipeName(data.name);
+                          setVariations(data.variations);
+                          setCurrentVariationIndex(0);
+                          setDescription(firstVar.description || '');
+                          setServings(String(firstVar.servings || 4));
+                          setTags(firstVar.tags || []);
+                          setBannerImage(firstVar.bannerImage || null);
+                          setIngredients(firstVar.ingredients?.length ? firstVar.ingredients : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+                          setStages(firstVar.stages?.length ? firstVar.stages : [{ id: 1, text: '', image: null }]);
+                        }
+                        setCurrentView('view');
+                      } catch (error) {
+                        console.error('Failed to load recipe:', error);
+                      } finally {
+                        setLoading(false);
+                      }
                     }
-                    setCurrentView('view');
                   }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-green)'}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
