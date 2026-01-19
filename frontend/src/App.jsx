@@ -2541,9 +2541,9 @@ export default function App() {
                   }}
                   onClick={async () => {
                     // Check if this is a mock recipe with full data
-                    const hasMockData = recipe.variations && recipe.variations.length > 0 && 
+                    const hasMockData = recipe.variations && recipe.variations.length > 0 &&
                                         recipe.variations[0].ingredients && recipe.variations[0].ingredients.length > 0;
-                    
+
                     if (hasMockData) {
                       // Use mock data directly
                       const firstVar = recipe.variations[0];
@@ -2559,11 +2559,11 @@ export default function App() {
                       setIngredients(firstVar.ingredients);
                       setStages(firstVar.stages || [{ id: 1, text: '', image: null }]);
                       setCurrentView('view');
-                    } else {
-                      // Fetch full recipe data from API
+                    } else if (recipe.shareId) {
+                      // Fetch full recipe data using share ID (public access)
                       try {
                         setLoading(true);
-                        const data = await api.fetchRecipe(recipe.id);
+                        const data = await api.fetchSharedRecipe(recipe.shareId);
                         setPublicRecipe(data);
                         setIsPublicView(true);
                         if (data.variations && data.variations.length > 0) {
