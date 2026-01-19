@@ -825,9 +825,12 @@ app.get('/api/public/users/:userCode', async (req, res) => {
   try {
     const userCode = req.params.userCode.toLowerCase();
     
-    // Check if this is a valid user
-    const isValidUser = VALID_CODES.some(c => c.toLowerCase() === userCode);
-    if (!isValidUser) {
+    // Check if this is a valid user (using users table)
+    const userCheck = await pool.query(
+      'SELECT code FROM users WHERE LOWER(code) = $1',
+      [userCode]
+    );
+    if (userCheck.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
     
