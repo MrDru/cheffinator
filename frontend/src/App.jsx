@@ -1965,13 +1965,15 @@ export default function App() {
   const VersionIndicator = () => (
     <div style={{ 
       position: 'fixed', 
-      top: 12, 
-      left: 12, 
+      bottom: 12, 
+      left: isRTL ? 'auto' : 12,
+      right: isRTL ? 12 : 'auto',
       fontSize: 10, 
-      color: 'rgba(255,255,255,0.6)', 
+      color: 'rgba(255,255,255,0.4)', 
       lineHeight: 1.4,
       zIndex: 1000,
-      fontFamily: 'var(--font-sans)'
+      fontFamily: 'var(--font-sans)',
+      textAlign: isRTL ? 'right' : 'left'
     }}>
       <div>{APP_VERSION}</div>
       <div>{APP_DATE}</div>
