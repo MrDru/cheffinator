@@ -3,8 +3,8 @@ import * as api from './api';
 import ImageCapture from './ImageCapture';
 
 // App version - update this single place when releasing new versions
-const APP_VERSION = 'v0.0.20';
-const APP_DATE = 'Jan 14, 2026';
+const APP_VERSION = 'v0.0.21';
+const APP_DATE = 'Jan 22, 2026';
 
 const UNITS = ['g', 'kg', 'ml', 'L', 'cup', 'tbsp', 'tsp', 'piece', 'pinch', 'to taste'];
 
@@ -115,7 +115,7 @@ const TRANSLATIONS = {
   },
   he: {
     // App
-    appName: 'שפינטור',
+    appName: 'Cheffinator',
     
     // Login
     whatsYourName: 'מה שם השף שלך?',
@@ -1961,21 +1961,21 @@ export default function App() {
     </div>
   );
 
-  // Version indicator component (reusable)
+  // Version indicator component (reusable) - always top-left, always LTR
   const VersionIndicator = () => (
     <div style={{ 
       position: 'fixed', 
-      bottom: 12, 
-      left: isRTL ? 'auto' : 12,
-      right: isRTL ? 12 : 'auto',
+      top: 12, 
+      left: 12,
       fontSize: 10, 
-      color: 'rgba(255,255,255,0.4)', 
+      color: 'rgba(255,255,255,0.5)', 
       lineHeight: 1.4,
       zIndex: 1000,
       fontFamily: 'var(--font-sans)',
-      textAlign: isRTL ? 'right' : 'left'
+      direction: 'ltr',
+      textAlign: 'left'
     }}>
-      <div>{APP_VERSION}</div>
+      <div>{APP_VERSION} <span style={{ fontSize: 8, opacity: 0.7 }}>alpha</span></div>
       <div>{APP_DATE}</div>
     </div>
   );
@@ -2363,8 +2363,8 @@ export default function App() {
       <div className={appFadingIn ? 'app-fade-in' : ''} dir={isRTL ? 'rtl' : 'ltr'} style={styles.page}>
         <VersionIndicator />
         
-        <header style={{ ...styles.header, justifyContent: 'space-between' }}>
-          {/* Language toggle */}
+        <header style={{ ...styles.header, justifyContent: 'space-between', direction: 'ltr' }}>
+          {/* Language toggle - pushed right to avoid version indicator */}
           <button
             onClick={toggleLanguage}
             style={{
@@ -2376,7 +2376,8 @@ export default function App() {
               cursor: 'pointer',
               fontSize: 14,
               fontFamily: 'var(--font-sans)',
-              minWidth: 'clamp(40px, 10vw, 60px)'
+              minWidth: 'clamp(40px, 10vw, 60px)',
+              marginLeft: 65
             }}
           >
             {lang === 'en' ? 'עב' : 'EN'}
@@ -2671,8 +2672,8 @@ export default function App() {
       <div className={appFadingIn ? 'app-fade-in' : ''} dir={isRTL ? 'rtl' : 'ltr'} style={styles.page}>
         <VersionIndicator />
         
-        <header style={{ ...styles.header, justifyContent: 'space-between' }}>
-          {/* Language toggle */}
+        <header style={{ ...styles.header, justifyContent: 'space-between', direction: 'ltr' }}>
+          {/* Language toggle - pushed right to avoid version indicator */}
           <button
             onClick={toggleLanguage}
             style={{
@@ -2683,7 +2684,8 @@ export default function App() {
               color: 'var(--text-secondary)',
               cursor: 'pointer',
               fontSize: 14,
-              fontFamily: 'var(--font-sans)'
+              fontFamily: 'var(--font-sans)',
+              marginLeft: 65
             }}
           >
             {lang === 'en' ? 'עב' : 'EN'}
