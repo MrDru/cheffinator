@@ -923,7 +923,7 @@ export default function App() {
     try {
       setDiscoverLoading(true);
       const data = await api.fetchDiscoverRecipes(5);
-      setDiscoverRecipes(data.recipes);
+      setDiscoverRecipes(data);
     } catch (error) {
       console.error('Failed to load discover recipes:', error);
       // Use mock data for local development when backend is unavailable
