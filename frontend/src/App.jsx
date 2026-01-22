@@ -2559,11 +2559,11 @@ export default function App() {
                       setIngredients(firstVar.ingredients);
                       setStages(firstVar.stages || [{ id: 1, text: '', image: null }]);
                       setCurrentView('view');
-                    } else if (recipe.shareId) {
-                      // Fetch full recipe data using share ID (public access)
+                    } else if (recipe.id) {
+                      // Fetch full recipe data using recipe ID
                       try {
                         setLoading(true);
-                        const data = await api.fetchSharedRecipe(recipe.shareId);
+                        const data = await api.fetchRecipe(recipe.id);
                         setPublicRecipe(data);
                         setIsPublicView(true);
                         if (data.variations && data.variations.length > 0) {

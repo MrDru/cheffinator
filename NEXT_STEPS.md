@@ -6,7 +6,7 @@
 - [ ] **Video → WebP pipeline** - Replace client-side GIF encoding with: record WebM → upload → convert to animated WebP server-side (ffmpeg). Faster, smaller uploads, better quality.
 
 ### Medium Priority
-- [ ] _Add your features here_
+- [ ] rating system for recipes
 
 ### Nice to Have
 - [ ] _Add your features here_
@@ -14,7 +14,7 @@
 ---
 
 ## 🔄 In Progress (Preview Branch: `home-page`)
-- [ ] **Mobile Camera/GIF Capture** - On mobile/tablet, users can:
+- [x] **Mobile Camera/GIF Capture** - On mobile/tablet, users can:
   - 📁 Upload from gallery
   - 📷 Take a photo with camera
   - 🎬 Record 3-sec video → auto-convert to looping GIF (320px, 8fps for smaller size)
