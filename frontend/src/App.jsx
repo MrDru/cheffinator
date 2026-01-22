@@ -3,7 +3,7 @@ import * as api from './api';
 import ImageCapture from './ImageCapture';
 
 // App version - update this single place when releasing new versions
-const APP_VERSION = 'v0.0.21';
+const APP_VERSION = 'v0.0.22';
 const APP_DATE = 'Jan 22, 2026';
 
 const UNITS = ['g', 'kg', 'ml', 'L', 'cup', 'tbsp', 'tsp', 'piece', 'pinch', 'to taste'];
@@ -2383,7 +2383,10 @@ export default function App() {
             {lang === 'en' ? 'עב' : 'EN'}
           </button>
           
-          <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>
+          <h1 
+            onClick={loadDiscoverRecipes}
+            style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center', cursor: 'pointer' }}
+          >
             {t('appName')}
           </h1>
           
