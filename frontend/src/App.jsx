@@ -2694,7 +2694,12 @@ export default function App() {
             {lang === 'en' ? 'עב' : 'EN'}
           </button>
           
-          <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center' }}>{t('myRecipes')}</h1>
+          <h1 
+            onClick={() => setCurrentView('home')}
+            style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center', cursor: 'pointer' }}
+          >
+            {t('appName')}
+          </h1>
           
           {/* User indicator */}
           <div style={{ 
