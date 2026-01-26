@@ -724,40 +724,7 @@ export default function App() {
     }
   }, []);
 
-  // Handle browser back/forward buttons
-  useEffect(() => {
-    const handlePopState = (event) => {
-      const path = window.location.pathname;
-      
-      // Homepage
-      if (path === '/') {
-        setIsPublicView(false);
-        setPublicRecipe(null);
-        setPublicProfile(null);
-        setCurrentView(userCode ? 'home' : 'login');
-        return;
-      }
-      
-      // Shared recipe URL (/r/:shareId)
-      const shareMatch = path.match(/^\/r\/([a-zA-Z0-9]+)$/);
-      if (shareMatch) {
-        const shareId = shareMatch[1];
-        loadSharedRecipe(shareId, false); // Don't push again
-        return;
-      }
-      
-      // Public profile URL (/u/:userCode)
-      const profileMatch = path.match(/^\/u\/([a-zA-Z0-9_-]+)$/i);
-      if (profileMatch) {
-        const profileUserCode = profileMatch[1];
-        loadPublicProfile(profileUserCode);
-        return;
-      }
-    };
-    
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [userCode]);
+  // NOTE: popstate handling is consolidated in the effect below (around line 1216)
 
   // Mock discover recipes for local development (full recipe data for viewing)
   const MOCK_DISCOVER_RECIPES = [
@@ -1215,56 +1182,74 @@ export default function App() {
 
   // Handle browser back/forward buttons
   useEffect(() => {
-    // Set initial state
+    // Set initial state on first load
     if (!window.history.state?.view) {
       window.history.replaceState({ view: currentView }, '', window.location.pathname);
     }
 
     const handlePopState = (event) => {
-      if (event.state?.view) {
-        // Handle back navigation based on current view
-        if (currentView === 'cooking') {
-          // Exit cooking mode on back
-          exitCookingMode();
-        } else if (currentView === 'edit') {
-          // Go back to view or dashboard from edit
-          setCurrentView(event.state.view);
-        } else if (currentView === 'view') {
-          // If in public view mode and came from profile, go back to profile
-          if (isPublicView && publicProfile) {
-            resetForm();
-            setPublicRecipe(null);
-            setCurrentView('profile');
-          } else {
-            // Go back to dashboard from view
-            resetForm();
-            setCurrentView('dashboard');
-          }
-        } else if (currentView === 'profile') {
-          // Exit profile view
-          setIsPublicView(false);
-          setPublicProfile(null);
+      const targetView = event.state?.view;
+      const path = window.location.pathname;
+      
+      // Handle URL-based navigation first (shared recipes, profiles)
+      const shareMatch = path.match(/^\/r\/([a-zA-Z0-9]+)$/);
+      if (shareMatch) {
+        const shareId = shareMatch[1];
+        loadSharedRecipe(shareId, false);
+        return;
+      }
+      
+      const profileMatch = path.match(/^\/u\/([a-zA-Z0-9_-]+)$/i);
+      if (profileMatch) {
+        const profileUserCode = profileMatch[1];
+        loadPublicProfile(profileUserCode);
+        return;
+      }
+      
+      // Homepage URL
+      if (path === '/') {
+        setIsPublicView(false);
+        setPublicRecipe(null);
+        setPublicProfile(null);
+      }
+      
+      // Exit cooking mode if going back from it
+      if (currentView === 'cooking') {
+        exitCookingMode();
+        return;
+      }
+      
+      // If we have a target view in state, navigate to it
+      if (targetView) {
+        // Clean up state when leaving certain views
+        if (currentView === 'view' && targetView !== 'edit') {
           resetForm();
-        } else {
-          setCurrentView(event.state.view);
-        }
-      } else {
-        // No state - go to dashboard or exit public view
-        if (isPublicView) {
-          setIsPublicView(false);
-          setPublicProfile(null);
           setPublicRecipe(null);
-          resetForm();
-        } else if (currentView !== 'dashboard') {
-          resetForm();
-          setCurrentView('dashboard');
+          if (targetView === 'home' || targetView === 'dashboard') {
+            setIsPublicView(false);
+          }
         }
+        if (currentView === 'profile' && targetView !== 'view') {
+          setIsPublicView(false);
+          setPublicProfile(null);
+          resetForm();
+        }
+        setCurrentView(targetView);
+      } else {
+        // No state - user went back past app's history, push them forward and stay on home
+        const defaultView = userCode ? 'home' : 'login';
+        window.history.pushState({ view: defaultView }, '', '/');
+        resetForm();
+        setIsPublicView(false);
+        setPublicProfile(null);
+        setPublicRecipe(null);
+        setCurrentView(defaultView);
       }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [currentView, isPublicView]);
+  }, [currentView, isPublicView, userCode]);
 
   const resetForm = () => {
     setRecipeName(''); 
@@ -2400,7 +2385,10 @@ export default function App() {
             border: '1px solid var(--border-color)'
           }}>
             <button
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => {
+                window.history.pushState({ view: 'dashboard' }, '', window.location.pathname);
+                setCurrentView('dashboard');
+              }}
               style={{ 
                 background: 'transparent',
                 border: 'none',
@@ -2485,7 +2473,11 @@ export default function App() {
                     alignItems: 'center',
                     gap: 8
                   }}
-                  onClick={() => { setCurrentView('dashboard'); setShowUserMenu(false); }}
+                  onClick={() => { 
+                    window.history.pushState({ view: 'dashboard' }, '', window.location.pathname);
+                    setCurrentView('dashboard'); 
+                    setShowUserMenu(false); 
+                  }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-tertiary)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
@@ -2564,6 +2556,7 @@ export default function App() {
                       setBannerImage(firstVar.bannerImage || null);
                       setIngredients(firstVar.ingredients);
                       setStages(firstVar.stages || [{ id: 1, text: '', image: null }]);
+                      window.history.pushState({ view: 'view', fromDiscover: true }, '', window.location.pathname);
                       setCurrentView('view');
                     } else if (recipe.id) {
                       // Fetch full recipe data using recipe ID
@@ -2584,6 +2577,7 @@ export default function App() {
                           setIngredients(firstVar.ingredients?.length ? firstVar.ingredients : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
                           setStages(firstVar.stages?.length ? firstVar.stages : [{ id: 1, text: '', image: null }]);
                         }
+                        window.history.pushState({ view: 'view', fromDiscover: true }, '', window.location.pathname);
                         setCurrentView('view');
                       } catch (error) {
                         console.error('Failed to load recipe:', error);
@@ -2695,7 +2689,10 @@ export default function App() {
           </button>
           
           <h1 
-            onClick={() => setCurrentView('home')}
+            onClick={() => {
+              window.history.pushState({ view: 'home' }, '', window.location.pathname);
+              setCurrentView('home');
+            }}
             style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 600, margin: 0, letterSpacing: '-0.5px', textAlign: 'center', cursor: 'pointer' }}
           >
             {t('appName')}
@@ -2711,7 +2708,10 @@ export default function App() {
             border: '1px solid var(--border-color)'
           }}>
             <button
-              onClick={() => setCurrentView('home')}
+              onClick={() => {
+                window.history.pushState({ view: 'home' }, '', window.location.pathname);
+                setCurrentView('home');
+              }}
               style={{ 
                 background: 'transparent',
                 border: 'none',
@@ -3439,23 +3439,9 @@ export default function App() {
   if (currentView === 'view') {
     const currentVariation = variations[currentVariationIndex] || {};
     
-    // Handle back button for public view
+    // Handle back button - use browser history
     const handleBack = () => {
-      if (isPublicView) {
-        // Navigate back in browser history if possible, otherwise go to home
-        if (window.history.length > 1) {
-          window.history.back();
-        } else {
-          window.history.pushState({}, '', '/');
-          setIsPublicView(false);
-          setPublicRecipe(null);
-          resetForm();
-          setCurrentView(userCode ? 'home' : 'login');
-        }
-      } else {
-        resetForm();
-        setCurrentView('dashboard');
-      }
+      window.history.back();
     };
     
     // Handle share button click
