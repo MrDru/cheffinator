@@ -214,6 +214,18 @@ async function initDatabase() {
       console.log('Migration complete: share support added');
     }
     
+    // Migration: Add is_published column for discover page visibility
+    const publishedCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'recipes' AND column_name = 'is_published'
+    `);
+    
+    if (publishedCheck.rows.length === 0) {
+      console.log('Running migration: adding publish support...');
+      await client.query(`ALTER TABLE recipes ADD COLUMN is_published BOOLEAN DEFAULT FALSE`);
+      console.log('Migration complete: publish support added');
+    }
+    
     // Seed users table with default users if empty
     const usersCount = await client.query('SELECT COUNT(*) FROM users');
     if (parseInt(usersCount.rows[0].count) === 0) {
@@ -356,7 +368,8 @@ app.get('/api/recipes', async (req, res) => {
         updated: timeAgo(recipe.updated_at),
         variations: variations,
         ingredients: firstVariation.ingredients || [],
-        stages: firstVariation.stages || []
+        stages: firstVariation.stages || [],
+        isPublished: recipe.is_published || false
       };
     }));
     
@@ -746,6 +759,28 @@ app.post('/api/recipes/:id/share', async (req, res) => {
   }
 });
 
+// Publish/unpublish a recipe (toggle visibility on discover page)
+app.post('/api/recipes/:id/publish', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { published } = req.body;
+    
+    const result = await pool.query(
+      'UPDATE recipes SET is_published = $1 WHERE id = $2 RETURNING is_published',
+      [published, id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+    
+    res.json({ isPublished: result.rows[0].is_published });
+  } catch (error) {
+    console.error('Error updating publish status:', error);
+    res.status(500).json({ error: 'Failed to update publish status' });
+  }
+});
+
 // Get shared recipe by share ID (PUBLIC - no auth required)
 app.get('/api/public/recipes/:shareId', async (req, res) => {
   try {
@@ -876,7 +911,7 @@ app.get('/api/public/discover', async (req, res) => {
     const limit = parseInt(req.query.limit) || 5;
     const offset = parseInt(req.query.offset) || 0;
 
-    // Get random recipes with their first variation details (ALL recipes, not just shared)
+    // Get random PUBLISHED recipes with their first variation details
     const recipesResult = await pool.query(`
       SELECT r.id, r.name, r.share_id, r.updated_at,
              rv.banner_image, rv.description, rv.tags, r.user_code
@@ -888,6 +923,7 @@ app.get('/api/public/discover', async (req, res) => {
         ORDER BY sort_order
         LIMIT 1
       ) rv ON true
+      WHERE r.is_published = TRUE
       ORDER BY RANDOM()
       LIMIT $1 OFFSET $2
     `, [limit, offset]);

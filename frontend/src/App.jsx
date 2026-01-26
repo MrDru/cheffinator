@@ -53,6 +53,10 @@ const TRANSLATIONS = {
     addContent: 'Add content',
     share: 'Share',
     sharing: 'Sharing...',
+    publish: 'Publish',
+    unpublish: 'Unpublish',
+    publishing: 'Publishing...',
+    published: 'Published',
     edit: 'Edit',
     back: 'Back',
     done: 'Done',
@@ -156,6 +160,10 @@ const TRANSLATIONS = {
     addContent: 'הוסף תוכן',
     share: 'שתף',
     sharing: 'משתף...',
+    publish: 'פרסם',
+    unpublish: 'הסר פרסום',
+    publishing: 'מפרסם...',
+    published: 'פורסם',
     edit: 'ערוך',
     back: 'חזור',
     done: 'סיום',
@@ -608,6 +616,8 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saved', 'unsaved', 'saving'
   const autoSaveTimeoutRef = React.useRef(null);
   const lastSavedDataRef = React.useRef(null);
@@ -1263,6 +1273,7 @@ export default function App() {
     setEditingId(null);
     setVariations([]);
     setCurrentVariationIndex(0);
+    setIsPublished(false);
   };
 
   const openNew = async () => { 
@@ -1399,6 +1410,7 @@ export default function App() {
   const openExisting = (r, variationIndex = 0) => {
     setEditingId(r.id); 
     setRecipeName(r.name);
+    setIsPublished(r.isPublished || false);
     
     // If this is a search result pointing to a specific variation
     const startIndex = r.openVariationIndex !== undefined ? r.openVariationIndex : variationIndex;
@@ -3859,6 +3871,51 @@ export default function App() {
           <Icon type="back" /> {t('done')}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Publish button */}
+          <button
+            style={{
+              ...styles.btn,
+              color: isPublished ? 'var(--accent-green)' : 'var(--text-secondary)',
+              borderColor: isPublished ? 'var(--accent-green)' : 'var(--border-color)',
+              background: isPublished ? 'rgba(74,222,128,0.1)' : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              opacity: isPublishing ? 0.7 : 1
+            }}
+            disabled={isPublishing || !editingId || editingId.startsWith('mock-')}
+            onClick={async () => {
+              if (isPublishing || !editingId || editingId.startsWith('mock-')) return;
+              try {
+                setIsPublishing(true);
+                const result = await api.publishRecipe(editingId, !isPublished);
+                setIsPublished(result.isPublished);
+                // Update the recipe in local state
+                setRecipes(prev => prev.map(r => 
+                  r.id === editingId ? { ...r, isPublished: result.isPublished } : r
+                ));
+              } catch (error) {
+                console.error('Failed to update publish status:', error);
+              } finally {
+                setIsPublishing(false);
+              }
+            }}
+          >
+            {isPublishing ? (
+              <span style={{
+                width: 14,
+                height: 14,
+                border: '2px solid rgba(74,222,128,0.2)',
+                borderTopColor: 'var(--accent-green)',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite'
+              }} />
+            ) : (
+              <span>{isPublished ? '📢' : '📤'}</span>
+            )}
+            {isPublishing ? t('publishing') : isPublished ? t('published') : t('publish')}
+          </button>
+          
           {saveMessage && (
             <span style={{ 
               padding: '8px 16px', 

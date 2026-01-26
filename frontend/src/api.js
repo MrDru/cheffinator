@@ -141,6 +141,17 @@ export async function generateShareLink(recipeId) {
   return response.json();
 }
 
+// Publish or unpublish a recipe (toggle visibility on discover page)
+export async function publishRecipe(recipeId, published) {
+  const response = await fetch(`${API_BASE}/recipes/${recipeId}/publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ published })
+  });
+  if (!response.ok) throw new Error('Failed to update publish status');
+  return response.json();
+}
+
 // Fetch a shared recipe by share ID (public, no auth)
 export async function fetchSharedRecipe(shareId) {
   const response = await fetch(`${API_BASE}/public/recipes/${shareId}`);
