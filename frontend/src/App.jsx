@@ -3664,7 +3664,7 @@ export default function App() {
               <ol style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {filteredStages.map((stage, i) => (
                   <li key={stage.id} style={{ marginBottom: 32 }}>
-                    <div style={{ display: 'flex', gap: 20, flexDirection: isRecipeHebrew() ? 'row-reverse' : 'row' }}>
+                    <div style={{ display: 'flex', gap: 20 }}>
                       <div style={{ 
                         width: 36, 
                         height: 36, 
@@ -3682,7 +3682,7 @@ export default function App() {
                       }}>
                         {i + 1}
                       </div>
-                      <div style={{ flex: 1, textAlign: isRecipeHebrew() ? 'right' : 'left' }}>
+                      <div style={{ flex: 1 }}>
                         <p style={{ margin: 0, fontSize: 17, lineHeight: 1.8, color: '#CCC' }}>{stage.text}</p>
                         {stage.image && (
                           <img 
@@ -4383,8 +4383,8 @@ export default function App() {
         </div>
         
         {stages.map((stage, i) => (
-          <div key={stage.id} style={{ ...styles.surface, marginBottom: 16, padding: 20 }}>
-            <div style={{ display: 'flex', gap: 16, flexDirection: isRecipeHebrew() ? 'row-reverse' : 'row' }}>
+          <div key={stage.id} dir={isRecipeHebrew() ? 'rtl' : 'ltr'} style={{ ...styles.surface, marginBottom: 16, padding: 20 }}>
+            <div style={{ display: 'flex', gap: 16 }}>
               <div style={{ 
                 width: 40, 
                 height: 40, 
@@ -4402,7 +4402,7 @@ export default function App() {
                 {i + 1}
               </div>
               <textarea 
-                style={{ ...styles.input, flex: 1, fontSize: 15, lineHeight: 1.7, resize: 'none', minHeight: 80, textAlign: isRecipeHebrew() ? 'right' : 'left', direction: isRecipeHebrew() ? 'rtl' : 'ltr' }} 
+                style={{ ...styles.input, flex: 1, fontSize: 15, lineHeight: 1.7, resize: 'none', minHeight: 80 }} 
                 placeholder={t('describeStep')} 
                 value={stage.text} 
                 onChange={e => setStages(stages.map(x => x.id === stage.id ? { ...x, text: e.target.value } : x))}
@@ -4434,7 +4434,7 @@ export default function App() {
                 <Icon type="trash" />
               </button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, marginLeft: isRecipeHebrew() ? 0 : 56, marginRight: isRecipeHebrew() ? 56 : 0, flexDirection: isRecipeHebrew() ? 'row-reverse' : 'row' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, marginInlineStart: 56 }}>
               {stage.image ? (
                 <div style={{ position: 'relative' }}>
                   <img src={stage.image} alt="" style={{ width: 130, height: 90, borderRadius: 10, objectFit: 'cover' }} />
