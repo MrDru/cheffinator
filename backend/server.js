@@ -1161,6 +1161,153 @@ app.get('/api/tags', async (req, res) => {
   }
 });
 
+// Admin: Export entire database as JSON backup
+app.get('/api/admin/backup', async (req, res) => {
+  try {
+    // Get all tables data
+    const users = await pool.query('SELECT * FROM users ORDER BY id');
+    const recipes = await pool.query('SELECT * FROM recipes ORDER BY id');
+    const variations = await pool.query('SELECT * FROM recipe_variations ORDER BY recipe_id, sort_order');
+    const ingredients = await pool.query('SELECT * FROM ingredients ORDER BY variation_id, sort_order');
+    const steps = await pool.query('SELECT * FROM cooking_steps ORDER BY variation_id, sort_order');
+    const tags = await pool.query('SELECT * FROM custom_tags ORDER BY id');
+    
+    const backup = {
+      exportDate: new Date().toISOString(),
+      version: '1.0',
+      data: {
+        users: users.rows,
+        recipes: recipes.rows,
+        recipe_variations: variations.rows,
+        ingredients: ingredients.rows,
+        cooking_steps: steps.rows,
+        custom_tags: tags.rows
+      }
+    };
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename=cheffinator-backup-${new Date().toISOString().split('T')[0]}.json`);
+    res.json(backup);
+  } catch (error) {
+    console.error('Error creating backup:', error);
+    res.status(500).json({ error: 'Failed to create backup' });
+  }
+});
+
+// Admin: Import database from JSON backup
+app.post('/api/admin/import', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { data, clearExisting } = req.body;
+    
+    if (!data) {
+      return res.status(400).json({ error: 'No backup data provided' });
+    }
+    
+    await client.query('BEGIN');
+    
+    // If clearExisting is true, delete all data first
+    if (clearExisting) {
+      await client.query('DELETE FROM cooking_steps');
+      await client.query('DELETE FROM ingredients');
+      await client.query('DELETE FROM recipe_variations');
+      await client.query('DELETE FROM recipes');
+      await client.query('DELETE FROM users');
+      await client.query('DELETE FROM custom_tags');
+    }
+    
+    let imported = { users: 0, recipes: 0, variations: 0, ingredients: 0, steps: 0, tags: 0 };
+    
+    // Import users
+    if (data.users) {
+      for (const user of data.users) {
+        await client.query(
+          'INSERT INTO users (id, code, created_at) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET code = $2',
+          [user.id, user.code, user.created_at]
+        );
+        imported.users++;
+      }
+    }
+    
+    // Import custom tags
+    if (data.custom_tags) {
+      for (const tag of data.custom_tags) {
+        await client.query(
+          'INSERT INTO custom_tags (id, name, created_at) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET name = $2',
+          [tag.id, tag.name, tag.created_at]
+        );
+        imported.tags++;
+      }
+    }
+    
+    // Import recipes
+    if (data.recipes) {
+      for (const recipe of data.recipes) {
+        await client.query(
+          `INSERT INTO recipes (id, name, description, servings, tags, banner_image, user_code, share_id, is_published, created_at, updated_at) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
+           ON CONFLICT (id) DO UPDATE SET name = $2, description = $3, servings = $4, tags = $5, banner_image = $6, user_code = $7, share_id = $8, is_published = $9, updated_at = $11`,
+          [recipe.id, recipe.name, recipe.description, recipe.servings, recipe.tags, recipe.banner_image, recipe.user_code, recipe.share_id, recipe.is_published, recipe.created_at, recipe.updated_at]
+        );
+        imported.recipes++;
+      }
+    }
+    
+    // Import variations
+    if (data.recipe_variations) {
+      for (const v of data.recipe_variations) {
+        await client.query(
+          `INSERT INTO recipe_variations (id, recipe_id, name, description, servings, tags, banner_image, sort_order, created_at, updated_at) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+           ON CONFLICT (id) DO UPDATE SET name = $3, description = $4, servings = $5, tags = $6, banner_image = $7, sort_order = $8, updated_at = $10`,
+          [v.id, v.recipe_id, v.name, v.description, v.servings, v.tags, v.banner_image, v.sort_order, v.created_at, v.updated_at]
+        );
+        imported.variations++;
+      }
+    }
+    
+    // Import ingredients
+    if (data.ingredients) {
+      for (const ing of data.ingredients) {
+        await client.query(
+          `INSERT INTO ingredients (id, recipe_id, variation_id, name, amount, unit, image, sort_order) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+           ON CONFLICT (id) DO UPDATE SET name = $4, amount = $5, unit = $6, image = $7, sort_order = $8`,
+          [ing.id, ing.recipe_id, ing.variation_id, ing.name, ing.amount, ing.unit, ing.image, ing.sort_order]
+        );
+        imported.ingredients++;
+      }
+    }
+    
+    // Import cooking steps
+    if (data.cooking_steps) {
+      for (const step of data.cooking_steps) {
+        await client.query(
+          `INSERT INTO cooking_steps (id, recipe_id, variation_id, step_text, image, sort_order) 
+           VALUES ($1, $2, $3, $4, $5, $6) 
+           ON CONFLICT (id) DO UPDATE SET step_text = $4, image = $5, sort_order = $6`,
+          [step.id, step.recipe_id, step.variation_id, step.step_text, step.image, step.sort_order]
+        );
+        imported.steps++;
+      }
+    }
+    
+    await client.query('COMMIT');
+    
+    res.json({ 
+      success: true, 
+      message: 'Import completed successfully',
+      imported 
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error importing backup:', error);
+    res.status(500).json({ error: 'Failed to import backup: ' + error.message });
+  } finally {
+    client.release();
+  }
+});
+
 // Serve frontend in production
 if (isProduction) {
   const frontendPath = path.join(__dirname, '../frontend/dist');

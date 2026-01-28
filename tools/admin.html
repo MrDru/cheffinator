@@ -468,6 +468,15 @@
         <div class="stat-value" id="totalUsers">0</div>
         <div class="stat-label">Users</div>
       </div>
+      <div style="display: flex; gap: 12px; margin-left: auto; align-items: center;">
+        <button class="btn-secondary" onclick="downloadBackup()" style="display: flex; align-items: center; gap: 6px;">
+          💾 Backup
+        </button>
+        <label class="btn-secondary" style="display: flex; align-items: center; gap: 6px; cursor: pointer; margin: 0;">
+          📥 Import
+          <input type="file" accept=".json" onchange="importBackup(event)" style="display: none;" />
+        </label>
+      </div>
     </div>
 
     <div class="tabs" id="tabs" style="display: none;">
@@ -552,6 +561,89 @@
         updateStatus('error');
         showToast('Failed to connect: ' + error.message, 'error');
       }
+    }
+
+    // Download database backup
+    async function downloadBackup() {
+      if (!API_URL) {
+        showToast('Please connect to the API first', 'error');
+        return;
+      }
+      
+      try {
+        showToast('Creating backup...', 'success');
+        const response = await fetch(`${API_URL}/api/admin/backup`);
+        if (!response.ok) throw new Error('Failed to create backup');
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cheffinator-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        showToast('Backup downloaded successfully!', 'success');
+      } catch (error) {
+        showToast('Failed to create backup: ' + error.message, 'error');
+      }
+    }
+
+    // Import database from backup file
+    async function importBackup(event) {
+      if (!API_URL) {
+        showToast('Please connect to the API first', 'error');
+        return;
+      }
+      
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      // Confirm before import
+      const clearExisting = confirm(
+        '⚠️ Import Options:\n\n' +
+        'Click OK to REPLACE all existing data with the backup.\n' +
+        'Click Cancel to MERGE backup with existing data (may cause duplicates).'
+      );
+      
+      try {
+        showToast('Reading backup file...', 'success');
+        const text = await file.text();
+        const backup = JSON.parse(text);
+        
+        if (!backup.data) {
+          throw new Error('Invalid backup file format');
+        }
+        
+        showToast('Importing data...', 'success');
+        const response = await fetch(`${API_URL}/api/admin/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: backup.data, clearExisting })
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Import failed');
+        }
+        
+        const result = await response.json();
+        showToast(
+          `Import complete! ${result.imported.recipes} recipes, ${result.imported.users} users imported.`, 
+          'success'
+        );
+        
+        // Refresh the data
+        await Promise.all([loadRecipes(), loadUsers()]);
+        
+      } catch (error) {
+        showToast('Failed to import: ' + error.message, 'error');
+      }
+      
+      // Reset file input
+      event.target.value = '';
     }
 
     // Tab switching
