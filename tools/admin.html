@@ -83,6 +83,75 @@
       border-color: var(--accent);
     }
 
+    .url-input-wrapper {
+      position: relative;
+    }
+
+    .url-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-top: 4px;
+      display: none;
+      z-index: 100;
+      max-height: 200px;
+      overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    .url-dropdown.show {
+      display: block;
+    }
+
+    .url-dropdown-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .url-dropdown-item:last-child {
+      border-bottom: none;
+    }
+
+    .url-dropdown-item:hover {
+      background: rgba(229, 192, 123, 0.1);
+    }
+
+    .url-dropdown-item.last-used {
+      color: var(--accent);
+    }
+
+    .url-dropdown-item .url-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .url-dropdown-item .delete-url {
+      color: var(--text-muted);
+      padding: 4px 8px;
+      margin-left: 8px;
+      border-radius: 4px;
+      opacity: 0.6;
+      transition: all 0.2s;
+    }
+
+    .url-dropdown-item .delete-url:hover {
+      opacity: 1;
+      color: #e06c75;
+      background: rgba(224, 108, 117, 0.1);
+    }
+
     button {
       font-family: inherit;
       font-size: 14px;
@@ -450,7 +519,11 @@
     <header>
       <h1>🍳 <span>Cheffinator</span> Admin</h1>
       <div class="connection-form">
-        <input type="text" id="apiUrl" placeholder="Enter API URL (e.g., https://cheffinator.onrender.com)" />
+        <div class="url-input-wrapper">
+          <input type="text" id="apiUrl" placeholder="Enter API URL (e.g., https://cheffinator.onrender.com)" 
+                 onfocus="showUrlDropdown()" autocomplete="off" />
+          <div class="url-dropdown" id="urlDropdown"></div>
+        </div>
         <button class="btn-primary" onclick="connect()">Connect</button>
         <div class="status">
           <div class="status-dot" id="statusDot"></div>
@@ -538,6 +611,92 @@
     let deleteTargetId = null;
     let deleteTargetType = null; // 'recipe' or 'user'
 
+    // URL History Management
+    const URL_HISTORY_KEY = 'cheffinator_admin_urls';
+    const LAST_URL_KEY = 'cheffinator_admin_last_url';
+
+    function getSavedUrls() {
+      try {
+        return JSON.parse(localStorage.getItem(URL_HISTORY_KEY) || '[]');
+      } catch {
+        return [];
+      }
+    }
+
+    function saveUrl(url) {
+      const urls = getSavedUrls();
+      // Remove if exists (to avoid duplicates)
+      const filtered = urls.filter(u => u !== url);
+      // Add to front
+      filtered.unshift(url);
+      // Keep max 10
+      const limited = filtered.slice(0, 10);
+      localStorage.setItem(URL_HISTORY_KEY, JSON.stringify(limited));
+      localStorage.setItem(LAST_URL_KEY, url);
+    }
+
+    function deleteUrl(url, event) {
+      event.stopPropagation();
+      const urls = getSavedUrls().filter(u => u !== url);
+      localStorage.setItem(URL_HISTORY_KEY, JSON.stringify(urls));
+      // If deleted the last used URL, clear it
+      if (localStorage.getItem(LAST_URL_KEY) === url) {
+        localStorage.setItem(LAST_URL_KEY, urls[0] || '');
+      }
+      renderUrlDropdown();
+    }
+
+    function selectUrl(url) {
+      document.getElementById('apiUrl').value = url;
+      hideUrlDropdown();
+    }
+
+    function showUrlDropdown() {
+      const urls = getSavedUrls();
+      if (urls.length > 0) {
+        renderUrlDropdown();
+        document.getElementById('urlDropdown').classList.add('show');
+      }
+    }
+
+    function hideUrlDropdown() {
+      document.getElementById('urlDropdown').classList.remove('show');
+    }
+
+    function renderUrlDropdown() {
+      const urls = getSavedUrls();
+      const lastUrl = localStorage.getItem(LAST_URL_KEY);
+      const dropdown = document.getElementById('urlDropdown');
+      
+      if (urls.length === 0) {
+        dropdown.innerHTML = '';
+        return;
+      }
+
+      dropdown.innerHTML = urls.map(url => `
+        <div class="url-dropdown-item ${url === lastUrl ? 'last-used' : ''}" onclick="selectUrl('${url}')">
+          <span class="url-text">${url === lastUrl ? '★ ' : ''}${url}</span>
+          <span class="delete-url" onclick="deleteUrl('${url}', event)">✕</span>
+        </div>
+      `).join('');
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      const wrapper = document.querySelector('.url-input-wrapper');
+      if (wrapper && !wrapper.contains(e.target)) {
+        hideUrlDropdown();
+      }
+    });
+
+    // Load last URL on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      const lastUrl = localStorage.getItem(LAST_URL_KEY);
+      if (lastUrl) {
+        document.getElementById('apiUrl').value = lastUrl;
+      }
+    });
+
     // Connect to API
     async function connect() {
       const url = document.getElementById('apiUrl').value.trim();
@@ -549,9 +708,12 @@
       API_URL = url.replace(/\/$/, ''); // Remove trailing slash
       
       updateStatus('connecting');
+      hideUrlDropdown();
       
       try {
         await Promise.all([loadRecipes(), loadUsers()]);
+        // Save URL on successful connection
+        saveUrl(API_URL);
         updateStatus('connected');
         document.getElementById('stats').style.display = 'flex';
         document.getElementById('tabs').style.display = 'flex';
