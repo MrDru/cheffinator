@@ -276,8 +276,11 @@ async function saveCustomTags(tags) {
   }
 }
 
-// Middleware
-app.use(cors());
+// Middleware - CORS configured to allow all origins including local files
+app.use(cors({
+  origin: true, // Allow all origins
+  credentials: true
+}));
 app.use(express.json({ limit: '5mb' })); // Reduced from 50mb to prevent memory crashes
 app.use('/uploads', express.static(uploadsDir));
 
