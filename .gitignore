@@ -3,6 +3,11 @@ node_modules/
 
 # Database
 backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+
+# Local development files
+backend/db.js
 
 # Uploads (optional - uncomment if you don't want to track uploaded images)
 # backend/uploads/
