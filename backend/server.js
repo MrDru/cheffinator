@@ -238,7 +238,17 @@ async function initDatabase() {
       }
       console.log('Users table seeded with', DEFAULT_USERS.length, 'users');
     }
-    
+
+    // Create indexes for better query performance
+    console.log('Creating indexes...');
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_user_code ON recipes(LOWER(user_code))`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_share_id ON recipes(share_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_is_published ON recipes(is_published)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_variations_recipe_id ON recipe_variations(recipe_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ingredients_variation_id ON ingredients(variation_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_cooking_steps_variation_id ON cooking_steps(variation_id)`);
+    console.log('Indexes created');
+
     console.log('Database tables initialized');
   } finally {
     client.release();
@@ -310,57 +320,86 @@ app.post('/api/auth/validate', async (req, res) => {
 });
 
 // Get all recipes (filtered by user_code, case-insensitive)
+// Optimized: uses batch queries instead of N+1 pattern
 app.get('/api/recipes', async (req, res) => {
   try {
     const userCode = (req.query.user || 'default').toLowerCase();
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const offset = parseInt(req.query.offset) || 0;
+
+    // Query 1: Get all recipes for user with pagination
     const recipesResult = await pool.query(
-      'SELECT * FROM recipes WHERE LOWER(user_code) = $1 ORDER BY updated_at DESC',
-      [userCode]
+      'SELECT * FROM recipes WHERE LOWER(user_code) = $1 ORDER BY updated_at DESC LIMIT $2 OFFSET $3',
+      [userCode, limit, offset]
     );
-    
-    const recipes = await Promise.all(recipesResult.rows.map(async (recipe) => {
-      // Get all variations for this recipe
-      const variationsResult = await pool.query(
-        'SELECT * FROM recipe_variations WHERE recipe_id = $1 ORDER BY sort_order',
-        [recipe.id]
-      );
-      
-      const variations = await Promise.all(variationsResult.rows.map(async (variation) => {
-        const ingredientsResult = await pool.query(
-          'SELECT * FROM ingredients WHERE variation_id = $1 ORDER BY sort_order',
-          [variation.id]
-        );
-        
-        const stepsResult = await pool.query(
-          'SELECT * FROM cooking_steps WHERE variation_id = $1 ORDER BY sort_order',
-          [variation.id]
-        );
-        
-        return {
-          id: variation.id,
-          name: variation.name,
-          description: variation.description || '',
-          servings: variation.servings,
-          tags: variation.tags ? JSON.parse(variation.tags) : [],
-          bannerImage: variation.banner_image,
-          ingredients: ingredientsResult.rows.map(ing => ({
-            id: ing.id,
-            name: ing.name,
-            amount: ing.amount || '',
-            unit: ing.unit || 'g',
-            image: ing.image
-          })),
-          stages: stepsResult.rows.map(step => ({
-            id: step.id,
-            text: step.step_text,
-            image: step.image
-          }))
-        };
-      }));
-      
-      // Use first variation's data for backward compatibility in list view
+
+    if (recipesResult.rows.length === 0) {
+      return res.json([]);
+    }
+
+    const recipeIds = recipesResult.rows.map(r => r.id);
+
+    // Query 2: Get all variations for these recipes in one query
+    const variationsResult = await pool.query(
+      `SELECT * FROM recipe_variations WHERE recipe_id = ANY($1) ORDER BY recipe_id, sort_order`,
+      [recipeIds]
+    );
+
+    const variationIds = variationsResult.rows.map(v => v.id);
+
+    // Query 3 & 4: Get all ingredients and steps in parallel
+    const [ingredientsResult, stepsResult] = await Promise.all([
+      variationIds.length > 0
+        ? pool.query('SELECT * FROM ingredients WHERE variation_id = ANY($1) ORDER BY variation_id, sort_order', [variationIds])
+        : { rows: [] },
+      variationIds.length > 0
+        ? pool.query('SELECT * FROM cooking_steps WHERE variation_id = ANY($1) ORDER BY variation_id, sort_order', [variationIds])
+        : { rows: [] }
+    ]);
+
+    // Build lookup maps for O(1) access
+    const ingredientsByVariation = {};
+    for (const ing of ingredientsResult.rows) {
+      if (!ingredientsByVariation[ing.variation_id]) ingredientsByVariation[ing.variation_id] = [];
+      ingredientsByVariation[ing.variation_id].push({
+        id: ing.id,
+        name: ing.name,
+        amount: ing.amount || '',
+        unit: ing.unit || 'g',
+        image: ing.image
+      });
+    }
+
+    const stepsByVariation = {};
+    for (const step of stepsResult.rows) {
+      if (!stepsByVariation[step.variation_id]) stepsByVariation[step.variation_id] = [];
+      stepsByVariation[step.variation_id].push({
+        id: step.id,
+        text: step.step_text,
+        image: step.image
+      });
+    }
+
+    const variationsByRecipe = {};
+    for (const v of variationsResult.rows) {
+      if (!variationsByRecipe[v.recipe_id]) variationsByRecipe[v.recipe_id] = [];
+      variationsByRecipe[v.recipe_id].push({
+        id: v.id,
+        name: v.name,
+        description: v.description || '',
+        servings: v.servings,
+        tags: v.tags ? JSON.parse(v.tags) : [],
+        bannerImage: v.banner_image,
+        ingredients: ingredientsByVariation[v.id] || [],
+        stages: stepsByVariation[v.id] || []
+      });
+    }
+
+    // Assemble final response
+    const recipes = recipesResult.rows.map(recipe => {
+      const variations = variationsByRecipe[recipe.id] || [];
       const firstVariation = variations[0] || {};
-      
+
       return {
         id: recipe.id,
         name: recipe.name,
@@ -374,8 +413,8 @@ app.get('/api/recipes', async (req, res) => {
         stages: firstVariation.stages || [],
         isPublished: recipe.is_published || false
       };
-    }));
-    
+    });
+
     res.json(recipes);
   } catch (error) {
     console.error('Error fetching recipes:', error);
@@ -383,61 +422,119 @@ app.get('/api/recipes', async (req, res) => {
   }
 });
 
+// Get lightweight recipe list for dashboard (10x smaller payload)
+// Returns only: id, name, updated_at, tags, banner_image, variation_count
+app.get('/api/recipes/summary', async (req, res) => {
+  try {
+    const userCode = (req.query.user || 'default').toLowerCase();
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const offset = parseInt(req.query.offset) || 0;
+
+    const result = await pool.query(`
+      SELECT
+        r.id, r.name, r.updated_at, r.is_published,
+        rv.banner_image, rv.tags,
+        (SELECT COUNT(*) FROM recipe_variations WHERE recipe_id = r.id) as variation_count
+      FROM recipes r
+      LEFT JOIN LATERAL (
+        SELECT banner_image, tags
+        FROM recipe_variations
+        WHERE recipe_id = r.id
+        ORDER BY sort_order
+        LIMIT 1
+      ) rv ON true
+      WHERE LOWER(r.user_code) = $1
+      ORDER BY r.updated_at DESC
+      LIMIT $2 OFFSET $3
+    `, [userCode, limit, offset]);
+
+    const recipes = result.rows.map(recipe => ({
+      id: recipe.id,
+      name: recipe.name,
+      updated: timeAgo(recipe.updated_at),
+      tags: recipe.tags ? JSON.parse(recipe.tags) : [],
+      bannerImage: recipe.banner_image,
+      variationCount: parseInt(recipe.variation_count),
+      isPublished: recipe.is_published || false
+    }));
+
+    res.json(recipes);
+  } catch (error) {
+    console.error('Error fetching recipe summaries:', error);
+    res.status(500).json({ error: 'Failed to fetch recipes' });
+  }
+});
+
 // Get single recipe
+// Optimized: uses batch queries instead of N+1 pattern
 app.get('/api/recipes/:id', async (req, res) => {
   try {
     const recipeResult = await pool.query(
       'SELECT * FROM recipes WHERE id = $1',
       [req.params.id]
     );
-    
+
     if (recipeResult.rows.length === 0) {
       return res.status(404).json({ error: 'Recipe not found' });
     }
-    
+
     const recipe = recipeResult.rows[0];
-    
-    // Get all variations
+
+    // Get all variations for this recipe
     const variationsResult = await pool.query(
       'SELECT * FROM recipe_variations WHERE recipe_id = $1 ORDER BY sort_order',
       [recipe.id]
     );
-    
-    const variations = await Promise.all(variationsResult.rows.map(async (variation) => {
-      const ingredientsResult = await pool.query(
-        'SELECT * FROM ingredients WHERE variation_id = $1 ORDER BY sort_order',
-        [variation.id]
-      );
-      
-      const stepsResult = await pool.query(
-        'SELECT * FROM cooking_steps WHERE variation_id = $1 ORDER BY sort_order',
-        [variation.id]
-      );
-      
-      return {
-        id: variation.id,
-        name: variation.name,
-        description: variation.description || '',
-        servings: variation.servings,
-        tags: variation.tags ? JSON.parse(variation.tags) : [],
-        bannerImage: variation.banner_image,
-        ingredients: ingredientsResult.rows.map(ing => ({
-          id: ing.id,
-          name: ing.name,
-          amount: ing.amount || '',
-          unit: ing.unit || 'g',
-          image: ing.image
-        })),
-        stages: stepsResult.rows.map(step => ({
-          id: step.id,
-          text: step.step_text,
-          image: step.image
-        }))
-      };
+
+    const variationIds = variationsResult.rows.map(v => v.id);
+
+    // Get all ingredients and steps in parallel
+    const [ingredientsResult, stepsResult] = await Promise.all([
+      variationIds.length > 0
+        ? pool.query('SELECT * FROM ingredients WHERE variation_id = ANY($1) ORDER BY variation_id, sort_order', [variationIds])
+        : { rows: [] },
+      variationIds.length > 0
+        ? pool.query('SELECT * FROM cooking_steps WHERE variation_id = ANY($1) ORDER BY variation_id, sort_order', [variationIds])
+        : { rows: [] }
+    ]);
+
+    // Build lookup maps
+    const ingredientsByVariation = {};
+    for (const ing of ingredientsResult.rows) {
+      if (!ingredientsByVariation[ing.variation_id]) ingredientsByVariation[ing.variation_id] = [];
+      ingredientsByVariation[ing.variation_id].push({
+        id: ing.id,
+        name: ing.name,
+        amount: ing.amount || '',
+        unit: ing.unit || 'g',
+        image: ing.image
+      });
+    }
+
+    const stepsByVariation = {};
+    for (const step of stepsResult.rows) {
+      if (!stepsByVariation[step.variation_id]) stepsByVariation[step.variation_id] = [];
+      stepsByVariation[step.variation_id].push({
+        id: step.id,
+        text: step.step_text,
+        image: step.image
+      });
+    }
+
+    // Assemble variations
+    const variations = variationsResult.rows.map(v => ({
+      id: v.id,
+      name: v.name,
+      description: v.description || '',
+      servings: v.servings,
+      tags: v.tags ? JSON.parse(v.tags) : [],
+      bannerImage: v.banner_image,
+      ingredients: ingredientsByVariation[v.id] || [],
+      stages: stepsByVariation[v.id] || []
     }));
-    
+
     const firstVariation = variations[0] || {};
-    
+
     res.json({
       id: recipe.id,
       name: recipe.name,
@@ -985,26 +1082,24 @@ app.get('/api/admin/recipes', async (req, res) => {
 });
 
 // Admin endpoint: Get all users
+// Optimized: uses single aggregation query instead of N+1 pattern
 app.get('/api/admin/users', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT id, code, created_at FROM users ORDER BY created_at DESC'
-    );
-    
-    // Get recipe count for each user
-    const users = await Promise.all(result.rows.map(async (user) => {
-      const recipeCount = await pool.query(
-        'SELECT COUNT(*) FROM recipes WHERE LOWER(user_code) = $1',
-        [user.code.toLowerCase()]
-      );
-      return {
-        id: user.id,
-        code: user.code,
-        recipeCount: parseInt(recipeCount.rows[0].count),
-        createdAt: user.created_at
-      };
+    const result = await pool.query(`
+      SELECT u.id, u.code, u.created_at, COUNT(r.id) as recipe_count
+      FROM users u
+      LEFT JOIN recipes r ON LOWER(r.user_code) = LOWER(u.code)
+      GROUP BY u.id, u.code, u.created_at
+      ORDER BY u.created_at DESC
+    `);
+
+    const users = result.rows.map(user => ({
+      id: user.id,
+      code: user.code,
+      recipeCount: parseInt(user.recipe_count),
+      createdAt: user.created_at
     }));
-    
+
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);

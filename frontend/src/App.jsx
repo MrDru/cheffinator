@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as api from './api';
 import ImageCapture from './ImageCapture';
+import { MOCK_RECIPES, MOCK_DISCOVER_RECIPES } from './data/mockRecipes';
 
 // App version - update this single place when releasing new versions
 const APP_VERSION = 'v0.0.22';
@@ -235,171 +236,28 @@ const DEFAULT_TAGS = [
   'Baking', 'Holiday', 'Shabbat', 'Passover'
 ];
 
-const MOCK_RECIPES = [
-  {
-    id: 'mock-1',
-    name: 'Classic Shakshuka',
-    description: 'A delicious Middle Eastern dish of poached eggs in spiced tomato sauce',
-    servings: 4,
-    tags: ['Israeli', 'Breakfast', 'Vegetarian', 'Easy'],
-    ingredients: [
-      { id: 1, name: 'Tomatoes', amount: '400', unit: 'g' },
-      { id: 2, name: 'Eggs', amount: '4', unit: 'piece' },
-      { id: 3, name: 'Onion', amount: '1', unit: 'piece' },
-      { id: 4, name: 'Cumin', amount: '1', unit: 'tsp' }
-    ],
-    stages: [
-      { id: 1, text: 'Sauté diced onion until golden' },
-      { id: 2, text: 'Add crushed tomatoes and spices, simmer for 10 minutes' },
-      { id: 3, text: 'Make wells and crack eggs, cover and cook until set' }
-    ],
-    variations: [
-      {
-        id: 'mock-1-v1',
-        name: 'Original',
-        description: 'A delicious Middle Eastern dish of poached eggs in spiced tomato sauce',
-        servings: 4,
-        tags: ['Israeli', 'Breakfast', 'Vegetarian', 'Easy'],
-        ingredients: [
-          { id: 1, name: 'Tomatoes', amount: '400', unit: 'g' },
-          { id: 2, name: 'Eggs', amount: '4', unit: 'piece' },
-          { id: 3, name: 'Onion', amount: '1', unit: 'piece' },
-          { id: 4, name: 'Cumin', amount: '1', unit: 'tsp' }
-        ],
-        stages: [
-          { id: 1, text: 'Sauté diced onion until golden' },
-          { id: 2, text: 'Add crushed tomatoes and spices, simmer for 10 minutes' },
-          { id: 3, text: 'Make wells and crack eggs, cover and cook until set' }
-        ]
-      },
-      {
-        id: 'mock-1-v2',
-        name: 'Spicy',
-        description: 'Shakshuka with extra heat from jalapeños and harissa',
-        servings: 4,
-        tags: ['Israeli', 'Breakfast', 'Vegetarian', 'Spicy'],
-        ingredients: [
-          { id: 1, name: 'Tomatoes', amount: '400', unit: 'g' },
-          { id: 2, name: 'Eggs', amount: '4', unit: 'piece' },
-          { id: 3, name: 'Jalapeño', amount: '2', unit: 'piece' },
-          { id: 4, name: 'Harissa paste', amount: '2', unit: 'tbsp' }
-        ],
-        stages: [
-          { id: 1, text: 'Sauté jalapeños until softened' },
-          { id: 2, text: 'Add tomatoes, harissa, and spices - simmer 10 minutes' },
-          { id: 3, text: 'Make wells, crack eggs, cover and cook until set' }
-        ]
-      }
-    ],
-    updated: 'Dec 2024',
-    isMock: true
-  },
-  {
-    id: 'mock-2',
-    name: 'Creamy Pasta Primavera',
-    description: 'Fresh vegetables in a light cream sauce over pasta',
-    servings: 6,
-    tags: ['Italian', 'Pasta', 'Vegetarian', 'Dinner'],
-    ingredients: [
-      { id: 1, name: 'Penne pasta', amount: '500', unit: 'g' },
-      { id: 2, name: 'Heavy cream', amount: '250', unit: 'ml' },
-      { id: 3, name: 'Mixed vegetables', amount: '300', unit: 'g' },
-      { id: 4, name: 'Parmesan', amount: '100', unit: 'g' }
-    ],
-    stages: [
-      { id: 1, text: 'Cook pasta according to package directions' },
-      { id: 2, text: 'Sauté vegetables until tender-crisp' },
-      { id: 3, text: 'Add cream and parmesan, toss with pasta' }
-    ],
-    variations: [
-      {
-        id: 'mock-2-v1',
-        name: 'Original',
-        description: 'Fresh vegetables in a light cream sauce over pasta',
-        servings: 6,
-        tags: ['Italian', 'Pasta', 'Vegetarian', 'Dinner'],
-        ingredients: [
-          { id: 1, name: 'Penne pasta', amount: '500', unit: 'g' },
-          { id: 2, name: 'Heavy cream', amount: '250', unit: 'ml' },
-          { id: 3, name: 'Mixed vegetables', amount: '300', unit: 'g' },
-          { id: 4, name: 'Parmesan', amount: '100', unit: 'g' }
-        ],
-        stages: [
-          { id: 1, text: 'Cook pasta according to package directions' },
-          { id: 2, text: 'Sauté vegetables until tender-crisp' },
-          { id: 3, text: 'Add cream and parmesan, toss with pasta' }
-        ]
-      }
-    ],
-    updated: 'Dec 2024',
-    isMock: true
-  },
-  {
-    id: 'mock-3',
-    name: 'Chocolate Lava Cake',
-    description: 'Decadent individual chocolate cakes with molten centers',
-    servings: 4,
-    tags: ['Dessert', 'Baking', 'Easy'],
-    ingredients: [
-      { id: 1, name: 'Dark chocolate', amount: '200', unit: 'g' },
-      { id: 2, name: 'Butter', amount: '100', unit: 'g' },
-      { id: 3, name: 'Eggs', amount: '4', unit: 'piece' },
-      { id: 4, name: 'Sugar', amount: '100', unit: 'g' },
-      { id: 5, name: 'Flour', amount: '50', unit: 'g' }
-    ],
-    stages: [
-      { id: 1, text: 'Melt chocolate and butter together' },
-      { id: 2, text: 'Whisk eggs and sugar, fold in chocolate mixture and flour' },
-      { id: 3, text: 'Bake at 200°C for 12 minutes until edges are set' }
-    ],
-    variations: [
-      {
-        id: 'mock-3-v1',
-        name: 'Original',
-        description: 'Decadent individual chocolate cakes with molten centers',
-        servings: 4,
-        tags: ['Dessert', 'Baking', 'Easy'],
-        ingredients: [
-          { id: 1, name: 'Dark chocolate', amount: '200', unit: 'g' },
-          { id: 2, name: 'Butter', amount: '100', unit: 'g' },
-          { id: 3, name: 'Eggs', amount: '4', unit: 'piece' },
-          { id: 4, name: 'Sugar', amount: '100', unit: 'g' },
-          { id: 5, name: 'Flour', amount: '50', unit: 'g' }
-        ],
-        stages: [
-          { id: 1, text: 'Melt chocolate and butter together' },
-          { id: 2, text: 'Whisk eggs and sugar, fold in chocolate mixture and flour' },
-          { id: 3, text: 'Bake at 200°C for 12 minutes until edges are set' }
-        ]
-      }
-    ],
-    updated: 'Dec 2024',
-    isMock: true
-  }
-];
-
-const Icon = ({ type }) => {
-  const icons = {
-    plus: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-    trash: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"/></svg>,
-    back: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15,18 9,12 15,6"/></svg>,
-    edit: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-    play: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>,
-    close: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-    camera: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
-    chevronRight: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9,18 15,12 9,6"/></svg>,
-    x: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-    copy: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
-    search: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-    chef: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6V13.87Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>,
-    fullscreen: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>,
-    exitFullscreen: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>,
-    more: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>,
-    share: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
-    link: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
-  };
-  return icons[type] || null;
+// Icon definitions moved outside component to prevent recreation on every render
+const ICONS = {
+  plus: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  trash: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"/></svg>,
+  back: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15,18 9,12 15,6"/></svg>,
+  edit: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  play: <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>,
+  close: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  camera: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+  chevronRight: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9,18 15,12 9,6"/></svg>,
+  x: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  copy: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+  search: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  chef: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6V13.87Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>,
+  fullscreen: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>,
+  exitFullscreen: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>,
+  more: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>,
+  share: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
+  link: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
 };
+
+const Icon = ({ type }) => ICONS[type] || null;
 
 const styles = {
   page: { 
@@ -736,165 +594,6 @@ export default function App() {
 
   // NOTE: popstate handling is consolidated in the effect below (around line 1216)
 
-  // Mock discover recipes for local development (full recipe data for viewing)
-  const MOCK_DISCOVER_RECIPES = [
-    {
-      id: 'mock-d1',
-      name: 'Classic Shakshuka',
-      description: 'A delicious Middle Eastern dish of poached eggs in spiced tomato sauce',
-      tags: ['Israeli', 'Breakfast', 'Vegetarian'],
-      bannerImage: null,
-      userCode: 'chefdemo',
-      shareId: 'mock1',
-      servings: 4,
-      variations: [{
-        id: 'mock-d1-v1',
-        name: 'Original',
-        description: 'A delicious Middle Eastern dish of poached eggs in spiced tomato sauce',
-        servings: 4,
-        tags: ['Israeli', 'Breakfast', 'Vegetarian'],
-        bannerImage: null,
-        ingredients: [
-          { id: 1, name: 'Crushed tomatoes', amount: '400', unit: 'g' },
-          { id: 2, name: 'Eggs', amount: '4', unit: 'piece' },
-          { id: 3, name: 'Onion', amount: '1', unit: 'piece' },
-          { id: 4, name: 'Cumin', amount: '1', unit: 'tsp' },
-          { id: 5, name: 'Paprika', amount: '1', unit: 'tsp' }
-        ],
-        stages: [
-          { id: 1, text: 'Sauté diced onion in olive oil until golden' },
-          { id: 2, text: 'Add crushed tomatoes, cumin, and paprika. Simmer for 10 minutes' },
-          { id: 3, text: 'Make small wells and crack eggs into them' },
-          { id: 4, text: 'Cover and cook until eggs are set, about 5-7 minutes' }
-        ]
-      }]
-    },
-    {
-      id: 'mock-d2', 
-      name: 'Creamy Pasta Primavera',
-      description: 'Fresh vegetables in a light cream sauce over pasta',
-      tags: ['Italian', 'Pasta', 'Vegetarian'],
-      bannerImage: null,
-      userCode: 'italianmama',
-      shareId: 'mock2',
-      servings: 6,
-      variations: [{
-        id: 'mock-d2-v1',
-        name: 'Original',
-        description: 'Fresh vegetables in a light cream sauce over pasta',
-        servings: 6,
-        tags: ['Italian', 'Pasta', 'Vegetarian'],
-        bannerImage: null,
-        ingredients: [
-          { id: 1, name: 'Penne pasta', amount: '500', unit: 'g' },
-          { id: 2, name: 'Heavy cream', amount: '250', unit: 'ml' },
-          { id: 3, name: 'Mixed vegetables', amount: '300', unit: 'g' },
-          { id: 4, name: 'Parmesan', amount: '100', unit: 'g' },
-          { id: 5, name: 'Garlic', amount: '3', unit: 'piece' }
-        ],
-        stages: [
-          { id: 1, text: 'Cook pasta according to package directions, reserve 1 cup pasta water' },
-          { id: 2, text: 'Sauté garlic and vegetables until tender-crisp' },
-          { id: 3, text: 'Add cream and parmesan, simmer until thickened' },
-          { id: 4, text: 'Toss with pasta, adding pasta water to reach desired consistency' }
-        ]
-      }]
-    },
-    {
-      id: 'mock-d3',
-      name: 'Teriyaki Salmon Bowl',
-      description: 'Glazed salmon over rice with fresh vegetables',
-      tags: ['Asian', 'Fish', 'Healthy'],
-      bannerImage: null,
-      userCode: 'sushimaster',
-      shareId: 'mock3',
-      servings: 2,
-      variations: [{
-        id: 'mock-d3-v1',
-        name: 'Original',
-        description: 'Glazed salmon over rice with fresh vegetables',
-        servings: 2,
-        tags: ['Asian', 'Fish', 'Healthy'],
-        bannerImage: null,
-        ingredients: [
-          { id: 1, name: 'Salmon fillet', amount: '300', unit: 'g' },
-          { id: 2, name: 'Sushi rice', amount: '200', unit: 'g' },
-          { id: 3, name: 'Soy sauce', amount: '3', unit: 'tbsp' },
-          { id: 4, name: 'Honey', amount: '2', unit: 'tbsp' },
-          { id: 5, name: 'Edamame', amount: '100', unit: 'g' }
-        ],
-        stages: [
-          { id: 1, text: 'Cook sushi rice according to package directions' },
-          { id: 2, text: 'Mix soy sauce and honey for teriyaki glaze' },
-          { id: 3, text: 'Pan-sear salmon, brushing with glaze' },
-          { id: 4, text: 'Serve over rice with edamame and pickled ginger' }
-        ]
-      }]
-    },
-    {
-      id: 'mock-d4',
-      name: 'Classic Hummus',
-      description: 'Smooth and creamy chickpea dip with tahini',
-      tags: ['Israeli', 'Vegan', 'Quick'],
-      bannerImage: null,
-      userCode: 'mezzeking',
-      shareId: 'mock4',
-      servings: 8,
-      variations: [{
-        id: 'mock-d4-v1',
-        name: 'Original',
-        description: 'Smooth and creamy chickpea dip with tahini',
-        servings: 8,
-        tags: ['Israeli', 'Vegan', 'Quick'],
-        bannerImage: null,
-        ingredients: [
-          { id: 1, name: 'Chickpeas', amount: '400', unit: 'g' },
-          { id: 2, name: 'Tahini', amount: '60', unit: 'g' },
-          { id: 3, name: 'Lemon juice', amount: '3', unit: 'tbsp' },
-          { id: 4, name: 'Garlic', amount: '2', unit: 'piece' },
-          { id: 5, name: 'Olive oil', amount: '3', unit: 'tbsp' }
-        ],
-        stages: [
-          { id: 1, text: 'Drain chickpeas, reserving liquid (aquafaba)' },
-          { id: 2, text: 'Blend tahini with lemon juice and garlic until smooth' },
-          { id: 3, text: 'Add chickpeas and blend, adding aquafaba for desired consistency' },
-          { id: 4, text: 'Serve drizzled with olive oil and paprika' }
-        ]
-      }]
-    },
-    {
-      id: 'mock-d5',
-      name: 'Chocolate Lava Cake',
-      description: 'Decadent chocolate cake with a molten center',
-      tags: ['Dessert', 'Baking'],
-      bannerImage: null,
-      userCode: 'sweetooth',
-      shareId: 'mock5',
-      servings: 4,
-      variations: [{
-        id: 'mock-d5-v1',
-        name: 'Original',
-        description: 'Decadent chocolate cake with a molten center',
-        servings: 4,
-        tags: ['Dessert', 'Baking'],
-        bannerImage: null,
-        ingredients: [
-          { id: 1, name: 'Dark chocolate', amount: '200', unit: 'g' },
-          { id: 2, name: 'Butter', amount: '100', unit: 'g' },
-          { id: 3, name: 'Eggs', amount: '4', unit: 'piece' },
-          { id: 4, name: 'Sugar', amount: '100', unit: 'g' },
-          { id: 5, name: 'Flour', amount: '50', unit: 'g' }
-        ],
-        stages: [
-          { id: 1, text: 'Melt chocolate and butter together, let cool slightly' },
-          { id: 2, text: 'Whisk eggs and sugar until pale and fluffy' },
-          { id: 3, text: 'Fold in chocolate mixture and flour' },
-          { id: 4, text: 'Bake at 200°C for 12 minutes - center should be jiggly' }
-        ]
-      }]
-    }
-  ];
-
   // Load discover recipes for homepage
   const loadDiscoverRecipes = async () => {
     try {
@@ -1012,7 +711,7 @@ export default function App() {
     }
   }, [userCode, isPublicView]);
 
-  const loadRecipes = async () => {
+  const loadRecipes = useCallback(async () => {
     if (!userCode) return;
     try {
       setLoading(true);
@@ -1034,7 +733,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userCode]);
 
   const loadCustomTags = async () => {
     try {
@@ -1767,10 +1466,10 @@ export default function App() {
   };
 
   // Add a new variation to the current recipe
-  const handleAddVariation = () => {
+  const handleAddVariation = useCallback(() => {
     setNewVariationName('');
     setVariationModal(true);
-  };
+  }, []);
 
   const confirmAddVariation = async () => {
     if (!newVariationName.trim()) return;
@@ -1809,9 +1508,9 @@ export default function App() {
     setNewVariationName('');
   };
 
-  const handleDelete = (r) => {
+  const handleDelete = useCallback((r) => {
     setDeleteModal(r);
-  };
+  }, []);
 
   const confirmDelete = async () => {
     if (deleteModal && !isDeleting) {

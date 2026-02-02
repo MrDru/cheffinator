@@ -41,10 +41,30 @@ export async function validateCode(code) {
   return data;
 }
 
-export async function fetchRecipes(userCode) {
+export async function fetchRecipes(userCode, options = {}) {
   const code = userCode || getUserCode() || 'default';
-  const response = await fetch(`${API_BASE}/recipes?user=${encodeURIComponent(code)}`);
+  const { limit = 50, offset = 0 } = options;
+  const params = new URLSearchParams({
+    user: code,
+    limit: String(limit),
+    offset: String(offset)
+  });
+  const response = await fetch(`${API_BASE}/recipes?${params}`);
   if (!response.ok) throw new Error('Failed to fetch recipes');
+  return response.json();
+}
+
+// Fetch lightweight recipe summaries for dashboard (10x smaller payload)
+export async function fetchRecipesSummary(userCode, options = {}) {
+  const code = userCode || getUserCode() || 'default';
+  const { limit = 50, offset = 0 } = options;
+  const params = new URLSearchParams({
+    user: code,
+    limit: String(limit),
+    offset: String(offset)
+  });
+  const response = await fetch(`${API_BASE}/recipes/summary?${params}`);
+  if (!response.ok) throw new Error('Failed to fetch recipe summaries');
   return response.json();
 }
 

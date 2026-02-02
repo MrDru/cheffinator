@@ -105,3 +105,79 @@ input, textarea {
 [dir="auto"] {
   unicode-bidi: plaintext;
 }
+
+/* ImageCapture modal styles - moved from inline for performance */
+.image-capture-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.95);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.image-capture-modal {
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.image-capture-modal--wide {
+  max-width: 500px;
+}
+
+.image-capture-btn {
+  width: 100%;
+  padding: 16px 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.image-capture-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent-green);
+}
+
+.image-capture-btn--primary {
+  background: linear-gradient(135deg, var(--accent-green-dark), var(--accent-green));
+  border: none;
+  color: var(--bg-primary);
+  font-weight: 600;
+  justify-content: center;
+}
+
+.image-capture-btn--secondary {
+  background: transparent;
+  justify-content: center;
+  margin-bottom: 0;
+}
+
+.image-capture-btn--inline {
+  width: auto;
+  padding: 12px 24px;
+}
+
+.image-capture-btn--record {
+  padding: 12px 32px;
+}
+
+.image-capture-btn--recording {
+  background: linear-gradient(135deg, #DC2626, #EF4444);
+}

@@ -282,73 +282,17 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
 
   const showMobileOptions = isMobileOrTablet() && hasCamera();
 
-  // Styles
-  const overlayStyle = {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.95)',
-    zIndex: 2000,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20
-  };
-
-  const modalStyle = {
-    background: 'var(--bg-secondary)',
-    borderRadius: 16,
-    padding: 24,
-    maxWidth: 400,
-    width: '100%',
-    maxHeight: '90vh',
-    overflow: 'auto'
-  };
-
-  const buttonStyle = {
-    width: '100%',
-    padding: '16px 20px',
-    background: 'var(--bg-tertiary)',
-    border: '1px solid var(--border-color)',
-    borderRadius: 12,
-    color: 'var(--text-primary)',
-    fontSize: 16,
-    fontFamily: 'var(--font-sans)',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-    transition: 'all 0.2s ease'
-  };
-
-  const primaryButtonStyle = {
-    ...buttonStyle,
-    background: 'linear-gradient(135deg, var(--accent-green-dark), var(--accent-green))',
-    border: 'none',
-    color: 'var(--bg-primary)',
-    fontWeight: 600,
-    justifyContent: 'center'
-  };
-
-  const secondaryButtonStyle = {
-    ...buttonStyle,
-    background: 'transparent',
-    justifyContent: 'center',
-    marginBottom: 0
-  };
-
   // SELECT MODE - Choose capture method
   if (mode === 'select') {
     return (
-      <div style={overlayStyle} onClick={onClose}>
-        <div style={modalStyle} onClick={e => e.stopPropagation()}>
+      <div className="image-capture-overlay" onClick={onClose}>
+        <div className="image-capture-modal" onClick={e => e.stopPropagation()}>
           <h3 style={{ margin: '0 0 20px', fontSize: 20, fontWeight: 600 }}>Add Image</h3>
-          
+
           {error && (
-            <div style={{ 
-              padding: 12, 
-              background: 'rgba(239,68,68,0.1)', 
+            <div style={{
+              padding: 12,
+              background: 'rgba(239,68,68,0.1)',
               border: '1px solid var(--accent-red)',
               borderRadius: 8,
               color: 'var(--accent-red)',
@@ -358,27 +302,27 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
               {error}
             </div>
           )}
-          
+
           {/* Upload from gallery */}
-          <label style={buttonStyle}>
+          <label className="image-capture-btn">
             <span style={{ fontSize: 24 }}>📁</span>
             <div>
               <div style={{ fontWeight: 500 }}>Upload from Gallery</div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Choose an existing image</div>
             </div>
-            <input 
-              type="file" 
-              accept="image/*" 
+            <input
+              type="file"
+              accept="image/*"
               onChange={handleFileUpload}
               style={{ display: 'none' }}
             />
           </label>
-          
+
           {/* Camera options - only on mobile/tablet */}
           {showMobileOptions && (
             <>
-              <button 
-                style={buttonStyle} 
+              <button
+                className="image-capture-btn"
                 onClick={() => startCamera(false)}
               >
                 <span style={{ fontSize: 24 }}>📷</span>
@@ -387,9 +331,9 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
                   <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Use camera to snap a picture</div>
                 </div>
               </button>
-              
-              <button 
-                style={buttonStyle} 
+
+              <button
+                className="image-capture-btn"
                 onClick={() => startCamera(true)}
               >
                 <span style={{ fontSize: 24 }}>🎬</span>
@@ -400,8 +344,8 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
               </button>
             </>
           )}
-          
-          <button style={secondaryButtonStyle} onClick={onClose}>
+
+          <button className="image-capture-btn image-capture-btn--secondary" onClick={onClose}>
             Cancel
           </button>
         </div>
@@ -412,31 +356,31 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
   // CAMERA/VIDEO MODE - Live viewfinder (skip if processing GIF)
   if ((mode === 'camera' || mode === 'video') && !isProcessing) {
     return (
-      <div style={overlayStyle}>
-        <div style={{ 
-          width: '100%', 
-          maxWidth: 500, 
-          display: 'flex', 
+      <div className="image-capture-overlay">
+        <div style={{
+          width: '100%',
+          maxWidth: 500,
+          display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: 20
         }}>
           {/* Video preview */}
-          <div style={{ 
-            position: 'relative', 
-            width: '100%', 
-            borderRadius: 16, 
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            borderRadius: 16,
             overflow: 'hidden',
             background: '#000'
           }}>
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
               muted
               style={{ width: '100%', display: 'block' }}
             />
-            
+
             {/* Recording indicator */}
             {isRecording && (
               <div style={{
@@ -453,10 +397,10 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
                 fontSize: 14,
                 fontWeight: 600
               }}>
-                <span style={{ 
-                  width: 10, 
-                  height: 10, 
-                  borderRadius: '50%', 
+                <span style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
                   background: 'white',
                   animation: 'pulse 1s infinite'
                 }} />
@@ -464,33 +408,26 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
               </div>
             )}
           </div>
-          
+
           {/* Hidden canvas for processing */}
           <canvas ref={canvasRef} style={{ display: 'none' }} />
-          
+
           {/* Controls */}
           <div style={{ display: 'flex', gap: 16, width: '100%', justifyContent: 'center' }}>
-            <button 
-              style={{ ...secondaryButtonStyle, width: 'auto', padding: '12px 24px' }}
+            <button
+              className="image-capture-btn image-capture-btn--secondary image-capture-btn--inline"
               onClick={() => { stopCamera(); setMode('select'); }}
             >
               Cancel
             </button>
-            
+
             {mode === 'camera' ? (
-              <button style={{ ...primaryButtonStyle, width: 'auto', padding: '12px 32px' }} onClick={capturePhoto}>
+              <button className="image-capture-btn image-capture-btn--primary image-capture-btn--record" onClick={capturePhoto}>
                 📷 Capture
               </button>
             ) : (
-              <button 
-                style={{ 
-                  ...primaryButtonStyle, 
-                  width: 'auto', 
-                  padding: '12px 32px',
-                  background: isRecording 
-                    ? 'linear-gradient(135deg, #DC2626, #EF4444)' 
-                    : 'linear-gradient(135deg, var(--accent-green-dark), var(--accent-green))'
-                }} 
+              <button
+                className={`image-capture-btn image-capture-btn--primary image-capture-btn--record ${isRecording ? 'image-capture-btn--recording' : ''}`}
                 onClick={isRecording ? stopRecording : startRecording}
               >
                 {isRecording ? '⏹ Stop' : '🔴 Record'}
@@ -498,7 +435,7 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
             )}
           </div>
         </div>
-        
+
         {/* CSS for pulse animation */}
         <style>{`
           @keyframes pulse {
@@ -513,7 +450,7 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
   // PROCESSING MODE - Animated cooking loader
   if (isProcessing) {
     return (
-      <div style={overlayStyle}>
+      <div className="image-capture-overlay">
         <div style={{ 
           textAlign: 'center',
           background: 'var(--bg-secondary)',
@@ -629,28 +566,28 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
   // PREVIEW MODE - Show captured image/gif
   if (mode === 'preview' && capturedMedia) {
     return (
-      <div style={overlayStyle} onClick={onClose}>
-        <div style={{ ...modalStyle, maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+      <div className="image-capture-overlay" onClick={onClose}>
+        <div className="image-capture-modal image-capture-modal--wide" onClick={e => e.stopPropagation()}>
           <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 600 }}>Preview</h3>
-          
-          <div style={{ 
-            borderRadius: 12, 
-            overflow: 'hidden', 
+
+          <div style={{
+            borderRadius: 12,
+            overflow: 'hidden',
             marginBottom: 20,
             background: '#000'
           }}>
-            <img 
-              src={capturedMedia} 
-              alt="Preview" 
+            <img
+              src={capturedMedia}
+              alt="Preview"
               style={{ width: '100%', display: 'block' }}
             />
           </div>
-          
+
           <div style={{ display: 'flex', gap: 12 }}>
-            <button style={{ ...secondaryButtonStyle, flex: 1 }} onClick={retake}>
+            <button className="image-capture-btn image-capture-btn--secondary" style={{ flex: 1 }} onClick={retake}>
               Retake
             </button>
-            <button style={{ ...primaryButtonStyle, flex: 1, marginBottom: 0 }} onClick={confirmCapture}>
+            <button className="image-capture-btn image-capture-btn--primary" style={{ flex: 1, marginBottom: 0 }} onClick={confirmCapture}>
               Use This
             </button>
           </div>
