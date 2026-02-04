@@ -120,6 +120,15 @@ Set these in your hosting provider (e.g., Render):
    - Target roles: anon
    - Policy: `bucket_id = 'images'`
 
+3. Add this **SQL policy** for listing files (run in SQL Editor):
+   ```sql
+   CREATE POLICY "Allow public list images"
+   ON storage.objects
+   FOR SELECT
+   TO anon
+   USING (bucket_id = 'images');
+   ```
+
 ## 🎨 Design
 
 The app features a dark theme with vibrant green accents, elegant typography, and smooth animations. The design prioritizes readability and ease of use while cooking.
