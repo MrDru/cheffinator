@@ -48,12 +48,12 @@ A beautiful, modern recipe management web application for storing, organizing, a
 Cheffinator webapp/
 ├── backend/              # Express.js API server
 │   ├── server.js         # Main server file
-│   ├── cheffinator.db    # SQLite database (created on first run)
-│   └── uploads/          # Uploaded images
+│   └── uploads/          # Local uploads (dev only)
 ├── frontend/             # React + Vite frontend
 │   ├── src/
 │   │   ├── App.jsx       # Main React component
 │   │   ├── api.js        # API client functions
+│   │   ├── data/         # Mock data for development
 │   │   └── index.css     # Global styles
 │   └── index.html
 ├── reference/            # Design mockups and specs
@@ -84,9 +84,41 @@ The built frontend will be in `frontend/dist/`. The backend can serve these file
 
 - **Frontend:** React 18, Vite
 - **Backend:** Node.js, Express
-- **Database:** SQLite (better-sqlite3)
+- **Database:** PostgreSQL (Supabase)
+- **Image Storage:** Supabase Storage
+- **Hosting:** Render.com
 - **Styling:** CSS Variables, Custom Design System
-- **Fonts:** Playfair Display, DM Sans
+- **Fonts:** Heebo, Roboto
+
+## 🌐 Deployment
+
+### Environment Variables
+
+Set these in your hosting provider (e.g., Render):
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string from Supabase |
+| `SUPABASE_URL` | Supabase project URL (e.g., `https://xxx.supabase.co`) |
+| `SUPABASE_ANON_KEY` | Supabase anon/public API key |
+| `NODE_ENV` | Set to `production` for production builds |
+
+### Supabase Storage Setup
+
+1. Create a storage bucket named `images` (make it **public**)
+2. Add these **Storage Policies** for the `images` bucket:
+
+   **INSERT policy (for uploads):**
+   - Name: `Allow public uploads`
+   - Operation: INSERT
+   - Target roles: anon
+   - Policy: `bucket_id = 'images'`
+
+   **SELECT policy (for viewing):**
+   - Name: `Allow public read`
+   - Operation: SELECT
+   - Target roles: anon
+   - Policy: `bucket_id = 'images'`
 
 ## 🎨 Design
 
