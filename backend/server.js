@@ -1445,6 +1445,268 @@ app.post('/api/admin/import', async (req, res) => {
   }
 });
 
+// Admin: Get all tags with full details
+app.get('/api/admin/tags', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, name, created_at FROM custom_tags ORDER BY name');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    res.status(500).json({ error: 'Failed to fetch tags' });
+  }
+});
+
+// Admin: Add a new tag
+app.post('/api/admin/tags', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Tag name is required' });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO custom_tags (name) VALUES ($1) ON CONFLICT (name) DO NOTHING RETURNING id, name, created_at',
+      [name.trim()]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(409).json({ error: 'Tag already exists' });
+    }
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating tag:', error);
+    res.status(500).json({ error: 'Failed to create tag' });
+  }
+});
+
+// Admin: Update a tag
+app.put('/api/admin/tags/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Tag name is required' });
+    }
+
+    // Get old tag name first
+    const oldTag = await pool.query('SELECT name FROM custom_tags WHERE id = $1', [id]);
+    if (oldTag.rows.length === 0) {
+      return res.status(404).json({ error: 'Tag not found' });
+    }
+    const oldName = oldTag.rows[0].name;
+    const newName = name.trim();
+
+    // Update the tag
+    const result = await pool.query(
+      'UPDATE custom_tags SET name = $1 WHERE id = $2 RETURNING id, name, created_at',
+      [newName, id]
+    );
+
+    // Update all recipes/variations that use this tag
+    // Tags are stored as JSON arrays, so we need to update them
+    await pool.query(`
+      UPDATE recipe_variations
+      SET tags = REPLACE(tags, $1, $2)
+      WHERE tags LIKE $3
+    `, [JSON.stringify(oldName), JSON.stringify(newName), `%${oldName}%`]);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'Tag name already exists' });
+    }
+    console.error('Error updating tag:', error);
+    res.status(500).json({ error: 'Failed to update tag' });
+  }
+});
+
+// Admin: Delete a tag
+app.delete('/api/admin/tags/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get tag name first
+    const tag = await pool.query('SELECT name FROM custom_tags WHERE id = $1', [id]);
+    if (tag.rows.length === 0) {
+      return res.status(404).json({ error: 'Tag not found' });
+    }
+
+    await pool.query('DELETE FROM custom_tags WHERE id = $1', [id]);
+    res.json({ deleted: true, name: tag.rows[0].name });
+  } catch (error) {
+    console.error('Error deleting tag:', error);
+    res.status(500).json({ error: 'Failed to delete tag' });
+  }
+});
+
+// Admin: Bulk delete recipes
+app.post('/api/admin/recipes/bulk-delete', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Recipe IDs array is required' });
+    }
+
+    const result = await pool.query(
+      'DELETE FROM recipes WHERE id = ANY($1) RETURNING id',
+      [ids]
+    );
+
+    res.json({ deleted: result.rowCount, ids: result.rows.map(r => r.id) });
+  } catch (error) {
+    console.error('Error bulk deleting recipes:', error);
+    res.status(500).json({ error: 'Failed to delete recipes' });
+  }
+});
+
+// Admin: Bulk transfer recipes to new user
+app.post('/api/admin/recipes/bulk-transfer', async (req, res) => {
+  try {
+    const { ids, newUserCode } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Recipe IDs array is required' });
+    }
+    if (!newUserCode) {
+      return res.status(400).json({ error: 'New user code is required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE recipes SET user_code = $1 WHERE id = ANY($2) RETURNING id',
+      [newUserCode.toLowerCase(), ids]
+    );
+
+    res.json({ transferred: result.rowCount, ids: result.rows.map(r => r.id) });
+  } catch (error) {
+    console.error('Error bulk transferring recipes:', error);
+    res.status(500).json({ error: 'Failed to transfer recipes' });
+  }
+});
+
+// Admin: Get storage stats and list images
+app.get('/api/admin/storage', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(400).json({ error: 'Supabase storage not configured' });
+    }
+
+    // List all files in the images bucket
+    const { data: files, error } = await supabase.storage
+      .from('images')
+      .list('', { limit: 1000, sortBy: { column: 'created_at', order: 'desc' } });
+
+    if (error) {
+      console.error('Supabase storage error:', error);
+      return res.status(500).json({ error: 'Failed to list storage files' });
+    }
+
+    // Calculate total size
+    const totalSize = files.reduce((sum, f) => sum + (f.metadata?.size || 0), 0);
+
+    // Get all image URLs used in recipes
+    const usedImages = new Set();
+
+    // Check recipe_variations for banner images
+    const variations = await pool.query('SELECT banner_image FROM recipe_variations WHERE banner_image IS NOT NULL');
+    variations.rows.forEach(r => {
+      if (r.banner_image) usedImages.add(r.banner_image);
+    });
+
+    // Check ingredients for images
+    const ingredients = await pool.query('SELECT image FROM ingredients WHERE image IS NOT NULL');
+    ingredients.rows.forEach(r => {
+      if (r.image) usedImages.add(r.image);
+    });
+
+    // Check cooking_steps for images
+    const steps = await pool.query('SELECT image FROM cooking_steps WHERE image IS NOT NULL');
+    steps.rows.forEach(r => {
+      if (r.image) usedImages.add(r.image);
+    });
+
+    // Mark files as used or orphaned
+    const filesWithStatus = files.map(f => {
+      const publicUrl = supabase.storage.from('images').getPublicUrl(f.name).data.publicUrl;
+      const isUsed = usedImages.has(publicUrl);
+      return {
+        name: f.name,
+        size: f.metadata?.size || 0,
+        created_at: f.created_at,
+        url: publicUrl,
+        isUsed
+      };
+    });
+
+    const orphanedCount = filesWithStatus.filter(f => !f.isUsed).length;
+    const orphanedSize = filesWithStatus.filter(f => !f.isUsed).reduce((sum, f) => sum + f.size, 0);
+
+    res.json({
+      totalFiles: files.length,
+      totalSize,
+      orphanedCount,
+      orphanedSize,
+      files: filesWithStatus
+    });
+  } catch (error) {
+    console.error('Error fetching storage stats:', error);
+    res.status(500).json({ error: 'Failed to fetch storage stats' });
+  }
+});
+
+// Admin: Delete a storage file
+app.delete('/api/admin/storage/:filename', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(400).json({ error: 'Supabase storage not configured' });
+    }
+
+    const { filename } = req.params;
+
+    const { error } = await supabase.storage
+      .from('images')
+      .remove([filename]);
+
+    if (error) {
+      console.error('Supabase delete error:', error);
+      return res.status(500).json({ error: 'Failed to delete file' });
+    }
+
+    res.json({ deleted: true, filename });
+  } catch (error) {
+    console.error('Error deleting storage file:', error);
+    res.status(500).json({ error: 'Failed to delete file' });
+  }
+});
+
+// Admin: Bulk delete storage files
+app.post('/api/admin/storage/bulk-delete', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(400).json({ error: 'Supabase storage not configured' });
+    }
+
+    const { filenames } = req.body;
+    if (!filenames || !Array.isArray(filenames) || filenames.length === 0) {
+      return res.status(400).json({ error: 'Filenames array is required' });
+    }
+
+    const { error } = await supabase.storage
+      .from('images')
+      .remove(filenames);
+
+    if (error) {
+      console.error('Supabase bulk delete error:', error);
+      return res.status(500).json({ error: 'Failed to delete files' });
+    }
+
+    res.json({ deleted: filenames.length, filenames });
+  } catch (error) {
+    console.error('Error bulk deleting storage files:', error);
+    res.status(500).json({ error: 'Failed to delete files' });
+  }
+});
+
 // Serve frontend in production
 if (isProduction) {
   const frontendPath = path.join(__dirname, '../frontend/dist');
