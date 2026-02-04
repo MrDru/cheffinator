@@ -6,6 +6,7 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
+const sharp = require('sharp');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -1253,15 +1254,36 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    const originalSize = req.file.buffer.length;
+
+    // Compress and optimize the image
+    let optimizedBuffer;
+    try {
+      optimizedBuffer = await sharp(req.file.buffer)
+        .resize(1600, 1600, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .webp({ quality: 80 })
+        .toBuffer();
+    } catch (sharpError) {
+      console.error('Sharp processing error:', sharpError);
+      // Fall back to original if sharp fails (e.g., unsupported format)
+      optimizedBuffer = req.file.buffer;
+    }
+
+    const optimizedSize = optimizedBuffer.length;
+    const savings = ((1 - optimizedSize / originalSize) * 100).toFixed(1);
+    console.log(`📸 Image optimized: ${(originalSize / 1024).toFixed(0)}KB → ${(optimizedSize / 1024).toFixed(0)}KB (${savings}% smaller)`);
+
     // Use Supabase Storage if available
     if (supabase) {
-      const ext = path.extname(req.file.originalname) || '.jpg';
-      const filename = `${uuidv4()}${ext}`;
+      const filename = `${uuidv4()}.webp`;
 
       const { data, error } = await supabase.storage
         .from('images')
-        .upload(filename, req.file.buffer, {
-          contentType: req.file.mimetype,
+        .upload(filename, optimizedBuffer, {
+          contentType: 'image/webp',
           cacheControl: '31536000' // 1 year cache
         });
 
@@ -1278,8 +1300,10 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
       res.json({ url: urlData.publicUrl });
     } else {
       // Fallback to local storage (dev mode)
-      const imageUrl = `/uploads/${req.file.filename}`;
-      res.json({ url: imageUrl });
+      const filename = `${uuidv4()}.webp`;
+      const localPath = path.join(uploadsDir, filename);
+      fs.writeFileSync(localPath, optimizedBuffer);
+      res.json({ url: `/uploads/${filename}` });
     }
   } catch (error) {
     console.error('Error uploading file:', error);
