@@ -1585,6 +1585,19 @@ app.post('/api/admin/recipes/bulk-transfer', async (req, res) => {
 });
 
 // Admin: Get storage stats and list images
+// Debug endpoint to see raw Supabase response
+app.get('/api/admin/storage/debug', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.json({ error: 'Supabase not configured', supabaseUrl: process.env.SUPABASE_URL ? 'set' : 'not set' });
+    }
+    const { data, error } = await supabase.storage.from('images').list('', { limit: 100 });
+    res.json({ raw: data, error: error, count: data?.length });
+  } catch (e) {
+    res.json({ exception: e.message });
+  }
+});
+
 app.get('/api/admin/storage', async (req, res) => {
   try {
     if (!supabase) {
@@ -1594,19 +1607,15 @@ app.get('/api/admin/storage', async (req, res) => {
     // List all files in the images bucket
     const { data: rawFiles, error } = await supabase.storage
       .from('images')
-      .list('', { limit: 1000, sortBy: { column: 'created_at', order: 'desc' } });
+      .list('', { limit: 1000 });
 
     if (error) {
       console.error('Supabase storage error:', error);
-      return res.status(500).json({ error: 'Failed to list storage files' });
+      return res.status(500).json({ error: 'Failed to list storage files', details: error });
     }
 
-    console.log('Supabase storage list raw response:', JSON.stringify(rawFiles, null, 2));
-
-    // Filter out folder entries and placeholder files (they have id: null or are .emptyFolderPlaceholder)
-    const files = (rawFiles || []).filter(f => f.id && f.name && !f.name.startsWith('.'));
-
-    console.log('Filtered files count:', files.length);
+    // Filter out placeholder files but keep all real files
+    const files = (rawFiles || []).filter(f => f.name && !f.name.startsWith('.'));
 
     // Calculate total size
     const totalSize = files.reduce((sum, f) => sum + (f.metadata?.size || 0), 0);
