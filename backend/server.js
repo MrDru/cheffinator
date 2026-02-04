@@ -1591,8 +1591,24 @@ app.get('/api/admin/storage/debug', async (req, res) => {
     if (!supabase) {
       return res.json({ error: 'Supabase not configured', supabaseUrl: process.env.SUPABASE_URL ? 'set' : 'not set' });
     }
-    const { data, error } = await supabase.storage.from('images').list('', { limit: 100 });
-    res.json({ raw: data, error: error, count: data?.length });
+
+    // Try listing with different options
+    const { data: list1, error: err1 } = await supabase.storage.from('images').list();
+    const { data: list2, error: err2 } = await supabase.storage.from('images').list('', { limit: 100, offset: 0 });
+
+    // Try to get public URL for the known file
+    const knownFile = '0ca8759d-9ffe-4466-9b8a-20e2834ff827.png';
+    const { data: urlData } = supabase.storage.from('images').getPublicUrl(knownFile);
+
+    // Try to download the known file to verify access
+    const { data: downloadData, error: downloadErr } = await supabase.storage.from('images').download(knownFile);
+
+    res.json({
+      list1: { data: list1, error: err1 },
+      list2: { data: list2, error: err2 },
+      knownFileUrl: urlData?.publicUrl,
+      downloadTest: { success: !!downloadData, error: downloadErr?.message, size: downloadData?.size }
+    });
   } catch (e) {
     res.json({ exception: e.message });
   }
