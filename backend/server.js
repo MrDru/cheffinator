@@ -1592,7 +1592,7 @@ app.get('/api/admin/storage', async (req, res) => {
     }
 
     // List all files in the images bucket
-    const { data: files, error } = await supabase.storage
+    const { data: rawFiles, error } = await supabase.storage
       .from('images')
       .list('', { limit: 1000, sortBy: { column: 'created_at', order: 'desc' } });
 
@@ -1600,6 +1600,13 @@ app.get('/api/admin/storage', async (req, res) => {
       console.error('Supabase storage error:', error);
       return res.status(500).json({ error: 'Failed to list storage files' });
     }
+
+    console.log('Supabase storage list raw response:', JSON.stringify(rawFiles, null, 2));
+
+    // Filter out folder entries and placeholder files (they have id: null or are .emptyFolderPlaceholder)
+    const files = (rawFiles || []).filter(f => f.id && f.name && !f.name.startsWith('.'));
+
+    console.log('Filtered files count:', files.length);
 
     // Calculate total size
     const totalSize = files.reduce((sum, f) => sum + (f.metadata?.size || 0), 0);
