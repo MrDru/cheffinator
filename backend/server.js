@@ -5,27 +5,42 @@ const { Pool } = require('pg');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Ensure uploads directory exists
+// Initialize Supabase client for storage
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+let supabase = null;
+
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey);
+  console.log('📦 Supabase Storage initialized');
+} else {
+  console.warn('⚠️ Supabase credentials not found - image uploads will use local storage');
+}
+
+// Ensure uploads directory exists (fallback for local dev)
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  }
-});
+// Configure multer for file uploads (memory storage for Supabase, disk for local)
+const storage = supabase
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, uploadsDir);
+      },
+      filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        cb(null, `${uuidv4()}${ext}`);
+      }
+    });
 const upload = multer({ storage });
 
 // Default tags from spec
@@ -1232,13 +1247,40 @@ app.delete('/api/admin/users/:code', async (req, res) => {
 });
 
 // Upload image endpoint
-app.post('/api/upload', upload.single('image'), (req, res) => {
+app.post('/api/upload', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    const imageUrl = `/uploads/${req.file.filename}`;
-    res.json({ url: imageUrl });
+
+    // Use Supabase Storage if available
+    if (supabase) {
+      const ext = path.extname(req.file.originalname) || '.jpg';
+      const filename = `${uuidv4()}${ext}`;
+
+      const { data, error } = await supabase.storage
+        .from('images')
+        .upload(filename, req.file.buffer, {
+          contentType: req.file.mimetype,
+          cacheControl: '31536000' // 1 year cache
+        });
+
+      if (error) {
+        console.error('Supabase upload error:', error);
+        return res.status(500).json({ error: 'Failed to upload to storage' });
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('images')
+        .getPublicUrl(filename);
+
+      res.json({ url: urlData.publicUrl });
+    } else {
+      // Fallback to local storage (dev mode)
+      const imageUrl = `/uploads/${req.file.filename}`;
+      res.json({ url: imageUrl });
+    }
   } catch (error) {
     console.error('Error uploading file:', error);
     res.status(500).json({ error: 'Failed to upload file' });
