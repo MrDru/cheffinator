@@ -4,7 +4,7 @@ import ImageCapture from './ImageCapture';
 import { MOCK_RECIPES, MOCK_DISCOVER_RECIPES } from './data/mockRecipes';
 
 // App version - update this single place when releasing new versions
-const APP_VERSION = 'v0.0.23';
+const APP_VERSION = 'v0.0.24';
 const APP_DATE = 'Mar 2, 2026';
 
 const UNITS = ['g', 'kg', 'ml', 'L', 'cup', 'tbsp', 'tsp', 'piece', 'pinch', 'to taste'];
