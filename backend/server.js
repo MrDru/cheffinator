@@ -242,6 +242,18 @@ async function initDatabase() {
       console.log('Migration complete: publish support added');
     }
     
+    // Migration: Add translation column to recipe_variations
+    const translationCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'recipe_variations' AND column_name = 'translation'
+    `);
+
+    if (translationCheck.rows.length === 0) {
+      console.log('Running migration: adding translation support...');
+      await client.query(`ALTER TABLE recipe_variations ADD COLUMN IF NOT EXISTS translation TEXT`);
+      console.log('Migration complete: translation support added');
+    }
+
     // Seed users table with default users if empty
     const usersCount = await client.query('SELECT COUNT(*) FROM users');
     if (parseInt(usersCount.rows[0].count) === 0) {
@@ -545,6 +557,7 @@ app.get('/api/recipes/:id', async (req, res) => {
       servings: v.servings,
       tags: v.tags ? JSON.parse(v.tags) : [],
       bannerImage: v.banner_image,
+      translation: v.translation ? JSON.parse(v.translation) : null,
       ingredients: ingredientsByVariation[v.id] || [],
       stages: stepsByVariation[v.id] || []
     }));
@@ -689,10 +702,10 @@ app.put('/api/recipes/:id', async (req, res) => {
         if (variationId && existingVarIds.includes(variationId)) {
           // Update existing variation
           await client.query(
-            `UPDATE recipe_variations 
-             SET name = $1, description = $2, servings = $3, tags = $4, banner_image = $5, sort_order = $6, updated_at = $7
-             WHERE id = $8`,
-            [variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, now, variationId]
+            `UPDATE recipe_variations
+             SET name = $1, description = $2, servings = $3, tags = $4, banner_image = $5, sort_order = $6, translation = $7, updated_at = $8
+             WHERE id = $9`,
+            [variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, variation.translation ? JSON.stringify(variation.translation) : null, now, variationId]
           );
           
           // Delete ingredients/steps in parallel
@@ -704,9 +717,9 @@ app.put('/api/recipes/:id', async (req, res) => {
           // Create new variation
           variationId = uuidv4();
           await client.query(
-            `INSERT INTO recipe_variations (id, recipe_id, name, description, servings, tags, banner_image, sort_order, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-            [variationId, id, variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, now, now]
+            `INSERT INTO recipe_variations (id, recipe_id, name, description, servings, tags, banner_image, sort_order, translation, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            [variationId, id, variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, variation.translation ? JSON.stringify(variation.translation) : null, now, now]
           );
         }
         
@@ -942,6 +955,7 @@ app.get('/api/public/recipes/:shareId', async (req, res) => {
         servings: variation.servings,
         tags: variation.tags ? JSON.parse(variation.tags) : [],
         bannerImage: variation.banner_image,
+        translation: variation.translation ? JSON.parse(variation.translation) : null,
         ingredients: ingredientsResult.rows.map(ing => ({
           id: ing.id,
           name: ing.name,

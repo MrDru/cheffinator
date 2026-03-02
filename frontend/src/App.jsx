@@ -492,6 +492,15 @@ export default function App() {
   const [variations, setVariations] = useState([]);
   const [currentVariationIndex, setCurrentVariationIndex] = useState(0);
 
+  // Language translation state
+  const [editTranslation, setEditTranslation] = useState(false);
+  const [viewTranslation, setViewTranslation] = useState(false);
+  const [transLangName, setTransLangName] = useState('');
+  const [transName, setTransName] = useState('');
+  const [transDescription, setTransDescription] = useState('');
+  const [transIngredients, setTransIngredients] = useState([]);
+  const [transStages, setTransStages] = useState([]);
+
   // Image capture state (for mobile camera/GIF feature)
   // captureTarget: { type: 'banner' } | { type: 'ingredient', index: number } | { type: 'stage', index: number } | null
   const [captureTarget, setCaptureTarget] = useState(null);
@@ -632,16 +641,11 @@ export default function App() {
       
       // Set up the view with first variation data
       if (data.variations && data.variations.length > 0) {
-        const firstVar = data.variations[0];
         setRecipeName(data.name);
         setVariations(data.variations);
         setCurrentVariationIndex(0);
-        setDescription(firstVar.description || '');
-        setServings(String(firstVar.servings || 4));
-        setTags(firstVar.tags || []);
-        setBannerImage(firstVar.bannerImage || null);
-        setIngredients(firstVar.ingredients?.length ? firstVar.ingredients : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
-        setStages(firstVar.stages?.length ? firstVar.stages : [{ id: 1, text: '', image: null }]);
+        setViewTranslation(false);
+        loadVariationData(data.variations[0]);
       }
     } catch (error) {
       console.error('Failed to load shared recipe:', error);
@@ -681,18 +685,13 @@ export default function App() {
       
       // Set up the view with first variation data
       if (data.variations && data.variations.length > 0) {
-        const firstVar = data.variations[0];
         setRecipeName(data.name);
         setVariations(data.variations);
         setCurrentVariationIndex(0);
-        setDescription(firstVar.description || '');
-        setServings(String(firstVar.servings || 4));
-        setTags(firstVar.tags || []);
-        setBannerImage(firstVar.bannerImage || null);
-        setIngredients(firstVar.ingredients?.length ? firstVar.ingredients : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
-        setStages(firstVar.stages?.length ? firstVar.stages : [{ id: 1, text: '', image: null }]);
+        setViewTranslation(false);
+        loadVariationData(data.variations[0]);
       }
-      
+
       // Push state for back button navigation
       window.history.pushState({ view: 'view', fromProfile: true }, '', window.location.pathname);
       setCurrentView('view');
@@ -1099,17 +1098,25 @@ export default function App() {
   // Load a specific variation's data into the form fields
   const loadVariationData = (variation) => {
     setDescription(variation.description || '');
-    setServings(String(variation.servings || 4)); 
+    setServings(String(variation.servings || 4));
     setTags(variation.tags || []);
     setIngredients(variation.ingredients?.length ? variation.ingredients.map((ing, i) => ({ ...ing, id: ing.id || i + 1 })) : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
     setStages(variation.stages?.length ? variation.stages.map((st, i) => ({ ...st, id: st.id || i + 1 })) : [{ id: 1, text: '', image: null }]);
     setBannerImage(variation.bannerImage || null);
+    const tr = variation.translation || {};
+    setTransLangName(tr.langName || '');
+    setTransName(tr.name || '');
+    setTransDescription(tr.description || '');
+    setTransIngredients(tr.ingredients || []);
+    setTransStages(tr.stages || []);
   };
 
   const openExisting = (r, variationIndex = 0) => {
-    setEditingId(r.id); 
+    setEditingId(r.id);
     setRecipeName(r.name);
     setIsPublished(r.isPublished || false);
+    setEditTranslation(false);
+    setViewTranslation(false);
     
     // If this is a search result pointing to a specific variation
     const startIndex = r.openVariationIndex !== undefined ? r.openVariationIndex : variationIndex;
@@ -1142,7 +1149,7 @@ export default function App() {
 
   // Switch to a different variation
   const switchVariation = (index) => {
-    // Save current variation data first
+    // Save current variation data first (including translation)
     const updatedVariations = [...variations];
     updatedVariations[currentVariationIndex] = {
       ...updatedVariations[currentVariationIndex],
@@ -1151,10 +1158,13 @@ export default function App() {
       tags,
       bannerImage,
       ingredients: filteredIngredients.length > 0 ? filteredIngredients : ingredients,
-      stages: filteredStages.length > 0 ? filteredStages : stages
+      stages: filteredStages.length > 0 ? filteredStages : stages,
+      translation: transLangName ? { langName: transLangName, name: transName, description: transDescription, ingredients: transIngredients, stages: transStages } : (updatedVariations[currentVariationIndex].translation || null)
     };
     setVariations(updatedVariations);
-    
+    setEditTranslation(false);
+    setViewTranslation(false);
+
     // Load new variation
     setCurrentVariationIndex(index);
     loadVariationData(updatedVariations[index]);
@@ -1168,7 +1178,8 @@ export default function App() {
     tags,
     bannerImage,
     ingredients: filteredIngredients,
-    stages: filteredStages
+    stages: filteredStages,
+    translation: transLangName ? { langName: transLangName, name: transName, description: transDescription, ingredients: transIngredients, stages: transStages } : (variations[currentVariationIndex]?.translation || null)
   });
 
   // Helper: Upload base64 images and return URL (or keep existing URL)
@@ -1235,7 +1246,8 @@ export default function App() {
         tags,
         bannerImage,
         ingredients: filteredIngredients,
-        stages: filteredStages
+        stages: filteredStages,
+        translation: transLangName ? { langName: transLangName, name: transName, description: transDescription, ingredients: transIngredients, stages: transStages } : (updatedVariations[currentVariationIndex].translation || null)
       };
     }
     
@@ -1334,7 +1346,8 @@ export default function App() {
         tags,
         bannerImage,
         ingredients: filteredIngredients,
-        stages: filteredStages
+        stages: filteredStages,
+        translation: transLangName ? { langName: transLangName, name: transName, description: transDescription, ingredients: transIngredients, stages: transStages } : (v.translation || null)
       } : v)
     });
     
@@ -1361,7 +1374,7 @@ export default function App() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [recipeName, description, servings, tags, bannerImage, ingredients, stages, currentView, editingId, variations, currentVariationIndex]);
+  }, [recipeName, description, servings, tags, bannerImage, ingredients, stages, currentView, editingId, variations, currentVariationIndex, transLangName, transName, transDescription, transIngredients, transStages]);
 
   // Initialize lastSavedDataRef when entering edit mode
   React.useEffect(() => {
@@ -3293,28 +3306,75 @@ export default function App() {
             )}
           </div>
         )}
-        
+
+        {/* Language toggle buttons */}
+        {transLangName && (
+          <div style={{ display: 'flex', gap: 8, padding: '10px 24px', maxWidth: 680, margin: '0 auto' }}>
+            <button
+              onClick={() => setViewTranslation(false)}
+              style={{
+                padding: '7px 18px',
+                background: !viewTranslation ? 'rgba(74,222,128,0.15)' : 'transparent',
+                border: !viewTranslation ? '1px solid var(--accent-green)' : '1px solid var(--border-color)',
+                borderRadius: 20,
+                color: !viewTranslation ? 'var(--accent-green)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 13,
+                fontWeight: !viewTranslation ? 600 : 400
+              }}
+            >
+              Original
+            </button>
+            <button
+              onClick={() => setViewTranslation(true)}
+              style={{
+                padding: '7px 18px',
+                background: viewTranslation ? 'rgba(74,222,128,0.15)' : 'transparent',
+                border: viewTranslation ? '1px solid var(--accent-green)' : '1px solid var(--border-color)',
+                borderRadius: 20,
+                color: viewTranslation ? 'var(--accent-green)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 13,
+                fontWeight: viewTranslation ? 600 : 400
+              }}
+            >
+              {transLangName}
+            </button>
+          </div>
+        )}
+
         <main style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 80px' }}>
           {/* Recipe content - auto-detect language direction */}
-          <div dir={isRecipeHebrew() ? 'rtl' : 'ltr'} style={{ 
-            width: 'calc(100% + 48px)', 
-            marginLeft: isRecipeHebrew() ? 0 : -24,
-            marginRight: isRecipeHebrew() ? -24 : 0,
-            height: bannerImage ? 300 : 200, 
-            background: bannerImage 
-              ? `linear-gradient(to top, rgba(13,13,13,1) 0%, rgba(13,13,13,0.4) 50%, rgba(13,13,13,0.1) 100%), url(${bannerImage}) center/cover` 
-              : 'linear-gradient(to bottom, var(--bg-secondary) 0%, var(--bg-primary) 100%)', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            justifyContent: 'flex-end', 
+          {(() => {
+            const displayName = viewTranslation && transName ? transName : recipeName;
+            const displayDesc = viewTranslation && transDescription ? transDescription : description;
+            const contentIsHebrew = viewTranslation
+              ? [transName, transDescription, transIngredients[0]?.name, transStages[0]?.text].filter(Boolean).some(isHebrewText)
+              : isRecipeHebrew();
+            return (
+          <div dir={contentIsHebrew ? 'rtl' : 'ltr'} style={{
+            width: 'calc(100% + 48px)',
+            marginLeft: contentIsHebrew ? 0 : -24,
+            marginRight: contentIsHebrew ? -24 : 0,
+            height: bannerImage ? 300 : 200,
+            background: bannerImage
+              ? `linear-gradient(to top, rgba(13,13,13,1) 0%, rgba(13,13,13,0.4) 50%, rgba(13,13,13,0.1) 100%), url(${bannerImage}) center/cover`
+              : 'linear-gradient(to bottom, var(--bg-secondary) 0%, var(--bg-primary) 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
             padding: '48px 24px 36px',
-            textAlign: isRecipeHebrew() ? 'right' : 'left'
+            textAlign: contentIsHebrew ? 'right' : 'left'
           }}>
-            <h1 style={{ fontSize: 40, fontWeight: 600, margin: 0, marginBottom: description ? 14 : 0, letterSpacing: '-0.5px' }}>
-              {recipeName || t('untitled')}
+            <h1 style={{ fontSize: 40, fontWeight: 600, margin: 0, marginBottom: displayDesc ? 14 : 0, letterSpacing: '-0.5px' }}>
+              {displayName || t('untitled')}
             </h1>
-            {description && <p style={{ fontSize: 17, color: '#999', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{description}</p>}
+            {displayDesc && <p style={{ fontSize: 17, color: '#999', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{displayDesc}</p>}
           </div>
+            );
+          })()}
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '28px 0 36px', borderBottom: '1px solid var(--bg-secondary)', flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-sans)' }}>
@@ -3344,7 +3404,7 @@ export default function App() {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                       {ing.image && <img src={ing.image} alt="" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover' }} />}
-                      <span style={{ fontSize: 17 }}>{ing.name}</span>
+                      <span style={{ fontSize: 17 }}>{viewTranslation ? (transIngredients[i]?.name || ing.name) : ing.name}</span>
                     </div>
                     <span style={{ fontSize: 15, color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
                       {ing.amount} {ing.unit}
@@ -3382,7 +3442,7 @@ export default function App() {
                         {i + 1}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontSize: 17, lineHeight: 1.8, color: '#CCC' }}>{stage.text}</p>
+                        <p style={{ margin: 0, fontSize: 17, lineHeight: 1.8, color: '#CCC' }}>{viewTranslation ? (transStages[i]?.text || stage.text) : stage.text}</p>
                         {stage.image && (
                           <img 
                             src={stage.image} 
@@ -3662,11 +3722,11 @@ export default function App() {
       
       {/* Variation Tabs in Edit Mode */}
       {editingId && variations.length > 0 && (
-        <div style={{ 
-          display: 'flex', 
-          gap: 0, 
-          padding: '0 24px', 
-          maxWidth: 680 + 48, 
+        <div style={{
+          display: 'flex',
+          gap: 0,
+          padding: '0 24px',
+          maxWidth: 680 + 48,
           margin: '0 auto',
           borderBottom: '1px solid var(--border-color)',
           overflowX: 'auto'
@@ -3679,12 +3739,12 @@ export default function App() {
                 padding: '14px 20px',
                 background: 'transparent',
                 border: 'none',
-                borderBottom: i === currentVariationIndex ? '2px solid var(--accent-green)' : '2px solid transparent',
-                color: i === currentVariationIndex ? 'var(--accent-green)' : 'var(--text-secondary)',
+                borderBottom: !editTranslation && i === currentVariationIndex ? '2px solid var(--accent-green)' : '2px solid transparent',
+                color: !editTranslation && i === currentVariationIndex ? 'var(--accent-green)' : 'var(--text-secondary)',
                 cursor: 'pointer',
                 fontFamily: 'var(--font-sans)',
                 fontSize: 14,
-                fontWeight: i === currentVariationIndex ? 600 : 400,
+                fontWeight: !editTranslation && i === currentVariationIndex ? 600 : 400,
                 whiteSpace: 'nowrap',
                 transition: 'all 0.2s ease'
               }}
@@ -3710,10 +3770,137 @@ export default function App() {
           >
             <Icon type="plus" /> Add
           </button>
+          <button
+            onClick={() => {
+              const updatedVariations = [...variations];
+              updatedVariations[currentVariationIndex] = {
+                ...updatedVariations[currentVariationIndex],
+                description,
+                servings: parseInt(servings) || 4,
+                tags,
+                bannerImage,
+                ingredients: filteredIngredients.length > 0 ? filteredIngredients : ingredients,
+                stages: filteredStages.length > 0 ? filteredStages : stages
+              };
+              setVariations(updatedVariations);
+              setEditTranslation(true);
+            }}
+            style={{
+              padding: '14px 20px',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: editTranslation ? '2px solid #888' : '2px solid transparent',
+              color: editTranslation ? 'var(--text-secondary)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              fontSize: 14,
+              fontWeight: editTranslation ? 600 : 400,
+              whiteSpace: 'nowrap',
+              transition: 'all 0.2s ease'
+            }}
+            title="Add translation"
+          >
+            🌐 Language
+          </button>
         </div>
       )}
       
       <main style={{ ...styles.main, maxWidth: 680 }}>
+        {editTranslation ? (
+          /* Translation Form */
+          <div>
+            <div style={{ marginBottom: 28 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10, fontFamily: 'var(--font-sans)' }}>
+                Language
+              </label>
+              <input
+                style={{ ...styles.input, fontSize: 16, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 12, padding: '14px 18px' }}
+                placeholder="e.g., Hebrew, French, Spanish..."
+                value={transLangName}
+                onChange={e => setTransLangName(e.target.value)}
+              />
+            </div>
+
+            <div style={{ marginBottom: 28 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10, fontFamily: 'var(--font-sans)' }}>
+                Recipe Name
+              </label>
+              <input
+                style={{ ...styles.input, fontSize: 16, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 12, padding: '14px 18px' }}
+                placeholder="Recipe name in this language..."
+                value={transName}
+                onChange={e => setTransName(e.target.value)}
+              />
+            </div>
+
+            <div style={{ marginBottom: 44 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10, fontFamily: 'var(--font-sans)' }}>
+                Description
+              </label>
+              <textarea
+                style={{ ...styles.input, fontSize: 15, lineHeight: 1.6, resize: 'none', minHeight: 80, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 12, padding: '14px 18px' }}
+                placeholder="Description in this language..."
+                value={transDescription}
+                onChange={e => setTransDescription(e.target.value)}
+              />
+            </div>
+
+            {filteredIngredients.length > 0 && (
+              <div style={{ marginBottom: 44 }}>
+                <h2 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 2, margin: '0 0 18px', fontFamily: 'var(--font-sans)' }}>
+                  {t('ingredients')}
+                </h2>
+                {filteredIngredients.map((ing, i) => (
+                  <div key={ing.id} style={{ ...styles.surface, marginBottom: 10, display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <span style={{ flex: 1, fontSize: 15, color: 'var(--text-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {ing.name}
+                    </span>
+                    <span style={{ color: '#444', fontSize: 18, flexShrink: 0 }}>→</span>
+                    <input
+                      style={{ ...styles.input, flex: 1, fontSize: 15, minWidth: 0 }}
+                      placeholder="Translation..."
+                      value={transIngredients[i]?.name || ''}
+                      onChange={e => {
+                        const updated = [...transIngredients];
+                        updated[i] = { ...(updated[i] || {}), name: e.target.value };
+                        setTransIngredients(updated);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {filteredStages.length > 0 && (
+              <div>
+                <h2 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 2, margin: '0 0 18px', fontFamily: 'var(--font-sans)' }}>
+                  {t('instructions')}
+                </h2>
+                {filteredStages.map((stage, i) => (
+                  <div key={stage.id} style={{ ...styles.surface, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: 'var(--accent-green)', flexShrink: 0 }}>
+                        {i + 1}
+                      </div>
+                      <p style={{ flex: 1, fontSize: 14, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>{stage.text}</p>
+                    </div>
+                    <textarea
+                      style={{ ...styles.input, fontSize: 15, lineHeight: 1.7, resize: 'none', minHeight: 80 }}
+                      placeholder="Step translation..."
+                      value={transStages[i]?.text || ''}
+                      onChange={e => {
+                        const updated = [...transStages];
+                        updated[i] = { ...(updated[i] || {}), text: e.target.value };
+                        setTransStages(updated);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+        <>
         {/* Banner Image Section */}
         <div style={{ 
           position: 'relative', 
@@ -4209,6 +4396,8 @@ export default function App() {
         >
           <Icon type="plus" /> {t('addStep')}
         </button>
+        </>
+        )}
       </main>
 
       {/* Add Variation Modal in Edit Mode */}
