@@ -435,6 +435,7 @@ app.get('/api/recipes', async (req, res) => {
         servings: v.servings,
         tags: v.tags ? JSON.parse(v.tags) : [],
         bannerImage: v.banner_image,
+        translation: v.translation ? JSON.parse(v.translation) : null,
         ingredients: ingredientsByVariation[v.id] || [],
         stages: stepsByVariation[v.id] || []
       });
