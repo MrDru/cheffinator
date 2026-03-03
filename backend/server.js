@@ -63,12 +63,19 @@ const DEFAULT_USERS = [
   'tester4'
 ];
 
-// PostgreSQL connection
-if (!process.env.DATABASE_URL) {
-  console.error('❌ DATABASE_URL environment variable is not set!');
-  console.error('Please add DATABASE_URL to your environment variables.');
-  if (isProduction) {
-    process.exit(1);
+// Validate required environment variables
+const requiredEnvVars = ['DATABASE_URL'];
+const recommendedEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`❌ ${envVar} environment variable is not set!`);
+    if (isProduction) process.exit(1);
+  }
+}
+for (const envVar of recommendedEnvVars) {
+  if (!process.env[envVar]) {
+    console.warn(`⚠️ ${envVar} not set — image uploads will use local storage`);
   }
 }
 
@@ -308,7 +315,7 @@ async function saveCustomTags(tags) {
           [tag]
         );
       } catch (e) {
-        // Ignore errors
+        console.error(`Failed to save custom tag "${tag}":`, e.message);
       }
     }
   }
@@ -321,6 +328,16 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '5mb' })); // Reduced from 50mb to prevent memory crashes
 app.use('/uploads', express.static(uploadsDir));
+
+// Health check endpoint
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', uptime: process.uptime() });
+  } catch (error) {
+    res.status(503).json({ status: 'error', error: 'Database unreachable' });
+  }
+});
 
 // Validate user code (checks database)
 app.post('/api/auth/validate', async (req, res) => {
@@ -696,8 +713,8 @@ app.put('/api/recipes/:id', async (req, res) => {
         const variation = variations[vIndex];
         let variationId = variation.id;
         
-        // Save any custom tags (don't await - fire and forget)
-        saveCustomTags(variation.tags);
+        // Save any custom tags (don't await, but log errors)
+        saveCustomTags(variation.tags).catch(e => console.error('Failed to save custom tags:', e.message));
         
         if (variationId && existingVarIds.includes(variationId)) {
           // Update existing variation
@@ -999,31 +1016,31 @@ app.get('/api/public/users/:userCode', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Get all recipes for this user
-    const recipesResult = await pool.query(
-      'SELECT id, name, banner_image, updated_at FROM recipes WHERE LOWER(user_code) = $1 ORDER BY updated_at DESC',
-      [userCode]
-    );
-    
-    const recipes = await Promise.all(recipesResult.rows.map(async (recipe) => {
-      // Get first variation for banner image and tags
-      const variationResult = await pool.query(
-        'SELECT banner_image, tags, description FROM recipe_variations WHERE recipe_id = $1 ORDER BY sort_order LIMIT 1',
-        [recipe.id]
-      );
-      
-      const firstVar = variationResult.rows[0] || {};
-      
-      return {
-        id: recipe.id,
-        name: recipe.name,
-        bannerImage: firstVar.banner_image || recipe.banner_image,
-        description: firstVar.description || '',
-        tags: firstVar.tags ? JSON.parse(firstVar.tags) : [],
-        updatedAt: recipe.updated_at
-      };
+    // Get all recipes for this user with first variation in a single query
+    const recipesResult = await pool.query(`
+      SELECT r.id, r.name, r.updated_at,
+             rv.banner_image, rv.description, rv.tags
+      FROM recipes r
+      LEFT JOIN LATERAL (
+        SELECT banner_image, description, tags
+        FROM recipe_variations
+        WHERE recipe_id = r.id
+        ORDER BY sort_order
+        LIMIT 1
+      ) rv ON true
+      WHERE LOWER(r.user_code) = $1
+      ORDER BY r.updated_at DESC
+    `, [userCode]);
+
+    const recipes = recipesResult.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      bannerImage: row.banner_image || '',
+      description: row.description || '',
+      tags: row.tags ? JSON.parse(row.tags) : [],
+      updatedAt: row.updated_at
     }));
-    
+
     res.json({
       userCode,
       recipeCount: recipes.length,

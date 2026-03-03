@@ -1403,69 +1403,75 @@ export default function App() {
   const removeTag = (t) => setTags(tags.filter(x => x !== t));
 
   // Handle image capture from camera/gallery/GIF - uploads with progress
+  // Shared upload helper: uploads a File via XHR with progress tracking
+  const uploadFileWithProgress = async (file) => {
+    setUploadProgress(0);
+    try {
+      const url = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const formData = new FormData();
+        formData.append('image', file);
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            const result = JSON.parse(xhr.responseText);
+            resolve(result.url);
+          } else {
+            reject(new Error('Upload failed'));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Upload failed'));
+
+        xhr.open('POST', '/api/upload');
+        xhr.send(formData);
+      });
+      setUploadProgress(null);
+      return url;
+    } catch (error) {
+      setUploadProgress(null);
+      throw error;
+    }
+  };
+
   const handleImageCapture = async (imageData) => {
     if (!captureTarget) return;
-    
+
     const target = captureTarget;
     setCaptureTarget(null); // Close capture modal immediately
-    
+
     // If it's base64, upload it with progress
     if (imageData && imageData.startsWith('data:image/')) {
       try {
-        setUploadProgress(0);
-        
         // Convert base64 to blob for upload
         const response = await fetch(imageData);
         const blob = await response.blob();
-        const extension = imageData.includes('image/gif') ? 'gif' : 
+        const extension = imageData.includes('image/gif') ? 'gif' :
                           imageData.includes('image/png') ? 'png' : 'jpg';
         const file = new File([blob], `image.${extension}`, { type: blob.type });
-        
-        // Upload with XMLHttpRequest for progress tracking
-        const uploadedUrl = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          const formData = new FormData();
-          formData.append('image', file);
-          
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              setUploadProgress(Math.round((e.loaded / e.total) * 100));
-            }
-          };
-          
-          xhr.onload = () => {
-            if (xhr.status === 200) {
-              const result = JSON.parse(xhr.responseText);
-              resolve(result.url);
-            } else {
-              reject(new Error('Upload failed'));
-            }
-          };
-          
-          xhr.onerror = () => reject(new Error('Upload failed'));
-          
-          xhr.open('POST', '/api/upload');
-          xhr.send(formData);
-        });
-        
-        setUploadProgress(null);
-        imageData = uploadedUrl; // Use the URL instead of base64
+
+        imageData = await uploadFileWithProgress(file);
       } catch (error) {
         console.error('Failed to upload image:', error);
-        setUploadProgress(null);
         imageData = null; // Don't keep base64 - it causes memory crashes
       }
     }
-    
+
     // Set the image data (URL only, null if upload failed)
     if (target.type === 'banner') {
       setBannerImage(imageData);
     } else if (target.type === 'ingredient') {
-      setIngredients(prev => prev.map((ing, i) => 
+      setIngredients(prev => prev.map((ing, i) =>
         i === target.index ? { ...ing, image: imageData } : ing
       ));
     } else if (target.type === 'stage') {
-      setStages(prev => prev.map((stage, i) => 
+      setStages(prev => prev.map((stage, i) =>
         i === target.index ? { ...stage, image: imageData } : stage
       ));
     }
@@ -1554,41 +1560,10 @@ export default function App() {
 
   const handleImageUpload = async (file, callback) => {
     try {
-      setUploadProgress(0);
-      
-      // Upload with XMLHttpRequest for progress tracking
-      const uploadedUrl = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const formData = new FormData();
-        formData.append('image', file);
-        
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            setUploadProgress(Math.round((e.loaded / e.total) * 100));
-          }
-        };
-        
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            const result = JSON.parse(xhr.responseText);
-            resolve(result.url);
-          } else {
-            reject(new Error('Upload failed'));
-          }
-        };
-        
-        xhr.onerror = () => reject(new Error('Upload failed'));
-        
-        xhr.open('POST', '/api/upload');
-        xhr.send(formData);
-      });
-      
-      setUploadProgress(null);
-      callback(uploadedUrl);
+      const url = await uploadFileWithProgress(file);
+      callback(url);
     } catch (error) {
       console.error('Failed to upload image:', error);
-      setUploadProgress(null);
-      // Don't fallback to base64 - it causes memory crashes
       callback(null);
     }
   };
