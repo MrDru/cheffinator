@@ -2241,18 +2241,13 @@ export default function App() {
 
                     if (hasMockData) {
                       // Use mock data directly
-                      const firstVar = recipe.variations[0];
                       setPublicRecipe(recipe);
                       setIsPublicView(true);
                       setRecipeName(recipe.name);
                       setVariations(recipe.variations);
                       setCurrentVariationIndex(0);
-                      setDescription(firstVar.description || '');
-                      setServings(String(firstVar.servings || 4));
-                      setTags(firstVar.tags || []);
-                      setBannerImage(firstVar.bannerImage || null);
-                      setIngredients(firstVar.ingredients);
-                      setStages(firstVar.stages || [{ id: 1, text: '', image: null }]);
+                      setViewTranslationIndex(null);
+                      loadVariationData(recipe.variations[0]);
                       window.history.pushState({ view: 'view', fromDiscover: true }, '', window.location.pathname);
                       setCurrentView('view');
                     } else if (recipe.id) {
@@ -2263,16 +2258,11 @@ export default function App() {
                         setPublicRecipe(data);
                         setIsPublicView(true);
                         if (data.variations && data.variations.length > 0) {
-                          const firstVar = data.variations[0];
                           setRecipeName(data.name);
                           setVariations(data.variations);
                           setCurrentVariationIndex(0);
-                          setDescription(firstVar.description || '');
-                          setServings(String(firstVar.servings || 4));
-                          setTags(firstVar.tags || []);
-                          setBannerImage(firstVar.bannerImage || null);
-                          setIngredients(firstVar.ingredients?.length ? firstVar.ingredients : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
-                          setStages(firstVar.stages?.length ? firstVar.stages : [{ id: 1, text: '', image: null }]);
+                          setViewTranslationIndex(null);
+                          loadVariationData(data.variations[0]);
                         }
                         window.history.pushState({ view: 'view', fromDiscover: true }, '', window.location.pathname);
                         setCurrentView('view');
