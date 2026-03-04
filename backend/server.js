@@ -27,11 +27,11 @@ if (supabaseUrl && supabaseKey) {
 
 // Initialize Anthropic client for AI features (nutrition estimation)
 let anthropic = null;
-if (process.env.ANTHROPIC_API_KEY) {
-  anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+if (process.env.CHEFFINATOR_API_KEY) {
+  anthropic = new Anthropic({ apiKey: process.env.CHEFFINATOR_API_KEY });
   console.log('🤖 Anthropic AI initialized');
 } else {
-  console.warn('⚠️ ANTHROPIC_API_KEY not set — AI nutrition estimation unavailable');
+  console.warn('⚠️ CHEFFINATOR_API_KEY not set — AI nutrition estimation unavailable');
 }
 
 // Ensure uploads directory exists (fallback for local dev)
@@ -75,7 +75,7 @@ const DEFAULT_USERS = [
 
 // Validate required environment variables
 const requiredEnvVars = ['DATABASE_URL'];
-const recommendedEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'ANTHROPIC_API_KEY'];
+const recommendedEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'CHEFFINATOR_API_KEY'];
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
@@ -956,7 +956,7 @@ app.post('/api/recipes/:id/publish', async (req, res) => {
 app.post('/api/recipes/:id/variations/:variationId/nutrition', async (req, res) => {
   try {
     if (!anthropic) {
-      return res.status(503).json({ error: 'AI nutrition estimation is not configured (missing ANTHROPIC_API_KEY)' });
+      return res.status(503).json({ error: 'AI nutrition estimation is not configured (missing CHEFFINATOR_API_KEY)' });
     }
 
     const { id, variationId } = req.params;
