@@ -105,6 +105,20 @@ const TRANSLATIONS = {
     shareRecipe: 'Share Recipe',
     shareRecipeDesc: 'Anyone with this link can view',
     
+    // Nutrition
+    nutritionPerServing: 'Nutrition (per serving)',
+    calories: 'Calories',
+    protein: 'Protein',
+    carbs: 'Carbs',
+    fat: 'Fat',
+    fiber: 'Fiber',
+    sugar: 'Sugar',
+    sodium: 'Sodium',
+    estimatedByAI: 'Estimated by AI — values are approximate',
+    generateNutrition: 'Generate Nutrition',
+    generatingNutrition: 'Analyzing ingredients...',
+    regenerateNutrition: 'Regenerate',
+
     // Tags
     tags: {
       'Vegetarian': 'Vegetarian', 'Vegan': 'Vegan', 'Gluten-Free': 'Gluten-Free',
@@ -212,6 +226,20 @@ const TRANSLATIONS = {
     shareRecipe: 'שתף מתכון',
     shareRecipeDesc: 'כל מי שיש לו את הקישור יוכל לצפות',
     
+    // Nutrition
+    nutritionPerServing: 'ערכים תזונתיים (למנה)',
+    calories: 'קלוריות',
+    protein: 'חלבון',
+    carbs: 'פחמימות',
+    fat: 'שומן',
+    fiber: 'סיבים',
+    sugar: 'סוכר',
+    sodium: 'נתרן',
+    estimatedByAI: 'הערכה על ידי AI — הערכים הם משוערים',
+    generateNutrition: 'חשב ערכים תזונתיים',
+    generatingNutrition: 'מנתח מצרכים...',
+    regenerateNutrition: 'חשב מחדש',
+
     // Tags
     tags: {
       'Vegetarian': 'צמחוני', 'Vegan': 'טבעוני', 'Gluten-Free': 'ללא גלוטן',
@@ -496,6 +524,10 @@ export default function App() {
   const [translations, setTranslations] = useState([]); // array of { langName, name, description, ingredients, stages }
   const [editingTranslationIndex, setEditingTranslationIndex] = useState(null); // null = not editing any language tab
   const [viewTranslationIndex, setViewTranslationIndex] = useState(null); // null = viewing original
+
+  // Nutrition state
+  const [nutrition, setNutrition] = useState(null);
+  const [isGeneratingNutrition, setIsGeneratingNutrition] = useState(false);
 
   // Image capture state (for mobile camera/GIF feature)
   // captureTarget: { type: 'banner' } | { type: 'ingredient', index: number } | { type: 'stage', index: number } | null
@@ -1108,6 +1140,7 @@ export default function App() {
       setTranslations([]);
     }
     setEditingTranslationIndex(null);
+    setNutrition(variation.nutrition || null);
   };
 
   const openExisting = (r, variationIndex = 0) => {
@@ -1157,7 +1190,8 @@ export default function App() {
       bannerImage,
       ingredients: filteredIngredients.length > 0 ? filteredIngredients : ingredients,
       stages: filteredStages.length > 0 ? filteredStages : stages,
-      translation: translations.length > 0 ? translations : null
+      translation: translations.length > 0 ? translations : null,
+      nutrition
     };
     setVariations(updatedVariations);
     setEditingTranslationIndex(null);
@@ -1177,7 +1211,8 @@ export default function App() {
     bannerImage,
     ingredients: filteredIngredients,
     stages: filteredStages,
-    translation: translations.length > 0 ? translations : null
+    translation: translations.length > 0 ? translations : null,
+    nutrition
   });
 
   // Helper: Upload base64 images and return URL (or keep existing URL)
@@ -1245,10 +1280,11 @@ export default function App() {
         bannerImage,
         ingredients: filteredIngredients,
         stages: filteredStages,
-        translation: translations.length > 0 ? translations : null
+        translation: translations.length > 0 ? translations : null,
+        nutrition
       };
     }
-    
+
     // For new recipes or recipes without variations, create default variation
     let variationsToSave = updatedVariations.length > 0 ? updatedVariations : [{
       id: null,
@@ -1345,7 +1381,8 @@ export default function App() {
         bannerImage,
         ingredients: filteredIngredients,
         stages: filteredStages,
-        translation: translations.length > 0 ? translations : null
+        translation: translations.length > 0 ? translations : null,
+        nutrition
       } : v)
     });
     
@@ -1372,7 +1409,7 @@ export default function App() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [recipeName, description, servings, tags, bannerImage, ingredients, stages, currentView, editingId, variations, currentVariationIndex, translations]);
+  }, [recipeName, description, servings, tags, bannerImage, ingredients, stages, currentView, editingId, variations, currentVariationIndex, translations, nutrition]);
 
   // Initialize lastSavedDataRef when entering edit mode
   React.useEffect(() => {
@@ -1387,7 +1424,8 @@ export default function App() {
           tags,
           bannerImage,
           ingredients: filteredIngredients,
-          stages: filteredStages
+          stages: filteredStages,
+          nutrition
         } : v)
       });
       setAutoSaveStatus('saved');
@@ -3430,14 +3468,55 @@ export default function App() {
               <div style={{ fontSize: 48, marginBottom: 20 }}>{isPublicView ? '🍳' : '📝'}</div>
               <p style={{ margin: '0 0 20px' }}>{isPublicView ? t('noContentYet') : t('recipeEmpty')}</p>
               {!isPublicView && (
-                <button 
-                  style={{ ...styles.btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 8 }} 
+                <button
+                  style={{ ...styles.btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 8 }}
                   onClick={() => setCurrentView('edit')}
                 >
                   <Icon type="edit" /> Add content
                 </button>
               )}
             </div>
+          )}
+
+          {/* Nutrition Table */}
+          {currentVariation.nutrition && (
+            <section style={{ marginTop: 48, paddingTop: 32, borderTop: '1px solid var(--border-color)' }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, fontFamily: 'var(--font-display)' }}>
+                {t('nutritionPerServing')}
+              </h2>
+              <div style={{
+                background: 'var(--bg-secondary)',
+                borderRadius: 16,
+                border: '1px solid var(--border-color)',
+                overflow: 'hidden'
+              }}>
+                {[
+                  { key: 'calories', unit: 'kcal' },
+                  { key: 'protein', unit: 'g' },
+                  { key: 'carbs', unit: 'g' },
+                  { key: 'fat', unit: 'g' },
+                  { key: 'fiber', unit: 'g' },
+                  { key: 'sugar', unit: 'g' },
+                  { key: 'sodium', unit: 'mg' }
+                ].map((row, i) => (
+                  <div key={row.key} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '14px 20px',
+                    borderBottom: i < 6 ? '1px solid var(--border-color)' : 'none',
+                    fontSize: 15
+                  }}>
+                    <span style={{ color: '#AAA', fontFamily: 'var(--font-sans)' }}>{t(row.key)}</span>
+                    <span style={{ fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
+                      {currentVariation.nutrition[row.key]} {row.unit}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: 12, color: '#666', marginTop: 12, textAlign: 'center', fontFamily: 'var(--font-sans)' }}>
+                {t('estimatedByAI')}
+              </p>
+            </section>
           )}
         </main>
 
@@ -4423,6 +4502,103 @@ export default function App() {
           <Icon type="plus" /> {t('addStep')}
         </button>
         </>
+        )}
+
+        {/* Nutrition Section */}
+        {editingTranslationIndex === null && (
+          <section style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+                {t('nutritionPerServing')}
+              </h3>
+              <button
+                disabled={isGeneratingNutrition || filteredIngredients.length === 0}
+                onClick={async () => {
+                  if (!editingId || !variations[currentVariationIndex]?.id) return;
+                  setIsGeneratingNutrition(true);
+                  try {
+                    const data = await api.generateNutrition(editingId, variations[currentVariationIndex].id);
+                    setNutrition(data);
+                    // Also update the variation object so it persists on save
+                    const updatedVariations = [...variations];
+                    updatedVariations[currentVariationIndex] = {
+                      ...updatedVariations[currentVariationIndex],
+                      nutrition: data
+                    };
+                    setVariations(updatedVariations);
+                  } catch (err) {
+                    console.error('Failed to generate nutrition:', err);
+                  } finally {
+                    setIsGeneratingNutrition(false);
+                  }
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: nutrition ? 'transparent' : 'var(--accent-green)',
+                  color: nutrition ? 'var(--accent-green)' : '#000',
+                  border: nutrition ? '1px solid var(--accent-green)' : 'none',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: 'var(--font-sans)',
+                  cursor: isGeneratingNutrition || filteredIngredients.length === 0 ? 'not-allowed' : 'pointer',
+                  opacity: isGeneratingNutrition || filteredIngredients.length === 0 ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                {isGeneratingNutrition ? (
+                  <>
+                    <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    {t('generatingNutrition')}
+                  </>
+                ) : nutrition ? t('regenerateNutrition') : t('generateNutrition')}
+              </button>
+            </div>
+
+            {nutrition && (
+              <div style={{
+                background: 'var(--bg-secondary)',
+                borderRadius: 16,
+                border: '1px solid var(--border-color)',
+                overflow: 'hidden'
+              }}>
+                {[
+                  { key: 'calories', unit: 'kcal' },
+                  { key: 'protein', unit: 'g' },
+                  { key: 'carbs', unit: 'g' },
+                  { key: 'fat', unit: 'g' },
+                  { key: 'fiber', unit: 'g' },
+                  { key: 'sugar', unit: 'g' },
+                  { key: 'sodium', unit: 'mg' }
+                ].map((row, i) => (
+                  <div key={row.key} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '12px 20px',
+                    borderBottom: i < 6 ? '1px solid var(--border-color)' : 'none',
+                    fontSize: 14
+                  }}>
+                    <span style={{ color: '#AAA', fontFamily: 'var(--font-sans)' }}>{t(row.key)}</span>
+                    <span style={{ fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
+                      {nutrition[row.key]} {row.unit}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {nutrition && (
+              <p style={{ fontSize: 12, color: '#666', marginTop: 10, textAlign: 'center', fontFamily: 'var(--font-sans)' }}>
+                {t('estimatedByAI')}
+              </p>
+            )}
+            {!nutrition && filteredIngredients.length === 0 && (
+              <p style={{ fontSize: 13, color: '#555', fontFamily: 'var(--font-sans)' }}>
+                Add ingredients first to generate nutrition data.
+              </p>
+            )}
+          </section>
         )}
       </main>
 

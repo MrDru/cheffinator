@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 const sharp = require('sharp');
+const Anthropic = require('@anthropic-ai/sdk').default;
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,6 +23,15 @@ if (supabaseUrl && supabaseKey) {
   console.log('📦 Supabase Storage initialized');
 } else {
   console.warn('⚠️ Supabase credentials not found - image uploads will use local storage');
+}
+
+// Initialize Anthropic client for AI features (nutrition estimation)
+let anthropic = null;
+if (process.env.ANTHROPIC_API_KEY) {
+  anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  console.log('🤖 Anthropic AI initialized');
+} else {
+  console.warn('⚠️ ANTHROPIC_API_KEY not set — AI nutrition estimation unavailable');
 }
 
 // Ensure uploads directory exists (fallback for local dev)
@@ -65,7 +75,7 @@ const DEFAULT_USERS = [
 
 // Validate required environment variables
 const requiredEnvVars = ['DATABASE_URL'];
-const recommendedEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'];
+const recommendedEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'ANTHROPIC_API_KEY'];
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
@@ -261,6 +271,18 @@ async function initDatabase() {
       console.log('Migration complete: translation support added');
     }
 
+    // Migration: Add nutrition column to recipe_variations
+    const nutritionCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'recipe_variations' AND column_name = 'nutrition'
+    `);
+
+    if (nutritionCheck.rows.length === 0) {
+      console.log('Running migration: adding nutrition support...');
+      await client.query(`ALTER TABLE recipe_variations ADD COLUMN IF NOT EXISTS nutrition TEXT`);
+      console.log('Migration complete: nutrition support added');
+    }
+
     // Seed users table with default users if empty
     const usersCount = await client.query('SELECT COUNT(*) FROM users');
     if (parseInt(usersCount.rows[0].count) === 0) {
@@ -436,6 +458,7 @@ app.get('/api/recipes', async (req, res) => {
         tags: v.tags ? JSON.parse(v.tags) : [],
         bannerImage: v.banner_image,
         translation: v.translation ? JSON.parse(v.translation) : null,
+        nutrition: v.nutrition ? JSON.parse(v.nutrition) : null,
         ingredients: ingredientsByVariation[v.id] || [],
         stages: stepsByVariation[v.id] || []
       });
@@ -576,6 +599,7 @@ app.get('/api/recipes/:id', async (req, res) => {
       tags: v.tags ? JSON.parse(v.tags) : [],
       bannerImage: v.banner_image,
       translation: v.translation ? JSON.parse(v.translation) : null,
+      nutrition: v.nutrition ? JSON.parse(v.nutrition) : null,
       ingredients: ingredientsByVariation[v.id] || [],
       stages: stepsByVariation[v.id] || []
     }));
@@ -721,9 +745,9 @@ app.put('/api/recipes/:id', async (req, res) => {
           // Update existing variation
           await client.query(
             `UPDATE recipe_variations
-             SET name = $1, description = $2, servings = $3, tags = $4, banner_image = $5, sort_order = $6, translation = $7, updated_at = $8
-             WHERE id = $9`,
-            [variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, variation.translation ? JSON.stringify(variation.translation) : null, now, variationId]
+             SET name = $1, description = $2, servings = $3, tags = $4, banner_image = $5, sort_order = $6, translation = $7, nutrition = $8, updated_at = $9
+             WHERE id = $10`,
+            [variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, variation.translation ? JSON.stringify(variation.translation) : null, variation.nutrition ? JSON.stringify(variation.nutrition) : null, now, variationId]
           );
           
           // Delete ingredients/steps in parallel
@@ -735,9 +759,9 @@ app.put('/api/recipes/:id', async (req, res) => {
           // Create new variation
           variationId = uuidv4();
           await client.query(
-            `INSERT INTO recipe_variations (id, recipe_id, name, description, servings, tags, banner_image, sort_order, translation, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-            [variationId, id, variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, variation.translation ? JSON.stringify(variation.translation) : null, now, now]
+            `INSERT INTO recipe_variations (id, recipe_id, name, description, servings, tags, banner_image, sort_order, translation, nutrition, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [variationId, id, variation.name, variation.description || '', variation.servings || 4, JSON.stringify(variation.tags || []), variation.bannerImage || null, vIndex, variation.translation ? JSON.stringify(variation.translation) : null, variation.nutrition ? JSON.stringify(variation.nutrition) : null, now, now]
           );
         }
         
@@ -928,6 +952,81 @@ app.post('/api/recipes/:id/publish', async (req, res) => {
   }
 });
 
+// Generate nutrition data for a variation using Claude Haiku
+app.post('/api/recipes/:id/variations/:variationId/nutrition', async (req, res) => {
+  try {
+    if (!anthropic) {
+      return res.status(503).json({ error: 'AI nutrition estimation is not configured (missing ANTHROPIC_API_KEY)' });
+    }
+
+    const { id, variationId } = req.params;
+
+    // Fetch the variation's ingredients and servings
+    const variationResult = await pool.query(
+      'SELECT servings FROM recipe_variations WHERE id = $1 AND recipe_id = $2',
+      [variationId, id]
+    );
+    if (variationResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Variation not found' });
+    }
+    const servingsCount = variationResult.rows[0].servings || 4;
+
+    const ingredientsResult = await pool.query(
+      'SELECT name, amount, unit FROM ingredients WHERE variation_id = $1 ORDER BY sort_order',
+      [variationId]
+    );
+
+    const ingredients = ingredientsResult.rows.filter(i => i.name && i.name.trim());
+    if (ingredients.length === 0) {
+      return res.status(400).json({ error: 'No ingredients to analyze' });
+    }
+
+    const ingredientList = ingredients
+      .map(i => `${i.amount || ''} ${i.unit || ''} ${i.name}`.trim())
+      .join('\n');
+
+    const message = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      messages: [{
+        role: 'user',
+        content: `Estimate the nutritional values for this recipe (${servingsCount} servings total). Return values PER SERVING.
+
+Ingredients:
+${ingredientList}
+
+Return ONLY valid JSON, no other text:
+{"calories":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sugar":number,"sodium":number}
+
+Use grams for protein/carbs/fat/fiber/sugar. Use mg for sodium. Round to whole numbers.`
+      }]
+    });
+
+    const responseText = message.content[0].text.trim();
+    const nutrition = JSON.parse(responseText);
+
+    // Validate the shape
+    const requiredKeys = ['calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium'];
+    for (const key of requiredKeys) {
+      if (typeof nutrition[key] !== 'number') {
+        return res.status(500).json({ error: 'Invalid nutrition data from AI' });
+      }
+    }
+
+    // Save to DB
+    const nutritionData = { ...nutrition, servings: servingsCount, perServing: true };
+    await pool.query(
+      'UPDATE recipe_variations SET nutrition = $1 WHERE id = $2',
+      [JSON.stringify(nutritionData), variationId]
+    );
+
+    res.json(nutritionData);
+  } catch (error) {
+    console.error('Error generating nutrition:', error);
+    res.status(500).json({ error: 'Failed to generate nutrition data' });
+  }
+});
+
 // Get shared recipe by share ID (PUBLIC - no auth required)
 app.get('/api/public/recipes/:shareId', async (req, res) => {
   try {
@@ -974,6 +1073,7 @@ app.get('/api/public/recipes/:shareId', async (req, res) => {
         tags: variation.tags ? JSON.parse(variation.tags) : [],
         bannerImage: variation.banner_image,
         translation: variation.translation ? JSON.parse(variation.translation) : null,
+        nutrition: variation.nutrition ? JSON.parse(variation.nutrition) : null,
         ingredients: ingredientsResult.rows.map(ing => ({
           id: ing.id,
           name: ing.name,

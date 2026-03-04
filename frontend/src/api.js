@@ -186,6 +186,19 @@ export async function fetchPublicProfile(userCode) {
   return response.json();
 }
 
+// Generate nutrition data for a variation using AI
+export async function generateNutrition(recipeId, variationId) {
+  const response = await fetch(`${API_BASE}/recipes/${recipeId}/variations/${variationId}/nutrition`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to generate nutrition');
+  }
+  return response.json();
+}
+
 // Fetch random recipes for homepage discovery
 export async function fetchDiscoverRecipes(limit = 5, offset = 0) {
   const response = await fetch(`${API_BASE}/public/discover?limit=${limit}&offset=${offset}`);
