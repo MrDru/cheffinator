@@ -1002,7 +1002,9 @@ Use grams for protein/carbs/fat/fiber/sugar. Use mg for sodium. Round to whole n
       }]
     });
 
-    const responseText = message.content[0].text.trim();
+    let responseText = message.content[0].text.trim();
+    // Strip markdown code fences if present
+    responseText = responseText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
     const nutrition = JSON.parse(responseText);
 
     // Validate the shape
