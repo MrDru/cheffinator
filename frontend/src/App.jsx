@@ -302,10 +302,10 @@ const styles = {
     alignItems: 'center',
     gap: 8
   },
-  main: { 
-    maxWidth: 800, 
-    margin: '0 auto', 
-    padding: '40px 24px' 
+  main: {
+    maxWidth: 800,
+    margin: '0 auto',
+    padding: 'clamp(16px, 4vw, 40px) clamp(12px, 3vw, 24px)'
   },
   btn: { 
     padding: '10px 16px', 
@@ -532,6 +532,27 @@ export default function App() {
   // Image capture state (for mobile camera/GIF feature)
   // captureTarget: { type: 'banner' } | { type: 'ingredient', index: number } | { type: 'stage', index: number } | null
   const [captureTarget, setCaptureTarget] = useState(null);
+
+  // Responsive screen size: 'mobile' (≤600), 'tablet' (601-1024), 'desktop' (>1024)
+  const [screenSize, setScreenSize] = useState(() => {
+    const w = window.innerWidth;
+    return w <= 600 ? 'mobile' : w <= 1024 ? 'tablet' : 'desktop';
+  });
+  const isDesktop = screenSize === 'desktop';
+
+  useEffect(() => {
+    const mqTablet = window.matchMedia('(min-width: 601px)');
+    const mqDesktop = window.matchMedia('(min-width: 1025px)');
+    const update = () => {
+      setScreenSize(mqDesktop.matches ? 'desktop' : mqTablet.matches ? 'tablet' : 'mobile');
+    };
+    mqTablet.addEventListener('change', update);
+    mqDesktop.addEventListener('change', update);
+    return () => {
+      mqTablet.removeEventListener('change', update);
+      mqDesktop.removeEventListener('change', update);
+    };
+  }, []);
 
   const filteredIngredients = ingredients.filter(i => i.name.trim());
   const filteredStages = stages.filter(s => s.text.trim());
@@ -1967,7 +1988,7 @@ export default function App() {
           </h1>
         </header>
         
-        <main style={styles.main}>
+        <main style={{ ...styles.main, ...(isDesktop ? { maxWidth: 1200 } : {}) }}>
           {/* Profile Header */}
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <div style={{ 
@@ -2000,12 +2021,12 @@ export default function App() {
               <p>No recipes yet</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={isDesktop ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 } : { display: 'flex', flexDirection: 'column', gap: 12 }}>
               {publicProfile.recipes.map(recipe => (
-                <div 
+                <div
                   key={recipe.id}
-                  style={{ 
-                    ...styles.card, 
+                  style={{
+                    ...styles.card,
                     cursor: 'pointer'
                   }}
                   onClick={() => openPublicRecipe(recipe)}
@@ -2170,15 +2191,16 @@ export default function App() {
             {showUserMenu && (
               <div 
                 style={{ 
-                  position: 'absolute', 
-                  top: '100%', 
-                  right: 0, 
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
                   marginTop: 8,
-                  background: 'var(--bg-secondary)', 
-                  border: '1px solid var(--border-color)', 
-                  borderRadius: 12, 
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 12,
                   padding: 6,
                   minWidth: 160,
+                  maxWidth: 'calc(100vw - 24px)',
                   boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                   zIndex: 100
                 }}
@@ -2242,7 +2264,7 @@ export default function App() {
           </div>
         </header>
         
-        <main style={styles.main}>
+        <main style={{ ...styles.main, ...(isDesktop ? { maxWidth: 1200 } : {}) }}>
           <p style={{ color: 'var(--text-muted)', marginBottom: 24, textAlign: 'center' }}>
             {t('randomRecipes')}
           </p>
@@ -2256,16 +2278,16 @@ export default function App() {
               <p style={{ fontSize: 14, marginTop: 8 }}>{t('beFirstToShare')}</p>
             </div>
           ) : (
-            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+            <ul style={isDesktop ? { margin: 0, padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 } : { margin: 0, padding: 0, listStyle: 'none' }}>
               {discoverRecipes.map(recipe => (
-                <li 
+                <li
                   key={recipe.id}
-                  style={{ 
-                    marginBottom: 12,
+                  style={{
+                    marginBottom: isDesktop ? 0 : 12,
                     padding: '18px 20px',
-                    background: 'var(--bg-secondary)', 
-                    borderRadius: 12, 
-                    border: '1px solid var(--border-color)', 
+                    background: 'var(--bg-secondary)',
+                    borderRadius: 12,
+                    border: '1px solid var(--border-color)',
                     cursor: 'pointer',
                     display: 'flex',
                     gap: 16,
@@ -2483,15 +2505,16 @@ export default function App() {
             {showUserMenu && (
               <div 
                 style={{ 
-                  position: 'absolute', 
-                  top: '100%', 
-                  right: 0, 
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
                   marginTop: 8,
-                  background: 'var(--bg-secondary)', 
-                  border: '1px solid var(--border-color)', 
-                  borderRadius: 12, 
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 12,
                   padding: 6,
                   minWidth: 160,
+                  maxWidth: 'calc(100vw - 24px)',
                   boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                   zIndex: 100
                 }}
@@ -2551,15 +2574,15 @@ export default function App() {
           </div>
         </header>
         
-        <main style={styles.main}>
-          <h2 style={{ 
-            fontSize: 12, 
-            fontWeight: 600, 
-            color: 'var(--text-secondary)', 
-            textTransform: 'uppercase', 
-            letterSpacing: 2, 
-            marginBottom: 16, 
-            fontFamily: 'var(--font-sans)' 
+        <main style={{ ...styles.main, ...(isDesktop ? { maxWidth: 1200 } : {}) }}>
+          <h2 style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            textTransform: 'uppercase',
+            letterSpacing: 2,
+            marginBottom: 16,
+            fontFamily: 'var(--font-sans)'
           }}>
             {t('yourRecipes')}
           </h2>
@@ -2592,10 +2615,10 @@ export default function App() {
           {loading ? (
             <CheffinatorLoader text={t('loadingRecipes')} />
           ) : (
-            <>
-              <button 
-                style={{ 
-                  ...styles.card, 
+            <div style={isDesktop ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 } : { display: 'flex', flexDirection: 'column', gap: 0 }}>
+              <button
+                style={{
+                  ...styles.card,
                   borderStyle: 'dashed',
                   borderColor: 'var(--accent-green)',
                   background: 'transparent',
@@ -2760,7 +2783,7 @@ export default function App() {
               </div>
                 ))
               )}
-            </>
+            </div>
           )}
           
           <div style={{ ...styles.surface, marginTop: 40, textAlign: 'center', padding: 28 }}>
@@ -2780,7 +2803,7 @@ export default function App() {
             onClick={() => setDeleteModal(null)}
           >
             <div 
-              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 400, width: '90%', border: '1px solid var(--border-color)' }} 
+              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 'clamp(16px, 4vw, 32px)', maxWidth: 400, width: '90%', border: '1px solid var(--border-color)' }} 
               onClick={e => e.stopPropagation()}
             >
               <h3 style={{ margin: '0 0 16px', fontSize: 22, fontWeight: 600 }}>Delete Recipe?</h3>
@@ -2818,7 +2841,7 @@ export default function App() {
             onClick={() => setProfileShareModal(false)}
           >
             <div 
-              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 440, width: '90%', border: '1px solid var(--border-color)' }} 
+              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 'clamp(16px, 4vw, 32px)', maxWidth: 440, width: '90%', border: '1px solid var(--border-color)' }} 
               onClick={e => e.stopPropagation()}
             >
               <h3 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 600 }}>Share Your Profile</h3>
@@ -2836,9 +2859,10 @@ export default function App() {
                 gap: 12
               }}>
                 <Icon type="link" />
-                <code style={{ 
-                  flex: 1, 
-                  fontSize: 14, 
+                <code style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: 14,
                   color: 'var(--text-primary)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -3349,7 +3373,7 @@ export default function App() {
           </div>
         )}
 
-        <main style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 80px' }}>
+        <main style={{ maxWidth: isDesktop ? 900 : 680, margin: '0 auto', padding: '0 clamp(12px, 3vw, 24px) 80px' }}>
           {/* Recipe content - auto-detect language direction */}
           {(() => {
             const activeTr = viewTranslationIndex !== null ? translations[viewTranslationIndex] : null;
@@ -3397,15 +3421,15 @@ export default function App() {
               <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-green)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, fontFamily: 'var(--font-sans)' }}>
                 {t('ingredients')}
               </h2>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+              <ul style={isDesktop ? { margin: 0, padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0 32px' } : { margin: 0, padding: 0, listStyle: 'none' }}>
                 {filteredIngredients.map((ing, i) => (
-                  <li key={ing.id} style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    padding: '16px 0', 
-                    borderBottom: i < filteredIngredients.length - 1 ? '1px solid var(--bg-secondary)' : 'none', 
-                    gap: 16 
+                  <li key={ing.id} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '16px 0',
+                    borderBottom: (isDesktop ? true : i < filteredIngredients.length - 1) ? '1px solid var(--bg-secondary)' : 'none',
+                    gap: 16
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                       {ing.image && <img src={ing.image} alt="" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover' }} />}
@@ -3527,7 +3551,7 @@ export default function App() {
             onClick={() => setVariationModal(null)}
           >
             <div 
-              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 400, width: '90%', border: '1px solid var(--border-color)' }} 
+              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 'clamp(16px, 4vw, 32px)', maxWidth: 400, width: '90%', border: '1px solid var(--border-color)' }} 
               onClick={e => e.stopPropagation()}
             >
               <h3 style={{ margin: '0 0 24px', fontSize: 22, fontWeight: 600 }}>New Variation</h3>
@@ -3579,7 +3603,7 @@ export default function App() {
             onClick={() => setShareModal(null)}
           >
             <div 
-              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 450, width: '90%', border: '1px solid var(--border-color)' }} 
+              style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 'clamp(16px, 4vw, 32px)', maxWidth: 450, width: '90%', border: '1px solid var(--border-color)' }} 
               onClick={e => e.stopPropagation()}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -3886,7 +3910,7 @@ export default function App() {
         </div>
       )}
       
-      <main style={{ ...styles.main, maxWidth: 680 }}>
+      <main style={{ ...styles.main, maxWidth: isDesktop ? 900 : 680 }}>
         {editingTranslationIndex !== null ? (
           /* Translation Form */
           (() => {
@@ -4126,7 +4150,7 @@ export default function App() {
               }} 
             />
           </div>
-          <div style={{ ...styles.surface, flex: 1, minWidth: 250, position: 'relative', padding: '8px 14px' }}>
+          <div style={{ ...styles.surface, flex: 1, minWidth: 'min(250px, 100%)', position: 'relative', padding: '8px 14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {tags.map(tag => (
                 <span key={tag} style={{ 
@@ -4428,7 +4452,7 @@ export default function App() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, marginInlineStart: 56 }}>
               {stage.image ? (
                 <div style={{ position: 'relative' }}>
-                  <img src={stage.image} alt="" style={{ width: 130, height: 90, borderRadius: 10, objectFit: 'cover' }} />
+                  <img src={stage.image} alt="" style={{ width: 'clamp(80px, 25vw, 130px)', height: 90, borderRadius: 10, objectFit: 'cover' }} />
                   <button 
                     style={{ 
                       position: 'absolute', 
@@ -4609,7 +4633,7 @@ export default function App() {
           onClick={() => setVariationModal(null)}
         >
           <div 
-            style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 32, maxWidth: 400, width: '90%', border: '1px solid var(--border-color)' }} 
+            style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 'clamp(16px, 4vw, 32px)', maxWidth: 400, width: '90%', border: '1px solid var(--border-color)' }} 
             onClick={e => e.stopPropagation()}
           >
             <h3 style={{ margin: '0 0 24px', fontSize: 22, fontWeight: 600 }}>{t('newVariation')}</h3>
@@ -4683,7 +4707,7 @@ export default function App() {
           <div style={{
             background: 'var(--bg-secondary)',
             borderRadius: 20,
-            padding: 32,
+            padding: 'clamp(16px, 4vw, 32px)',
             maxWidth: 360,
             width: '90%',
             textAlign: 'center',
