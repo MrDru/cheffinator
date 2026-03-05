@@ -3516,7 +3516,8 @@ export default function App() {
                 borderRadius: 16,
                 border: '1px solid var(--border-color)',
                 overflow: 'hidden',
-                maxWidth: 420
+                maxWidth: 600,
+                margin: '0 auto'
               }}>
                 <div style={{
                   display: 'grid',
@@ -4582,7 +4583,8 @@ export default function App() {
                 borderRadius: 16,
                 border: '1px solid var(--border-color)',
                 overflow: 'hidden',
-                maxWidth: 420
+                maxWidth: 600,
+                margin: '0 auto'
               }}>
                 <div style={{
                   display: 'grid',
