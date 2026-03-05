@@ -3505,9 +3505,9 @@ export default function App() {
                   { key: 'calories', unit: 'kcal' },
                   { key: 'protein', unit: 'g' },
                   { key: 'carbs', unit: 'g' },
+                  { key: 'sugar', unit: 'g', indent: true },
                   { key: 'fat', unit: 'g' },
                   { key: 'fiber', unit: 'g' },
-                  { key: 'sugar', unit: 'g' },
                   { key: 'sodium', unit: 'mg' }
                 ];
                 return (
@@ -3541,7 +3541,7 @@ export default function App() {
                     borderBottom: i < rows.length - 1 ? '1px solid var(--border-color)' : 'none',
                     fontSize: 15
                   }}>
-                    <span style={{ color: '#AAA', fontFamily: 'var(--font-sans)' }}>{t(row.key)}</span>
+                    <span style={{ color: '#AAA', fontFamily: 'var(--font-sans)', ...(row.indent ? { paddingLeft: 16, fontSize: '0.9em' } : {}) }}>{row.indent ? `— ${t(row.key)}` : t(row.key)}</span>
                     {has100g && (
                       <span style={{ fontWeight: 600, fontFamily: 'var(--font-sans)', textAlign: 'right' }}>
                         {n.per100g[row.key]} {row.unit}
@@ -4568,9 +4568,9 @@ export default function App() {
                   { key: 'calories', unit: 'kcal' },
                   { key: 'protein', unit: 'g' },
                   { key: 'carbs', unit: 'g' },
+                  { key: 'sugar', unit: 'g', indent: true },
                   { key: 'fat', unit: 'g' },
                   { key: 'fiber', unit: 'g' },
-                  { key: 'sugar', unit: 'g' },
                   { key: 'sodium', unit: 'mg' }
                 ];
                 return (
@@ -4604,7 +4604,7 @@ export default function App() {
                     borderBottom: i < rows.length - 1 ? '1px solid var(--border-color)' : 'none',
                     fontSize: 14
                   }}>
-                    <span style={{ color: '#AAA', fontFamily: 'var(--font-sans)' }}>{t(row.key)}</span>
+                    <span style={{ color: '#AAA', fontFamily: 'var(--font-sans)', ...(row.indent ? { paddingLeft: 16, fontSize: '0.9em' } : {}) }}>{row.indent ? `— ${t(row.key)}` : t(row.key)}</span>
                     {has100g && (
                       <span style={{ fontWeight: 600, fontFamily: 'var(--font-sans)', textAlign: 'right' }}>
                         {nutrition.per100g[row.key]} {row.unit}
