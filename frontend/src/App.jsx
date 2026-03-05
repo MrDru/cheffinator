@@ -3421,14 +3421,14 @@ export default function App() {
               <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-green)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24, fontFamily: 'var(--font-sans)' }}>
                 {t('ingredients')}
               </h2>
-              <ul style={isDesktop ? { margin: 0, padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0 32px' } : { margin: 0, padding: 0, listStyle: 'none' }}>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {filteredIngredients.map((ing, i) => (
                   <li key={ing.id} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '16px 0',
-                    borderBottom: (isDesktop ? true : i < filteredIngredients.length - 1) ? '1px solid var(--bg-secondary)' : 'none',
+                    borderBottom: i < filteredIngredients.length - 1 ? '1px solid var(--bg-secondary)' : 'none',
                     gap: 16
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
