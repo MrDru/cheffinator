@@ -3515,11 +3515,13 @@ export default function App() {
                 background: 'var(--bg-secondary)',
                 borderRadius: 16,
                 border: '1px solid var(--border-color)',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                maxWidth: 420
               }}>
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: has100g ? '1fr 1fr 1fr' : '1fr 1fr',
+                  gridTemplateColumns: has100g ? '1fr auto auto' : '1fr auto',
+                  gap: '0 20px',
                   padding: '12px 20px',
                   borderBottom: '1px solid var(--border-color)',
                   fontSize: 12,
@@ -3536,7 +3538,8 @@ export default function App() {
                 {rows.map((row, i) => (
                   <div key={row.key} style={{
                     display: 'grid',
-                    gridTemplateColumns: has100g ? '1fr 1fr 1fr' : '1fr 1fr',
+                    gridTemplateColumns: has100g ? '1fr auto auto' : '1fr auto',
+                    gap: '0 20px',
                     padding: '12px 20px',
                     borderBottom: i < rows.length - 1 ? '1px solid var(--border-color)' : 'none',
                     fontSize: 15
@@ -4578,11 +4581,13 @@ export default function App() {
                 background: 'var(--bg-secondary)',
                 borderRadius: 16,
                 border: '1px solid var(--border-color)',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                maxWidth: 420
               }}>
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: has100g ? '1fr 1fr 1fr' : '1fr 1fr',
+                  gridTemplateColumns: has100g ? '1fr auto auto' : '1fr auto',
+                  gap: '0 20px',
                   padding: '10px 20px',
                   borderBottom: '1px solid var(--border-color)',
                   fontSize: 11,
@@ -4599,7 +4604,8 @@ export default function App() {
                 {rows.map((row, i) => (
                   <div key={row.key} style={{
                     display: 'grid',
-                    gridTemplateColumns: has100g ? '1fr 1fr 1fr' : '1fr 1fr',
+                    gridTemplateColumns: has100g ? '1fr auto auto' : '1fr auto',
+                    gap: '0 20px',
                     padding: '10px 20px',
                     borderBottom: i < rows.length - 1 ? '1px solid var(--border-color)' : 'none',
                     fontSize: 14
