@@ -990,13 +990,13 @@ app.post('/api/recipes/:id/variations/:variationId/nutrition', async (req, res) 
       max_tokens: 300,
       messages: [{
         role: 'user',
-        content: `Estimate the nutritional values for this recipe (${servingsCount} servings total). Return values PER SERVING.
+        content: `Estimate the nutritional values for this recipe (${servingsCount} servings total). Return values both PER 100g and PER SERVING.
 
 Ingredients:
 ${ingredientList}
 
 Return ONLY valid JSON, no other text:
-{"calories":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sugar":number,"sodium":number}
+{"per100g":{"calories":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sugar":number,"sodium":number},"perServing":{"calories":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sugar":number,"sodium":number}}
 
 Use grams for protein/carbs/fat/fiber/sugar. Use mg for sodium. Round to whole numbers.`
       }]
@@ -1007,16 +1007,21 @@ Use grams for protein/carbs/fat/fiber/sugar. Use mg for sodium. Round to whole n
     responseText = responseText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
     const nutrition = JSON.parse(responseText);
 
-    // Validate the shape
+    // Validate the shape (new format with per100g and perServing)
     const requiredKeys = ['calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium'];
+    const per100g = nutrition.per100g;
+    const perServing = nutrition.perServing;
+    if (!per100g || !perServing) {
+      return res.status(500).json({ error: 'Invalid nutrition data from AI' });
+    }
     for (const key of requiredKeys) {
-      if (typeof nutrition[key] !== 'number') {
+      if (typeof per100g[key] !== 'number' || typeof perServing[key] !== 'number') {
         return res.status(500).json({ error: 'Invalid nutrition data from AI' });
       }
     }
 
     // Save to DB
-    const nutritionData = { ...nutrition, servings: servingsCount, perServing: true };
+    const nutritionData = { per100g, perServing, servings: servingsCount };
     await pool.query(
       'UPDATE recipe_variations SET nutrition = $1 WHERE id = $2',
       [JSON.stringify(nutritionData), variationId]

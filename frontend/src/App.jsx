@@ -105,7 +105,9 @@ const TRANSLATIONS = {
     shareRecipeDesc: 'Anyone with this link can view',
     
     // Nutrition
-    nutritionPerServing: 'Nutrition (per serving)',
+    nutritionPerServing: 'Nutrition',
+    per100g: 'Per 100g',
+    perServing: 'Per serving',
     calories: 'Calories',
     protein: 'Protein',
     carbs: 'Carbs',
@@ -226,7 +228,9 @@ const TRANSLATIONS = {
     shareRecipeDesc: 'כל מי שיש לו את הקישור יוכל לצפות',
     
     // Nutrition
-    nutritionPerServing: 'ערכים תזונתיים (למנה)',
+    nutritionPerServing: 'ערכים תזונתיים',
+    per100g: 'ל-100 גרם',
+    perServing: 'למנה',
     calories: 'קלוריות',
     protein: 'חלבון',
     carbs: 'פחמימות',
@@ -3494,13 +3498,10 @@ export default function App() {
               <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, fontFamily: 'var(--font-display)' }}>
                 {t('nutritionPerServing')}
               </h2>
-              <div style={{
-                background: 'var(--bg-secondary)',
-                borderRadius: 16,
-                border: '1px solid var(--border-color)',
-                overflow: 'hidden'
-              }}>
-                {[
+              {(() => {
+                const n = currentVariation.nutrition;
+                const has100g = n.per100g && n.perServing;
+                const rows = [
                   { key: 'calories', unit: 'kcal' },
                   { key: 'protein', unit: 'g' },
                   { key: 'carbs', unit: 'g' },
@@ -3508,21 +3509,52 @@ export default function App() {
                   { key: 'fiber', unit: 'g' },
                   { key: 'sugar', unit: 'g' },
                   { key: 'sodium', unit: 'mg' }
-                ].map((row, i) => (
+                ];
+                return (
+              <div style={{
+                background: 'var(--bg-secondary)',
+                borderRadius: 16,
+                border: '1px solid var(--border-color)',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: has100g ? '1fr 1fr 1fr' : '1fr 1fr',
+                  padding: '12px 20px',
+                  borderBottom: '1px solid var(--border-color)',
+                  fontSize: 12,
+                  color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-sans)',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: 1
+                }}>
+                  <span />
+                  {has100g && <span style={{ textAlign: 'right' }}>{t('per100g') || 'Per 100g'}</span>}
+                  <span style={{ textAlign: 'right' }}>{t('perServing') || 'Per serving'}</span>
+                </div>
+                {rows.map((row, i) => (
                   <div key={row.key} style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    padding: '14px 20px',
-                    borderBottom: i < 6 ? '1px solid var(--border-color)' : 'none',
+                    display: 'grid',
+                    gridTemplateColumns: has100g ? '1fr 1fr 1fr' : '1fr 1fr',
+                    padding: '12px 20px',
+                    borderBottom: i < rows.length - 1 ? '1px solid var(--border-color)' : 'none',
                     fontSize: 15
                   }}>
                     <span style={{ color: '#AAA', fontFamily: 'var(--font-sans)' }}>{t(row.key)}</span>
-                    <span style={{ fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
-                      {currentVariation.nutrition[row.key]} {row.unit}
+                    {has100g && (
+                      <span style={{ fontWeight: 600, fontFamily: 'var(--font-sans)', textAlign: 'right' }}>
+                        {n.per100g[row.key]} {row.unit}
+                      </span>
+                    )}
+                    <span style={{ fontWeight: 600, fontFamily: 'var(--font-sans)', textAlign: 'right' }}>
+                      {has100g ? n.perServing[row.key] : n[row.key]} {row.unit}
                     </span>
                   </div>
                 ))}
               </div>
+                );
+              })()}
               <p style={{ fontSize: 12, color: '#666', marginTop: 12, textAlign: 'center', fontFamily: 'var(--font-sans)' }}>
                 {t('estimatedByAI')}
               </p>
@@ -4530,14 +4562,9 @@ export default function App() {
               </button>
             </div>
 
-            {nutrition && (
-              <div style={{
-                background: 'var(--bg-secondary)',
-                borderRadius: 16,
-                border: '1px solid var(--border-color)',
-                overflow: 'hidden'
-              }}>
-                {[
+            {nutrition && (() => {
+                const has100g = nutrition.per100g && nutrition.perServing;
+                const rows = [
                   { key: 'calories', unit: 'kcal' },
                   { key: 'protein', unit: 'g' },
                   { key: 'carbs', unit: 'g' },
@@ -4545,22 +4572,52 @@ export default function App() {
                   { key: 'fiber', unit: 'g' },
                   { key: 'sugar', unit: 'g' },
                   { key: 'sodium', unit: 'mg' }
-                ].map((row, i) => (
+                ];
+                return (
+              <div style={{
+                background: 'var(--bg-secondary)',
+                borderRadius: 16,
+                border: '1px solid var(--border-color)',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: has100g ? '1fr 1fr 1fr' : '1fr 1fr',
+                  padding: '10px 20px',
+                  borderBottom: '1px solid var(--border-color)',
+                  fontSize: 11,
+                  color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-sans)',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: 1
+                }}>
+                  <span />
+                  {has100g && <span style={{ textAlign: 'right' }}>{t('per100g') || 'Per 100g'}</span>}
+                  <span style={{ textAlign: 'right' }}>{t('perServing') || 'Per serving'}</span>
+                </div>
+                {rows.map((row, i) => (
                   <div key={row.key} style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    padding: '12px 20px',
-                    borderBottom: i < 6 ? '1px solid var(--border-color)' : 'none',
+                    display: 'grid',
+                    gridTemplateColumns: has100g ? '1fr 1fr 1fr' : '1fr 1fr',
+                    padding: '10px 20px',
+                    borderBottom: i < rows.length - 1 ? '1px solid var(--border-color)' : 'none',
                     fontSize: 14
                   }}>
                     <span style={{ color: '#AAA', fontFamily: 'var(--font-sans)' }}>{t(row.key)}</span>
-                    <span style={{ fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
-                      {nutrition[row.key]} {row.unit}
+                    {has100g && (
+                      <span style={{ fontWeight: 600, fontFamily: 'var(--font-sans)', textAlign: 'right' }}>
+                        {nutrition.per100g[row.key]} {row.unit}
+                      </span>
+                    )}
+                    <span style={{ fontWeight: 600, fontFamily: 'var(--font-sans)', textAlign: 'right' }}>
+                      {has100g ? nutrition.perServing[row.key] : nutrition[row.key]} {row.unit}
                     </span>
                   </div>
                 ))}
               </div>
-            )}
+                );
+              })()}
             {nutrition && (
               <p style={{ fontSize: 12, color: '#666', marginTop: 10, textAlign: 'center', fontFamily: 'var(--font-sans)' }}>
                 {t('estimatedByAI')}
