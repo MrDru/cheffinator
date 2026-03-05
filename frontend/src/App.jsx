@@ -4500,6 +4500,7 @@ export default function App() {
                     setVariations(updatedVariations);
                   } catch (err) {
                     console.error('Failed to generate nutrition:', err);
+                    alert('Failed to generate nutrition: ' + err.message);
                   } finally {
                     setIsGeneratingNutrition(false);
                   }
