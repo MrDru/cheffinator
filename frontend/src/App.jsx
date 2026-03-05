@@ -7,7 +7,6 @@ import { MOCK_RECIPES, MOCK_DISCOVER_RECIPES } from './data/mockRecipes';
 const APP_VERSION = 'v0.0.27';
 const APP_DATE = 'Mar 5, 2026';
 
-const UNITS = ['g', 'kg', 'ml', 'L', 'cup', 'tbsp', 'tsp', 'piece', 'pinch', 'to taste'];
 
 // Translations
 const TRANSLATIONS = {
@@ -495,7 +494,7 @@ export default function App() {
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [ingredients, setIngredients] = useState([{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+  const [ingredients, setIngredients] = useState([{ id: 1, name: '', image: null }]);
   const [stages, setStages] = useState([{ id: 1, text: '', image: null }]);
   const [bannerImage, setBannerImage] = useState(null);
   const [saveMessage, setSaveMessage] = useState('');
@@ -1014,7 +1013,7 @@ export default function App() {
     setServings('4'); 
     setTags([]); 
     setTagInput('');
-    setIngredients([{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+    setIngredients([{ id: 1, name: '', image: null }]);
     setStages([{ id: 1, text: '', image: null }]);
     setBannerImage(null); 
     setEditingId(null);
@@ -1040,7 +1039,7 @@ export default function App() {
         servings: 4,
         tags: [],
         bannerImage: null,
-        ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
+        ingredients: [{ id: 1, name: '', image: null }],
         stages: [{ id: 1, text: '', image: null }]
       }]);
       setCurrentVariationIndex(0);
@@ -1048,7 +1047,7 @@ export default function App() {
       setServings('4');
       setTags([]);
       setBannerImage(null);
-      setIngredients([{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+      setIngredients([{ id: 1, name: '', image: null }]);
       setStages([{ id: 1, text: '', image: null }]);
       
       // Initialize lastSavedDataRef for auto-save
@@ -1060,7 +1059,7 @@ export default function App() {
           servings: 4,
           tags: [],
           bannerImage: null,
-          ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
+          ingredients: [{ id: 1, name: '', image: null }],
           stages: [{ id: 1, text: '', image: null }]
         }]
       });
@@ -1077,7 +1076,7 @@ export default function App() {
           servings: 4,
           tags: [],
           bannerImage: null,
-          ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
+          ingredients: [{ id: 1, name: '', image: null }],
           stages: [{ id: 1, text: '', image: null }]
         }],
         updated: 'just now',
@@ -1110,7 +1109,7 @@ export default function App() {
         servings: 4,
         tags: [],
         bannerImage: null,
-        ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
+        ingredients: [{ id: 1, name: '', image: null }],
         stages: [{ id: 1, text: '', image: null }]
       }]);
       
@@ -1123,7 +1122,7 @@ export default function App() {
           servings: 4,
           tags: [],
           bannerImage: null,
-          ingredients: [{ id: 1, name: '', amount: '', unit: 'g', image: null }],
+          ingredients: [{ id: 1, name: '', image: null }],
           stages: [{ id: 1, text: '', image: null }]
         }]
       });
@@ -1149,7 +1148,7 @@ export default function App() {
     setDescription(variation.description || '');
     setServings(String(variation.servings || 4));
     setTags(variation.tags || []);
-    setIngredients(variation.ingredients?.length ? variation.ingredients.map((ing, i) => ({ ...ing, id: ing.id || i + 1 })) : [{ id: 1, name: '', amount: '', unit: 'g', image: null }]);
+    setIngredients(variation.ingredients?.length ? variation.ingredients.map((ing, i) => ({ ...ing, id: ing.id || i + 1 })) : [{ id: 1, name: '', image: null }]);
     setStages(variation.stages?.length ? variation.stages.map((st, i) => ({ ...st, id: st.id || i + 1 })) : [{ id: 1, text: '', image: null }]);
     setBannerImage(variation.bannerImage || null);
     const tr = variation.translation;
@@ -3038,16 +3037,6 @@ export default function App() {
                         marginBottom: 'clamp(4px, 1vw, 8px)',
                         color: 'var(--text-primary)'
                       }}>{ing.name}</div>
-                      <div style={{ 
-                        fontSize: 'clamp(12px, 2vw, 18px)',
-                        color: 'var(--accent-green)',
-                        fontFamily: 'var(--font-sans)',
-                        fontWeight: 600,
-                        background: 'rgba(74,222,128,0.1)',
-                        padding: 'clamp(4px, 1vw, 8px) clamp(8px, 2vw, 16px)',
-                        borderRadius: 8,
-                        display: 'inline-block'
-                      }}>{ing.amount} {ing.unit}</div>
                     </div>
                   </div>
                 ))}
@@ -3435,9 +3424,6 @@ export default function App() {
                       {ing.image && <img src={ing.image} alt="" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover' }} />}
                       <span style={{ fontSize: 17 }}>{viewTranslationIndex !== null ? ((translations[viewTranslationIndex]?.ingredients || [])[i]?.name || ing.name) : ing.name}</span>
                     </div>
-                    <span style={{ fontSize: 15, color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
-                      {ing.amount} {ing.unit}
-                    </span>
                   </li>
                 ))}
               </ul>
@@ -4241,115 +4227,77 @@ export default function App() {
         
         {ingredients.map((ing, i) => (
           <div key={ing.id} style={{ ...styles.surface, marginBottom: 12 }}>
-            {/* Ingredient name row */}
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
-              <input 
-                style={{ ...styles.input, flex: 1, fontSize: 15, minWidth: 0 }} 
-                placeholder={t('ingredient')} 
-                value={ing.name} 
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <input
+                style={{ ...styles.input, flex: 1, fontSize: 15, minWidth: 0 }}
+                placeholder={`${t('ingredient')} (e.g. 200g flour)`}
+                value={ing.name}
                 onChange={e => setIngredients(ingredients.map(x => x.id === ing.id ? { ...x, name: e.target.value } : x))}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     const newId = Date.now();
-                    setIngredients([...ingredients, { id: newId, name: '', amount: '', unit: 'g', image: null }]);
+                    setIngredients([...ingredients, { id: newId, name: '', image: null }]);
                     setTimeout(() => {
-                      const inputs = document.querySelectorAll(`input[placeholder="${t('ingredient')}"]`);
+                      const inputs = document.querySelectorAll(`input[placeholder="${t('ingredient')} (e.g. 200g flour)"]`);
                       inputs[inputs.length - 1]?.focus();
                     }, 10);
                   }
                 }}
               />
-              <button 
-                style={{ 
-                  background: 'transparent', 
-                  border: 'none', 
-                  color: 'var(--accent-red)', 
-                  cursor: ingredients.length === 1 ? 'not-allowed' : 'pointer', 
-                  opacity: ingredients.length === 1 ? 0.3 : 0.6, 
+              <button
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--accent-red)',
+                  cursor: ingredients.length === 1 ? 'not-allowed' : 'pointer',
+                  opacity: ingredients.length === 1 ? 0.3 : 0.6,
                   padding: 8,
                   flexShrink: 0
-                }} 
-                disabled={ingredients.length === 1} 
+                }}
+                disabled={ingredients.length === 1}
                 onClick={() => ingredients.length > 1 && setIngredients(ingredients.filter(x => x.id !== ing.id))}
               >
                 <Icon type="trash" />
               </button>
             </div>
-            {/* Amount and unit row */}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <input 
-                style={{ 
-                  background: 'var(--bg-tertiary)', 
-                  border: 'none', 
-                  borderRadius: 8, 
-                  padding: '10px 12px', 
-                  color: 'var(--text-primary)', 
-                  outline: 'none', 
-                  fontFamily: 'var(--font-sans)', 
-                  fontSize: 14, 
-                  width: 70, 
-                  textAlign: 'center' 
-                }} 
-                placeholder="Amt" 
-                value={ing.amount} 
-                onChange={e => setIngredients(ingredients.map(x => x.id === ing.id ? { ...x, amount: e.target.value } : x))} 
-              />
-              <select 
-                style={{ 
-                  background: 'var(--bg-tertiary)', 
-                  border: 'none', 
-                  borderRadius: 8, 
-                  padding: '10px 12px', 
-                  color: 'var(--accent-green)', 
-                  outline: 'none', 
-                  fontFamily: 'var(--font-sans)', 
-                  fontSize: 14, 
-                  cursor: 'pointer' 
-                }} 
-                value={ing.unit} 
-                onChange={e => setIngredients(ingredients.map(x => x.id === ing.id ? { ...x, unit: e.target.value } : x))}
-              >
-                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
               {ing.image ? (
                 <div style={{ position: 'relative' }}>
                   <img src={ing.image} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: 'cover' }} />
-                  <button 
-                    style={{ 
-                      position: 'absolute', 
-                      top: -6, 
-                      right: -6, 
-                      width: 22, 
-                      height: 22, 
-                      borderRadius: '50%', 
-                      background: 'var(--accent-red)', 
-                      border: 'none', 
-                      cursor: 'pointer', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      padding: 0 
-                    }} 
+                  <button
+                    style={{
+                      position: 'absolute',
+                      top: -6,
+                      right: -6,
+                      width: 22,
+                      height: 22,
+                      borderRadius: '50%',
+                      background: 'var(--accent-red)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0
+                    }}
                     onClick={() => setIngredients(ingredients.map(x => x.id === ing.id ? { ...x, image: null } : x))}
                   >
                     <Icon type="x" />
                   </button>
                 </div>
               ) : (
-                <button 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 6, 
-                    padding: '8px 14px', 
-                    background: 'var(--bg-tertiary)', 
-                    borderRadius: 8, 
-                    cursor: 'pointer', 
-                    fontSize: 12, 
-                    color: 'var(--text-secondary)', 
+                <button
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '8px 14px',
+                    background: 'var(--bg-tertiary)',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    color: 'var(--text-secondary)',
                     fontFamily: 'var(--font-sans)',
                     border: 'none'
                   }}
@@ -4380,9 +4328,9 @@ export default function App() {
             marginTop: 4
           }} 
           onClick={() => {
-            setIngredients([...ingredients, { id: Date.now(), name: '', amount: '', unit: 'g', image: null }]);
+            setIngredients([...ingredients, { id: Date.now(), name: '', image: null }]);
             setTimeout(() => {
-              const inputs = document.querySelectorAll(`input[placeholder="${t('ingredient')}"]`);
+              const inputs = document.querySelectorAll(`input[placeholder="${t('ingredient')} (e.g. 200g flour)"]`);
               inputs[inputs.length - 1]?.focus();
             }, 10);
           }}
