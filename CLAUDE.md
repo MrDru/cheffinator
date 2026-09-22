@@ -1,14 +1,16 @@
 # Cheffinator – Claude Instructions
 
 ## Project Overview
-Cheffinator is a recipe management web app. Users can create, edit, and share recipes with multiple variations and translations. It has a cooking mode (slideshow), a public discover page, and a share-by-link feature.
+Cheffinator is a recipe management web app. Users can create, edit, and share recipes with multiple variations and translations. It has a cooking mode (slideshow), a public discover page, a share-by-link feature, and a print/export feature that renders any recipe as a bilingual one-A4-page cookbook page.
+
+**Merge project:** Cheffinator is being merged with the static Recipes site (`C:\work\personal\Recipes`) into one app. Cheffinator is the single recipe app; the Recipes site's bilingual A4 format lives on as the export format (`backend/export-template.js`). The 12 cookbook recipes were imported via `tools/import-cookbook.mjs` (user `mrdru3000`); `tools/export-cookbook.mjs` regenerates a static cookbook site from the DB.
 
 ## Tech Stack
 | Layer | Technology |
 |---|---|
 | Frontend | React 18, Vite, CSS-in-JS (inline styles) |
 | Backend | Node.js, Express |
-| Database | PostgreSQL (Neon serverless) |
+| Database | PostgreSQL (Neon serverless) in production; SQLite (Node's `node:sqlite`) locally via `backend/db.js` when `DATABASE_URL` is unset |
 | Image Storage | Supabase Storage (`images` bucket) |
 | Hosting | Render.com (backend serves frontend static build) |
 | Domain | cheffinator.com (Cloudflare DNS) |
@@ -85,10 +87,13 @@ All migrations run automatically on server start via `initializeDatabase()` in `
 - Remote: `https://gitlab.com/MrDru3000/cheffinator.git`
 
 ## Development
-- Backend dev: `cd backend && npm run dev` (port 3001, uses `--watch`)
+- Everything at once: `run-dev.bat` (pins backend to :3001, starts both)
+- Backend dev: `cd backend && npm run dev` (port 3001, `--watch`, `--experimental-sqlite`)
 - Frontend dev: `cd frontend && npm run dev` (port 5173, proxies `/api` to 3001)
 - Frontend build: `cd frontend && npm run build` — outputs to `frontend/dist/`
-- In local dev, the app auto-logs in as user `designer` and shows mock recipes alongside real ones.
+- Local dev is REAL: no mock mode, no auto-login. It runs on SQLite (`backend/cheffinator_local.db`) with zero services; log in with a seeded code (e.g. `mrdru3000`). What the UI saves is actually saved.
+- New queries must be portable (Postgres AND SQLite): no `LEFT JOIN LATERAL` (use scalar subqueries), `ANY($1)` is translated to `IN` by the shim, `UPDATE ... RETURNING` is emulated.
+- Saves use optimistic concurrency: PUT sends `expectedUpdatedAt`, a stale save gets 409, and the response returns `updatedAt` + `variationIds` which the client syncs.
 
 ## Architecture Patterns
 
