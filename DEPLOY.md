@@ -72,8 +72,17 @@ or re-run `tools/import-cookbook.mjs` against the deployed URL
 ## Backups
 
 Everything lives in two places: `<DATA_DIR>/cheffinator.db` and
-`<DATA_DIR>/uploads/`. Copying those two is a complete backup. The admin tool
-(`tools/admin.html` + `ADMIN_SECRET`) can also export a JSON backup.
+`<DATA_DIR>/uploads/`. Copying those two is a complete backup. The admin
+console can also export/import a JSON backup.
+
+## Admin console
+
+Served by the app at `https://cheffinator.com/admin` (locally
+`http://localhost:3001/admin`). Enter the API URL (prefilled) and the
+`ADMIN_SECRET`; without the secret every admin call is refused. From there:
+recipes (rename, transfer, delete, share), users (create with password,
+set/reset any user's password — the password-recovery story — sign out
+everywhere, rename, delete), tags, storage, and JSON backup/import.
 
 ## Static cookbook (optional, free)
 
