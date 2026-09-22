@@ -92,6 +92,7 @@ All migrations run automatically on server start via `initializeDatabase()` in `
 - Frontend dev: `cd frontend && npm run dev` (port 5173, proxies `/api` to 3001)
 - Frontend build: `cd frontend && npm run build` — outputs to `frontend/dist/`
 - Local dev is REAL: no mock mode, no auto-login. It runs on SQLite (`backend/cheffinator_local.db`) with zero services; log in with a seeded code (e.g. `mrdru3000`). What the UI saves is actually saved.
+- Auth: login returns a session token (`sessions` table); authenticated API calls need `Authorization: Bearer <token>` and ownership is enforced on all recipe mutations. `/api/admin/*` needs the `ADMIN_SECRET` env var (`x-admin-secret` header) and is disabled without it. See DEPLOY.md for hosting (one service: `DATA_DIR` on a persistent volume).
 - New queries must be portable (Postgres AND SQLite): no `LEFT JOIN LATERAL` (use scalar subqueries), `ANY($1)` is translated to `IN` by the shim, `UPDATE ... RETURNING` is emulated.
 - Saves use optimistic concurrency: PUT sends `expectedUpdatedAt`, a stale save gets 409, and the response returns `updatedAt` + `variationIds` which the client syncs.
 
