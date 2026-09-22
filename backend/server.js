@@ -8,6 +8,7 @@ const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 const sharp = require('sharp');
 const Anthropic = require('@anthropic-ai/sdk').default;
+const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -323,6 +324,21 @@ async function initDatabase() {
       )
     `);
 
+    // Migration: Google sign-in fields on users
+    const googleCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'google_sub'
+    `);
+    if (googleCheck.rows.length === 0) {
+      console.log('Running migration: adding Google sign-in support...');
+      await client.query(`ALTER TABLE users ADD COLUMN google_sub TEXT`);
+      await client.query(`ALTER TABLE users ADD COLUMN email TEXT`);
+      await client.query(`ALTER TABLE users ADD COLUMN display_name TEXT`);
+      await client.query(`ALTER TABLE users ADD COLUMN avatar_url TEXT`);
+      console.log('Migration complete: Google sign-in support added');
+    }
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL`);
+
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_is_published ON recipes(is_published)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_variations_recipe_id ON recipe_variations(recipe_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_ingredients_variation_id ON ingredients(variation_id)`);
@@ -483,6 +499,128 @@ app.post('/api/auth/validate', async (req, res) => {
   } catch (error) {
     console.error('Error validating user code:', error);
     res.status(500).json({ valid: false, error: 'Server error' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Google sign-in (Google Identity Services ID tokens)
+// ---------------------------------------------------------------------------
+
+const googleAuthClient = process.env.GOOGLE_CLIENT_ID
+  ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
+  : null;
+if (!googleAuthClient) {
+  console.warn('⚠️ GOOGLE_CLIENT_ID not set — Google sign-in disabled (access codes still work)');
+}
+
+// Verifies a GIS credential (ID token) and returns Google's payload
+async function verifyGoogleCredential(credential) {
+  const ticket = await googleAuthClient.verifyIdToken({
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID
+  });
+  return ticket.getPayload(); // { sub, email, name, picture, ... }
+}
+
+const USERNAME_RE = /^[a-z0-9_-]{3,20}$/;
+
+async function usernameTaken(username) {
+  const r = await pool.query('SELECT 1 FROM users WHERE LOWER(code) = $1', [username]);
+  return r.rows.length > 0;
+}
+
+// Suggest a free username from the Google profile (email prefix / name)
+async function suggestUsername(payload) {
+  let base = (payload.email || '').split('@')[0] || payload.name || 'chef';
+  base = base.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 16) || 'chef';
+  if (base.length < 3) base = `chef-${base}`;
+  if (!(await usernameTaken(base))) return base;
+  for (let i = 2; i < 100; i++) {
+    const candidate = `${base}${i}`;
+    if (!(await usernameTaken(candidate))) return candidate;
+  }
+  return `chef-${crypto.randomBytes(3).toString('hex')}`;
+}
+
+// Tells the frontend whether Google sign-in is available (and with which client id)
+app.get('/api/auth/config', (req, res) => {
+  res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null });
+});
+
+// Sign in with a Google credential. Known account -> session token.
+// Unknown account -> needsUsername (the client asks the user to pick a chef
+// name and calls /api/auth/google/register with the same credential).
+app.post('/api/auth/google', async (req, res) => {
+  if (!googleAuthClient) {
+    return res.status(503).json({ error: 'Google sign-in is not configured' });
+  }
+  try {
+    const payload = await verifyGoogleCredential(req.body.credential);
+    const existing = await pool.query('SELECT code FROM users WHERE google_sub = $1', [payload.sub]);
+    if (existing.rows.length > 0) {
+      const code = existing.rows[0].code.toLowerCase();
+      const token = await createSession(code);
+      return res.json({ valid: true, code, token });
+    }
+    res.json({
+      valid: false,
+      needsUsername: true,
+      suggestion: await suggestUsername(payload),
+      email: payload.email || null
+    });
+  } catch (error) {
+    console.error('Google sign-in error:', error.message);
+    res.status(401).json({ error: 'Google sign-in failed' });
+  }
+});
+
+// Complete first-time Google sign-up with a chosen username
+app.post('/api/auth/google/register', async (req, res) => {
+  if (!googleAuthClient) {
+    return res.status(503).json({ error: 'Google sign-in is not configured' });
+  }
+  try {
+    const payload = await verifyGoogleCredential(req.body.credential);
+
+    // Already registered (e.g. double submit): just log in
+    const existing = await pool.query('SELECT code FROM users WHERE google_sub = $1', [payload.sub]);
+    if (existing.rows.length > 0) {
+      const code = existing.rows[0].code.toLowerCase();
+      const token = await createSession(code);
+      return res.json({ valid: true, code, token });
+    }
+
+    const username = String(req.body.username || '').trim().toLowerCase();
+    if (!USERNAME_RE.test(username)) {
+      return res.status(400).json({ error: 'Username must be 3-20 characters: letters, numbers, - or _' });
+    }
+    if (await usernameTaken(username)) {
+      return res.status(409).json({ error: 'That name is taken' });
+    }
+
+    await pool.query(
+      `INSERT INTO users (code, google_sub, email, display_name, avatar_url, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [username, payload.sub, payload.email || null, payload.name || null, payload.picture || null, new Date()]
+    );
+    const token = await createSession(username);
+    res.json({ valid: true, code: username, token });
+  } catch (error) {
+    console.error('Google registration error:', error.message);
+    res.status(401).json({ error: 'Google sign-up failed' });
+  }
+});
+
+// Live username availability check for the sign-up form
+app.get('/api/auth/username-check', async (req, res) => {
+  try {
+    const username = String(req.query.u || '').trim().toLowerCase();
+    if (!USERNAME_RE.test(username)) {
+      return res.json({ valid: false, available: false });
+    }
+    res.json({ valid: true, available: !(await usernameTaken(username)) });
+  } catch (error) {
+    res.status(500).json({ error: 'Check failed' });
   }
 });
 

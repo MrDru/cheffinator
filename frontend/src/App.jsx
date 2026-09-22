@@ -98,6 +98,13 @@ const TRANSLATIONS = {
     retry: 'Retry',
     printExport: 'Print',
     printExportTitle: 'Open as a printable cookbook page (A4)',
+    orAccessCode: 'or use an access code',
+    pickChefName: 'Pick your chef name — it will be your public profile',
+    nameAvailable: '✓ Available',
+    nameTaken: 'That name is taken',
+    nameInvalid: '3–20 characters: letters, numbers, - or _',
+    createAccount: 'Create account',
+    freeJoin: 'Free to join — sign in with Google or an access code',
     backToCheffinator: 'Back to Cheffinator',
     
     // Delete/Share modals
@@ -227,6 +234,13 @@ const TRANSLATIONS = {
     retry: 'נסו שוב',
     printExport: 'הדפסה',
     printExportTitle: 'פתיחה כדף מתכון להדפסה (A4)',
+    orAccessCode: 'או עם קוד גישה',
+    pickChefName: 'בחרו שם שף — זה יהיה הפרופיל הציבורי שלכם',
+    nameAvailable: '✓ פנוי',
+    nameTaken: 'השם הזה תפוס',
+    nameInvalid: '3–20 תווים: אותיות לטיניות, ספרות, - או _',
+    createAccount: 'יצירת חשבון',
+    freeJoin: 'ההצטרפות חינם — עם גוגל או קוד גישה',
     backToCheffinator: 'חזרה לשפינטור',
     
     // Delete/Share modals
@@ -476,6 +490,13 @@ export default function App() {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Google sign-in state
+  const [googleClientId, setGoogleClientId] = useState(null);
+  const [pendingGoogle, setPendingGoogle] = useState(null); // credential awaiting a chosen username
+  const [usernamePick, setUsernamePick] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState(null); // 'checking'|'available'|'taken'|'invalid'
+  const googleBtnRef = React.useRef(null);
   
   // Default view is 'home' (discover page)
   const [currentView, setCurrentView] = useState('home');
@@ -808,6 +829,90 @@ export default function App() {
       setLoginInput('');
     } catch (error) {
       setLoginError(error.message || 'Invalid access code');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  // --- Google sign-in ---
+
+  // A Google credential arrived from the GIS button
+  const handleGoogleCredential = useCallback(async (response) => {
+    try {
+      setLoginError('');
+      const result = await api.googleLogin(response.credential);
+      if (result.valid) {
+        api.setUserCode(result.code);
+        api.setRememberedUsername(result.code);
+        setUserCode(result.code);
+      } else if (result.needsUsername) {
+        // First time here: ask for a chef name to finish sign-up
+        setPendingGoogle({ credential: response.credential });
+        setUsernamePick(result.suggestion || '');
+        setUsernameStatus(result.suggestion ? 'available' : null);
+      }
+    } catch (error) {
+      setLoginError(error.message || 'Google sign-in failed');
+    }
+  }, []);
+
+  // Ask the server whether Google sign-in is configured
+  useEffect(() => {
+    if (userCode) return;
+    api.fetchAuthConfig()
+      .then(cfg => setGoogleClientId(cfg.googleClientId))
+      .catch(() => {});
+  }, [userCode]);
+
+  // Load Google Identity Services and render the sign-in button
+  useEffect(() => {
+    if (!googleClientId || userCode || pendingGoogle) return;
+    const render = () => {
+      if (!window.google?.accounts?.id || !googleBtnRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleCredential
+      });
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: 'filled_black', size: 'large', width: 280, text: 'continue_with'
+      });
+    };
+    if (window.google?.accounts?.id) { render(); return; }
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = render;
+    document.head.appendChild(script);
+  }, [googleClientId, userCode, pendingGoogle, handleGoogleCredential]);
+
+  // Live availability check while picking a chef name
+  useEffect(() => {
+    if (!pendingGoogle) return;
+    const u = usernamePick.trim().toLowerCase();
+    if (!u) { setUsernameStatus(null); return; }
+    setUsernameStatus('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const r = await api.checkUsername(u);
+        setUsernameStatus(!r.valid ? 'invalid' : r.available ? 'available' : 'taken');
+      } catch { setUsernameStatus(null); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [usernamePick, pendingGoogle]);
+
+  // Finish first-time Google sign-up with the chosen name
+  const handleGoogleRegister = async () => {
+    if (!pendingGoogle || loginLoading) return;
+    setLoginLoading(true);
+    setLoginError('');
+    try {
+      const result = await api.googleRegister(pendingGoogle.credential, usernamePick.trim().toLowerCase());
+      api.setUserCode(result.code);
+      api.setRememberedUsername(result.code);
+      setUserCode(result.code);
+      setPendingGoogle(null);
+    } catch (error) {
+      setLoginError(error.message || 'Google sign-up failed');
     } finally {
       setLoginLoading(false);
     }
@@ -1875,71 +1980,157 @@ export default function App() {
             {t('whatsYourName')}
           </p>
           
-          <div style={{ ...styles.surface, padding: 24 }}>
-            <input
-              style={{
-                width: '100%',
-                padding: '16px 20px',
-                fontSize: 18,
-                background: 'var(--bg-tertiary)',
-                border: loginError ? '1px solid var(--accent-red)' : '1px solid var(--border-color)',
-                borderRadius: 12,
-                color: 'var(--text-primary)',
-                outline: 'none',
-                boxSizing: 'border-box',
-                textAlign: 'center',
-                fontFamily: 'var(--font-sans)'
-              }}
-              placeholder={t('enterName')}
-              value={loginInput}
-              onChange={e => { setLoginInput(e.target.value); setLoginError(''); }}
-              onKeyDown={e => e.key === 'Enter' && !loginLoading && handleLogin(loginInput)}
-              autoFocus
-              disabled={loginLoading}
-            />
-            
-            {loginError && (
-              <p style={{ 
-                color: 'var(--accent-red)', 
-                margin: '12px 0 0', 
-                fontSize: 14 
-              }}>
-                {loginError}
+          {pendingGoogle ? (
+            /* First-time Google sign-up: pick a chef name */
+            <div style={{ ...styles.surface, padding: 24 }}>
+              <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px', fontSize: 15 }}>
+                {t('pickChefName')}
               </p>
-            )}
-            
-            <button
-              style={{
-                ...styles.btnPrimary,
-                width: '100%',
-                marginTop: 16,
-                padding: '14px 20px',
-                fontSize: 16,
-                opacity: loginLoading ? 0.7 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8
-              }}
-              onClick={() => handleLogin(loginInput)}
-              disabled={!loginInput.trim() || loginLoading}
-            >
-              {loginLoading && (
-                <span style={{
-                  width: 16,
-                  height: 16,
-                  border: '2px solid rgba(0,0,0,0.2)',
-                  borderTopColor: 'var(--bg-primary)',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite'
-                }} />
+              <input
+                style={{
+                  width: '100%',
+                  padding: '16px 20px',
+                  fontSize: 18,
+                  background: 'var(--bg-tertiary)',
+                  border: usernameStatus === 'taken' || usernameStatus === 'invalid' ? '1px solid var(--accent-red)' : '1px solid var(--border-color)',
+                  borderRadius: 12,
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  textAlign: 'center',
+                  fontFamily: 'var(--font-sans)'
+                }}
+                value={usernamePick}
+                onChange={e => { setUsernamePick(e.target.value); setLoginError(''); }}
+                onKeyDown={e => e.key === 'Enter' && usernameStatus === 'available' && handleGoogleRegister()}
+                autoFocus
+                disabled={loginLoading}
+              />
+              <p style={{
+                margin: '10px 0 0',
+                fontSize: 13,
+                minHeight: 18,
+                color: usernameStatus === 'available' ? 'var(--accent-green)' :
+                       (usernameStatus === 'taken' || usernameStatus === 'invalid') ? 'var(--accent-red)' : 'var(--text-muted)'
+              }}>
+                {usernameStatus === 'checking' ? t('checking') :
+                 usernameStatus === 'available' ? t('nameAvailable') :
+                 usernameStatus === 'taken' ? t('nameTaken') :
+                 usernameStatus === 'invalid' ? t('nameInvalid') : t('nameInvalid')}
+              </p>
+
+              {loginError && (
+                <p style={{ color: 'var(--accent-red)', margin: '12px 0 0', fontSize: 14 }}>
+                  {loginError}
+                </p>
               )}
-              {loginLoading ? t('checking') : t('continue')}
-            </button>
-          </div>
-          
+
+              <button
+                style={{
+                  ...styles.btnPrimary,
+                  width: '100%',
+                  marginTop: 16,
+                  padding: '14px 20px',
+                  fontSize: 16,
+                  opacity: loginLoading || usernameStatus !== 'available' ? 0.7 : 1
+                }}
+                onClick={handleGoogleRegister}
+                disabled={usernameStatus !== 'available' || loginLoading}
+              >
+                {loginLoading ? t('checking') : t('createAccount')}
+              </button>
+              <button
+                style={{ ...styles.btn, width: '100%', marginTop: 10, border: 'none' }}
+                onClick={() => { setPendingGoogle(null); setLoginError(''); }}
+                disabled={loginLoading}
+              >
+                {t('back')}
+              </button>
+            </div>
+          ) : (
+            <>
+              {googleClientId && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
+                    <div ref={googleBtnRef} />
+                  </div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    color: 'var(--text-muted)', fontSize: 13, margin: '0 0 18px'
+                  }}>
+                    <span style={{ flex: 1, height: 1, background: 'var(--border-color)' }} />
+                    {t('orAccessCode')}
+                    <span style={{ flex: 1, height: 1, background: 'var(--border-color)' }} />
+                  </div>
+                </>
+              )}
+              <div style={{ ...styles.surface, padding: 24 }}>
+                <input
+                  style={{
+                    width: '100%',
+                    padding: '16px 20px',
+                    fontSize: 18,
+                    background: 'var(--bg-tertiary)',
+                    border: loginError ? '1px solid var(--accent-red)' : '1px solid var(--border-color)',
+                    borderRadius: 12,
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    textAlign: 'center',
+                    fontFamily: 'var(--font-sans)'
+                  }}
+                  placeholder={t('enterName')}
+                  value={loginInput}
+                  onChange={e => { setLoginInput(e.target.value); setLoginError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && !loginLoading && handleLogin(loginInput)}
+                  autoFocus
+                  disabled={loginLoading}
+                />
+
+                {loginError && (
+                  <p style={{
+                    color: 'var(--accent-red)',
+                    margin: '12px 0 0',
+                    fontSize: 14
+                  }}>
+                    {loginError}
+                  </p>
+                )}
+
+                <button
+                  style={{
+                    ...styles.btnPrimary,
+                    width: '100%',
+                    marginTop: 16,
+                    padding: '14px 20px',
+                    fontSize: 16,
+                    opacity: loginLoading ? 0.7 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8
+                  }}
+                  onClick={() => handleLogin(loginInput)}
+                  disabled={!loginInput.trim() || loginLoading}
+                >
+                  {loginLoading && (
+                    <span style={{
+                      width: 16,
+                      height: 16,
+                      border: '2px solid rgba(0,0,0,0.2)',
+                      borderTopColor: 'var(--bg-primary)',
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite'
+                    }} />
+                  )}
+                  {loginLoading ? t('checking') : t('continue')}
+                </button>
+              </div>
+            </>
+          )}
+
           <p style={{ color: 'var(--text-muted)', marginTop: 32, fontSize: 13 }}>
-            {t('alphaAccess')}
+            {googleClientId ? t('freeJoin') : t('alphaAccess')}
           </p>
         </div>
       </div>

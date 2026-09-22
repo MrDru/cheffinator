@@ -73,6 +73,47 @@ export async function validateCode(code) {
   return data;
 }
 
+// --- Google sign-in ---
+
+// Is Google sign-in configured on the server? Returns { googleClientId }
+export async function fetchAuthConfig() {
+  const response = await fetch(`${API_BASE}/auth/config`);
+  if (!response.ok) return { googleClientId: null };
+  return response.json();
+}
+
+// Exchange a Google credential for a session, or learn a username is needed
+export async function googleLogin(credential) {
+  const response = await fetch(`${API_BASE}/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Google sign-in failed');
+  if (data.token) setToken(data.token);
+  return data;
+}
+
+// First-time Google sign-up with the chosen chef name
+export async function googleRegister(credential, username) {
+  const response = await fetch(`${API_BASE}/auth/google/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential, username })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Google sign-up failed');
+  if (data.token) setToken(data.token);
+  return data;
+}
+
+export async function checkUsername(username) {
+  const response = await fetch(`${API_BASE}/auth/username-check?u=${encodeURIComponent(username)}`);
+  if (!response.ok) return { valid: false, available: false };
+  return response.json();
+}
+
 // Invalidate the session server-side and clear local credentials
 export async function logout() {
   try {

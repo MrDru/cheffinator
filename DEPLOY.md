@@ -12,6 +12,7 @@ runs everything.
 | `NODE_ENV` | yes | `production` |
 | `DATA_DIR` | yes* | Directory on a **persistent volume** for `cheffinator.db` + `uploads/` (e.g. `/data`) |
 | `ADMIN_SECRET` | strongly recommended | Enables `/api/admin/*` and `tools/admin.html`. Without it the admin API is disabled (safe default). Pick a long random string. |
+| `GOOGLE_CLIENT_ID` | recommended | Enables "Continue with Google" sign-up/sign-in. Without it only access-code login shows. |
 | `CHEFFINATOR_API` | optional | Anthropic API key for AI nutrition estimation |
 | `DATABASE_URL` | alternative to `DATA_DIR` | Use PostgreSQL instead of SQLite |
 | `SUPABASE_URL` + `SUPABASE_ANON_KEY` | optional | Use Supabase for images instead of local disk |
@@ -47,6 +48,19 @@ NODE_ENV=production DATA_DIR=/var/lib/cheffinator ADMIN_SECRET=<random> node --e
 
 Run it under systemd, put Caddy in front for HTTPS
 (`cheffinator.com { reverse_proxy localhost:3001 }`).
+
+## Google sign-in setup (free, ~5 minutes)
+
+1. Go to https://console.cloud.google.com/ → create a project (e.g. "Cheffinator").
+2. **APIs & Services → OAuth consent screen**: External, app name Cheffinator, add your email. No scopes beyond the defaults are needed. Publish the app (or add testers while testing).
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**:
+   - Application type: **Web application**
+   - Authorized JavaScript origins: `https://cheffinator.com` and, for local dev, `http://localhost:5173`
+   - No redirect URIs needed (the app uses the Google Identity Services button, not a redirect flow).
+4. Copy the client ID (`xxxx.apps.googleusercontent.com`) into the `GOOGLE_CLIENT_ID` env var (both locally and on the host).
+
+First-time Google users pick a unique chef name (their public profile handle);
+returning users go straight in. Access codes keep working alongside.
 
 ## Migrating the local data
 
