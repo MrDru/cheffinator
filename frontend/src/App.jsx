@@ -96,6 +96,8 @@ const TRANSLATIONS = {
     noRecipesYet: 'No recipes yet',
     loadFailed: "Couldn't load — check that the server is running",
     retry: 'Retry',
+    printExport: 'Print',
+    printExportTitle: 'Open as a printable cookbook page (A4)',
     backToCheffinator: 'Back to Cheffinator',
     
     // Delete/Share modals
@@ -223,6 +225,8 @@ const TRANSLATIONS = {
     noRecipesYet: 'אין עדיין מתכונים',
     loadFailed: 'הטעינה נכשלה — ודאו שהשרת פועל',
     retry: 'נסו שוב',
+    printExport: 'הדפסה',
+    printExportTitle: 'פתיחה כדף מתכון להדפסה (A4)',
     backToCheffinator: 'חזרה לשפינטור',
     
     // Delete/Share modals
@@ -3225,10 +3229,19 @@ export default function App() {
                 <Icon type="play" /> Cook
               </button>
             )}
+            {!isPublicView && editingId && (
+              <button
+                style={styles.btn}
+                title={t('printExportTitle')}
+                onClick={() => window.open(`/api/recipes/${editingId}/export?back=app&variation=${currentVariationIndex}`, '_blank')}
+              >
+                🖨️ {t('printExport')}
+              </button>
+            )}
             {!isPublicView && (
               <>
-                <button 
-                  style={{ ...styles.btn, color: 'var(--accent-orange)', borderColor: 'var(--accent-orange)', display: 'flex', alignItems: 'center', gap: 6, opacity: isSharing ? 0.7 : 1 }} 
+                <button
+                  style={{ ...styles.btn, color: 'var(--accent-orange)', borderColor: 'var(--accent-orange)', display: 'flex', alignItems: 'center', gap: 6, opacity: isSharing ? 0.7 : 1 }}
                   onClick={handleShare}
                   disabled={isSharing}
                 >

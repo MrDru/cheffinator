@@ -90,6 +90,7 @@ for (const envVar of recommendedEnvVars) {
 
 // db.js picks PostgreSQL when DATABASE_URL is set, SQLite otherwise (local dev)
 const pool = require('./db').db;
+const { renderRecipePage } = require('./export-template');
 
 // DB TEXT columns hold JSON; never let one bad row 500 a whole endpoint
 function safeParse(text, fallback) {
@@ -481,6 +482,7 @@ app.get('/api/recipes', async (req, res) => {
         tags: firstVariation.tags || (safeParse(recipe.tags, [])),
         bannerImage: firstVariation.bannerImage || recipe.banner_image,
         updated: timeAgo(recipe.updated_at),
+        updatedAt: new Date(recipe.updated_at).toISOString(),
         variations: variations,
         ingredients: firstVariation.ingredients || [],
         stages: firstVariation.stages || [],
@@ -532,17 +534,16 @@ app.get('/api/recipes/summary', async (req, res) => {
   }
 });
 
-// Get single recipe
+// Fetch a recipe with all variations/ingredients/steps assembled (or null)
 // Optimized: uses batch queries instead of N+1 pattern
-app.get('/api/recipes/:id', async (req, res) => {
-  try {
+async function fetchFullRecipe(id) {
     const recipeResult = await pool.query(
       'SELECT * FROM recipes WHERE id = $1',
-      [req.params.id]
+      [id]
     );
 
     if (recipeResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Recipe not found' });
+      return null;
     }
 
     const recipe = recipeResult.rows[0];
@@ -604,7 +605,7 @@ app.get('/api/recipes/:id', async (req, res) => {
 
     const firstVariation = variations[0] || {};
 
-    res.json({
+    return {
       id: recipe.id,
       name: recipe.name,
       description: firstVariation.description || recipe.description || '',
@@ -612,13 +613,38 @@ app.get('/api/recipes/:id', async (req, res) => {
       tags: firstVariation.tags || (safeParse(recipe.tags, [])),
       bannerImage: firstVariation.bannerImage || recipe.banner_image,
       updated: timeAgo(recipe.updated_at),
+      updatedAt: new Date(recipe.updated_at).toISOString(),
       variations: variations,
       ingredients: firstVariation.ingredients || [],
       stages: firstVariation.stages || []
-    });
+    };
+}
+
+// Get single recipe
+app.get('/api/recipes/:id', async (req, res) => {
+  try {
+    const recipe = await fetchFullRecipe(req.params.id);
+    if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
+    res.json(recipe);
   } catch (error) {
     console.error('Error fetching recipe:', error);
     res.status(500).json({ error: 'Failed to fetch recipe' });
+  }
+});
+
+// Export a recipe as a standalone bilingual cookbook page (A4 print format)
+app.get('/api/recipes/:id/export', async (req, res) => {
+  try {
+    const recipe = await fetchFullRecipe(req.params.id);
+    if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
+    const vIndex = Math.max(0, Math.min(parseInt(req.query.variation) || 0, recipe.variations.length - 1));
+    const html = renderRecipePage(recipe, vIndex, {
+      backHref: req.query.back === 'app' ? '/' : 'index.html'
+    });
+    res.type('html').send(html);
+  } catch (error) {
+    console.error('Error exporting recipe:', error);
+    res.status(500).json({ error: 'Failed to export recipe' });
   }
 });
 
