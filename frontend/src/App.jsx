@@ -3,8 +3,8 @@ import * as api from './api';
 import ImageCapture from './ImageCapture';
 
 // App version - update this single place when releasing new versions
-const APP_VERSION = 'v0.0.27';
-const APP_DATE = 'Mar 5, 2026';
+const APP_VERSION = 'v0.1.0';
+const APP_DATE = 'Sep 22, 2026';
 
 
 // Translations
