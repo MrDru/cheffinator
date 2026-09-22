@@ -58,12 +58,27 @@ export function setRememberedUsername(username) {
   localStorage.setItem('cheffinator_remembered_user', username);
 }
 
-// Validate user code with the server; stores the returned session token
-export async function validateCode(code) {
-  const response = await fetch(`${API_BASE}/auth/validate`, {
+// Sign in with a chef name + password; stores the returned session token
+export async function login(username, password) {
+  const response = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code })
+    body: JSON.stringify({ username, password })
+  });
+  const data = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(data.error || 'Server unavailable — please try again');
+  }
+  if (data.token) setToken(data.token);
+  return data;
+}
+
+// Create an account with a chef name + password
+export async function register(username, password) {
+  const response = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
   });
   const data = await parseJson(response);
   if (!response.ok) {

@@ -115,20 +115,22 @@ ${entries.map(li).join('\n')}
 }
 
 async function main() {
-  // The recipe list requires a session token - log in with the access code
-  const loginRes = await fetch(`${API}/api/auth/validate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: user })
-  });
-  if (!loginRes.ok) throw new Error(`Login as "${user}" failed: HTTP ${loginRes.status}`);
-  const { token } = await loginRes.json();
-
-  const listRes = await fetch(`${API}/api/recipes?limit=100&offset=0`, {
-    headers: { 'Authorization': `Bearer ${token}` }
+  // List recipes via the admin API (works for any user, incl. Google accounts)
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret) throw new Error('Set ADMIN_SECRET (the server\'s admin secret) to export');
+  const listRes = await fetch(`${API}/api/admin/recipes`, {
+    headers: { 'x-admin-secret': adminSecret }
   });
   if (!listRes.ok) throw new Error(`Failed to list recipes: HTTP ${listRes.status}`);
-  const recipes = await listRes.json();
+  const allRecipes = await listRes.json();
+  const summaries = allRecipes.filter(r => (r.user_code || '').toLowerCase() === user.toLowerCase());
+
+  // Fetch each recipe in full (public endpoint) for index names/translations
+  const recipes = [];
+  for (const s of summaries) {
+    const r = await fetch(`${API}/api/recipes/${s.id}`);
+    if (r.ok) recipes.push(await r.json());
+  }
   if (recipes.length === 0) {
     console.log(`No recipes for user "${user}" - nothing to export.`);
     return;

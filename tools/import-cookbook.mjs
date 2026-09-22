@@ -221,12 +221,15 @@ function parseRecipeFile(filePath) {
 
 let authToken = null;
 
-// The API requires a session token - log in with the user's access code
+// The API requires a session token - log in with name + password
+// (set CHEFFINATOR_PASSWORD; the target must be a password account)
 async function login() {
-  const res = await fetch(`${API_BASE}/auth/validate`, {
+  const password = process.env.CHEFFINATOR_PASSWORD;
+  if (!password) throw new Error('Set CHEFFINATOR_PASSWORD for the importing user');
+  const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: USER_CODE }),
+    body: JSON.stringify({ username: USER_CODE, password }),
   });
   if (!res.ok) throw new Error(`Login as "${USER_CODE}" failed: HTTP ${res.status}`);
   authToken = (await res.json()).token;

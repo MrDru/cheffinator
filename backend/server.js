@@ -71,14 +71,6 @@ const DEFAULT_TAGS = [
   'Baking', 'Holiday', 'Shabbat', 'Passover'
 ];
 
-// Default user codes for initial seeding (used only if users table is empty)
-const DEFAULT_USERS = [
-  'cheffinator',
-  'mrdru3000',
-  'dante',
-  'jono',
-  'tester4'
-];
 
 // Validate environment. Production needs either a Postgres URL or a
 // persistent data dir for SQLite - otherwise data dies with the instance.
@@ -298,17 +290,15 @@ async function initDatabase() {
       console.log('Migration complete: nutrition support added');
     }
 
-    // Seed users table with default users if empty
-    const usersCount = await client.query('SELECT COUNT(*) FROM users');
-    if (parseInt(usersCount.rows[0].count) === 0) {
-      console.log('Seeding users table with default users...');
-      for (const code of DEFAULT_USERS) {
-        await client.query(
-          'INSERT INTO users (code) VALUES ($1) ON CONFLICT (code) DO NOTHING',
-          [code.toLowerCase()]
-        );
-      }
-      console.log('Users table seeded with', DEFAULT_USERS.length, 'users');
+    // Migration: password sign-in
+    const passwordCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'password_hash'
+    `);
+    if (passwordCheck.rows.length === 0) {
+      console.log('Running migration: adding password sign-in support...');
+      await client.query(`ALTER TABLE users ADD COLUMN password_hash TEXT`);
+      console.log('Migration complete: password sign-in support added');
     }
 
     // Create indexes for better query performance
@@ -476,29 +466,77 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Validate user code (checks database)
-app.post('/api/auth/validate', async (req, res) => {
-  const { code } = req.body;
-  if (!code) {
-    return res.status(400).json({ valid: false, error: 'Code is required' });
-  }
-  
+// ---------------------------------------------------------------------------
+// Name + password sign-up / sign-in (scrypt, no external services)
+// ---------------------------------------------------------------------------
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  const [salt, hash] = String(stored || '').split(':');
+  if (!salt || !hash) return false;
+  const candidate = crypto.scryptSync(password, salt, 64);
+  const expected = Buffer.from(hash, 'hex');
+  return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
+}
+
+// Create an account with a chef name + password
+app.post('/api/auth/register', async (req, res) => {
   try {
-    const normalizedCode = code.trim().toLowerCase();
-    const result = await pool.query(
-      'SELECT code FROM users WHERE LOWER(code) = $1',
-      [normalizedCode]
-    );
-    
-    if (result.rows.length > 0) {
-      const token = await createSession(normalizedCode);
-      res.json({ valid: true, code: normalizedCode, token });
-    } else {
-      res.status(401).json({ valid: false, error: 'Invalid access code' });
+    const username = String(req.body.username || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    if (!USERNAME_RE.test(username)) {
+      return res.status(400).json({ error: 'Name must be 3-20 characters: letters, numbers, - or _' });
     }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    if (await usernameTaken(username)) {
+      return res.status(409).json({ error: 'That name is taken' });
+    }
+    await pool.query(
+      'INSERT INTO users (code, password_hash, created_at) VALUES ($1, $2, $3)',
+      [username, hashPassword(password), new Date()]
+    );
+    const token = await createSession(username);
+    res.json({ valid: true, code: username, token });
   } catch (error) {
-    console.error('Error validating user code:', error);
-    res.status(500).json({ valid: false, error: 'Server error' });
+    console.error('Error registering user:', error);
+    res.status(500).json({ error: 'Sign-up failed' });
+  }
+});
+
+// Sign in with a chef name + password
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const username = String(req.body.username || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    const result = await pool.query(
+      'SELECT code, password_hash, google_sub FROM users WHERE LOWER(code) = $1',
+      [username]
+    );
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Wrong name or password' });
+    }
+    const user = result.rows[0];
+    if (!user.password_hash) {
+      return res.status(401).json({
+        error: user.google_sub ? 'This account signs in with Google' : 'Wrong name or password'
+      });
+    }
+    if (!verifyPassword(password, user.password_hash)) {
+      return res.status(401).json({ error: 'Wrong name or password' });
+    }
+    const code = user.code.toLowerCase();
+    const token = await createSession(code);
+    res.json({ valid: true, code, token });
+  } catch (error) {
+    console.error('Error logging in:', error);
+    res.status(500).json({ error: 'Sign-in failed' });
   }
 });
 

@@ -98,13 +98,18 @@ const TRANSLATIONS = {
     retry: 'Retry',
     printExport: 'Print',
     printExportTitle: 'Open as a printable cookbook page (A4)',
-    orAccessCode: 'or use an access code',
+    orAccessCode: 'or with a name and password',
+    password: 'Password',
+    choosePassword: 'Choose a password (6+ characters)',
+    signIn: 'Sign in',
+    newHere: 'New here? Create an account',
+    haveAccount: 'Already have an account? Sign in',
     pickChefName: 'Pick your chef name — it will be your public profile',
     nameAvailable: '✓ Available',
     nameTaken: 'That name is taken',
     nameInvalid: '3–20 characters: letters, numbers, - or _',
     createAccount: 'Create account',
-    freeJoin: 'Free to join — sign in with Google or an access code',
+    freeJoin: 'Free to join — with Google, or just a name and password',
     backToCheffinator: 'Back to Cheffinator',
     
     // Delete/Share modals
@@ -234,13 +239,18 @@ const TRANSLATIONS = {
     retry: 'נסו שוב',
     printExport: 'הדפסה',
     printExportTitle: 'פתיחה כדף מתכון להדפסה (A4)',
-    orAccessCode: 'או עם קוד גישה',
+    orAccessCode: 'או עם שם וסיסמה',
+    password: 'סיסמה',
+    choosePassword: 'בחרו סיסמה (6+ תווים)',
+    signIn: 'כניסה',
+    newHere: 'חדשים כאן? יצירת חשבון',
+    haveAccount: 'כבר יש חשבון? כניסה',
     pickChefName: 'בחרו שם שף — זה יהיה הפרופיל הציבורי שלכם',
     nameAvailable: '✓ פנוי',
     nameTaken: 'השם הזה תפוס',
     nameInvalid: '3–20 תווים: אותיות לטיניות, ספרות, - או _',
     createAccount: 'יצירת חשבון',
-    freeJoin: 'ההצטרפות חינם — עם גוגל או קוד גישה',
+    freeJoin: 'ההצטרפות חינם — עם גוגל, או סתם שם וסיסמה',
     backToCheffinator: 'חזרה לשפינטור',
     
     // Delete/Share modals
@@ -487,6 +497,9 @@ export default function App() {
   // User authentication state (persisted code, or the login screen)
   const [userCode, setUserCode] = useState(() => api.getUserCode() || null);
   const [loginInput, setLoginInput] = useState(() => api.getRememberedUsername());
+  const [loginPassword, setLoginPassword] = useState('');
+  const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup'
+  const [signupNameStatus, setSignupNameStatus] = useState(null); // 'checking'|'available'|'taken'|'invalid'
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -813,26 +826,45 @@ export default function App() {
     }
   };
 
-  // Login with access code (validates with server first)
-  const handleLogin = async (code) => {
-    if (!code.trim()) return;
-    
+  // Sign in or create an account with a chef name + password
+  const handleAuth = async () => {
+    const username = loginInput.trim().toLowerCase();
+    if (!username || !loginPassword || loginLoading) return;
+    if (authMode === 'signup' && signupNameStatus !== 'available') return;
+
     setLoginLoading(true);
     setLoginError('');
 
     try {
-      // Validate the code with the server - it returns the session token
-      const result = await api.validateCode(code.trim());
+      const result = authMode === 'signup'
+        ? await api.register(username, loginPassword)
+        : await api.login(username, loginPassword);
       api.setUserCode(result.code);
       api.setRememberedUsername(result.code); // Remember for next time
       setUserCode(result.code);
       setLoginInput('');
+      setLoginPassword('');
     } catch (error) {
-      setLoginError(error.message || 'Invalid access code');
+      setLoginError(error.message || 'Sign-in failed');
     } finally {
       setLoginLoading(false);
     }
   };
+
+  // Live availability check for the sign-up name
+  useEffect(() => {
+    if (authMode !== 'signup' || userCode) return;
+    const u = loginInput.trim().toLowerCase();
+    if (!u) { setSignupNameStatus(null); return; }
+    setSignupNameStatus('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const r = await api.checkUsername(u);
+        setSignupNameStatus(!r.valid ? 'invalid' : r.available ? 'available' : 'taken');
+      } catch { setSignupNameStatus(null); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [loginInput, authMode, userCode]);
 
   // --- Google sign-in ---
 
@@ -2071,7 +2103,7 @@ export default function App() {
                     padding: '16px 20px',
                     fontSize: 18,
                     background: 'var(--bg-tertiary)',
-                    border: loginError ? '1px solid var(--accent-red)' : '1px solid var(--border-color)',
+                    border: (authMode === 'signup' && (signupNameStatus === 'taken' || signupNameStatus === 'invalid')) ? '1px solid var(--accent-red)' : '1px solid var(--border-color)',
                     borderRadius: 12,
                     color: 'var(--text-primary)',
                     outline: 'none',
@@ -2082,8 +2114,45 @@ export default function App() {
                   placeholder={t('enterName')}
                   value={loginInput}
                   onChange={e => { setLoginInput(e.target.value); setLoginError(''); }}
-                  onKeyDown={e => e.key === 'Enter' && !loginLoading && handleLogin(loginInput)}
                   autoFocus
+                  disabled={loginLoading}
+                />
+
+                {authMode === 'signup' && (
+                  <p style={{
+                    margin: '8px 0 0',
+                    fontSize: 13,
+                    minHeight: 16,
+                    color: signupNameStatus === 'available' ? 'var(--accent-green)' :
+                           (signupNameStatus === 'taken' || signupNameStatus === 'invalid') ? 'var(--accent-red)' : 'var(--text-muted)'
+                  }}>
+                    {signupNameStatus === 'checking' ? t('checking') :
+                     signupNameStatus === 'available' ? t('nameAvailable') :
+                     signupNameStatus === 'taken' ? t('nameTaken') :
+                     signupNameStatus === 'invalid' ? t('nameInvalid') : ' '}
+                  </p>
+                )}
+
+                <input
+                  type="password"
+                  style={{
+                    width: '100%',
+                    marginTop: 12,
+                    padding: '16px 20px',
+                    fontSize: 18,
+                    background: 'var(--bg-tertiary)',
+                    border: loginError ? '1px solid var(--accent-red)' : '1px solid var(--border-color)',
+                    borderRadius: 12,
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    textAlign: 'center',
+                    fontFamily: 'var(--font-sans)'
+                  }}
+                  placeholder={authMode === 'signup' ? t('choosePassword') : t('password')}
+                  value={loginPassword}
+                  onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && !loginLoading && handleAuth()}
                   disabled={loginLoading}
                 />
 
@@ -2110,8 +2179,8 @@ export default function App() {
                     justifyContent: 'center',
                     gap: 8
                   }}
-                  onClick={() => handleLogin(loginInput)}
-                  disabled={!loginInput.trim() || loginLoading}
+                  onClick={handleAuth}
+                  disabled={!loginInput.trim() || !loginPassword || loginLoading || (authMode === 'signup' && signupNameStatus !== 'available')}
                 >
                   {loginLoading && (
                     <span style={{
@@ -2123,14 +2192,22 @@ export default function App() {
                       animation: 'spin 0.8s linear infinite'
                     }} />
                   )}
-                  {loginLoading ? t('checking') : t('continue')}
+                  {loginLoading ? t('checking') : (authMode === 'signup' ? t('createAccount') : t('signIn'))}
+                </button>
+
+                <button
+                  style={{ ...styles.btn, width: '100%', marginTop: 10, border: 'none', color: 'var(--text-secondary)' }}
+                  onClick={() => { setAuthMode(authMode === 'signup' ? 'signin' : 'signup'); setLoginError(''); }}
+                  disabled={loginLoading}
+                >
+                  {authMode === 'signup' ? t('haveAccount') : t('newHere')}
                 </button>
               </div>
             </>
           )}
 
           <p style={{ color: 'var(--text-muted)', marginTop: 32, fontSize: 13 }}>
-            {googleClientId ? t('freeJoin') : t('alphaAccess')}
+            {t('freeJoin')}
           </p>
         </div>
       </div>
