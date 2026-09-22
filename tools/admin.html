@@ -549,6 +549,8 @@
                  onfocus="showUrlDropdown()" autocomplete="off" />
           <div class="url-dropdown" id="urlDropdown"></div>
         </div>
+        <input type="password" id="adminSecret" placeholder="Admin secret" autocomplete="off"
+               style="max-width: 180px;" onkeydown="if(event.key==='Enter')connect()" />
         <button class="btn-primary" onclick="connect()">Connect</button>
         <div class="status">
           <div class="status-dot" id="statusDot"></div>
@@ -617,7 +619,8 @@
     <!-- Users Tab -->
     <div class="tab-content" id="usersTab">
       <div class="add-form">
-        <input type="text" id="newUserCode" placeholder="Enter new user code..." onkeydown="if(event.key==='Enter')addUser()" />
+        <input type="text" id="newUserCode" placeholder="Chef name (3-20 chars)..." onkeydown="if(event.key==='Enter')addUser()" />
+        <input type="text" id="newUserPassword" placeholder="Initial password (6+ chars)..." onkeydown="if(event.key==='Enter')addUser()" />
         <button class="btn-primary" onclick="addUser()">+ Add User</button>
         <button class="btn-secondary" onclick="loadUsers()">↻ Refresh</button>
       </div>
@@ -700,20 +703,13 @@
   </div>
 
   <script>
-    // Admin secret: asked once per browser session, sent on every request.
-    // The server requires it (x-admin-secret) for all /api/admin endpoints.
+    // Admin secret: entered in the connect bar, kept for the browser session,
+    // sent on every request (the server requires x-admin-secret for /api/admin).
     let ADMIN_SECRET = sessionStorage.getItem('cheffinator_admin_secret') || '';
-    if (!ADMIN_SECRET) {
-      ADMIN_SECRET = prompt('Admin secret (ADMIN_SECRET on the server):') || '';
-      sessionStorage.setItem('cheffinator_admin_secret', ADMIN_SECRET);
-    }
     const _origFetch = window.fetch.bind(window);
     window.fetch = (url, opts = {}) => {
       opts.headers = { ...(opts.headers || {}), 'x-admin-secret': ADMIN_SECRET };
-      return _origFetch(url, opts).then(res => {
-        if (res.status === 401) sessionStorage.removeItem('cheffinator_admin_secret');
-        return res;
-      });
+      return _origFetch(url, opts);
     };
 
     let API_URL = '';
@@ -785,12 +781,24 @@
     document.addEventListener('DOMContentLoaded', () => {
       const lastUrl = localStorage.getItem(LAST_URL_KEY);
       if (lastUrl) document.getElementById('apiUrl').value = lastUrl;
+      // Served from the API itself (/admin): prefill the URL with this origin
+      if (!document.getElementById('apiUrl').value && window.location.origin.startsWith('http')) {
+        document.getElementById('apiUrl').value = window.location.origin;
+      }
+      if (ADMIN_SECRET) document.getElementById('adminSecret').value = ADMIN_SECRET;
     });
 
     // Connect
     async function connect() {
       const url = document.getElementById('apiUrl').value.trim();
       if (!url) return showToast('Please enter an API URL', 'error');
+
+      const secret = document.getElementById('adminSecret').value;
+      if (secret) {
+        ADMIN_SECRET = secret;
+        sessionStorage.setItem('cheffinator_admin_secret', secret);
+      }
+      if (!ADMIN_SECRET) return showToast('Enter the admin secret', 'error');
 
       API_URL = url.replace(/\/$/, '');
       updateStatus('connecting');
@@ -1128,14 +1136,36 @@
       }
       document.getElementById('usersContent').innerHTML = `
         <table>
-          <thead><tr><th>User Code</th><th style="width: 100px;">Recipes</th><th style="width: 140px;">Created</th><th style="width: 100px;">Actions</th></tr></thead>
+          <thead><tr>
+            <th>Chef name</th>
+            <th style="width: 110px;">Sign-in</th>
+            <th>Google account</th>
+            <th style="width: 80px;">Recipes</th>
+            <th style="width: 120px;">Created</th>
+            <th style="width: 150px;">Actions</th>
+          </tr></thead>
           <tbody>
             ${allUsers.map(u => `
               <tr>
-                <td><div class="editable" onclick="startEditUser(this, '${escapeHtml(u.code)}')"><span class="user-badge">${escapeHtml(u.code)}</span></div></td>
+                <td>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    ${u.avatarUrl ? `<img src="${escapeHtml(u.avatarUrl)}" referrerpolicy="no-referrer" style="width:24px;height:24px;border-radius:50%;" />` : ''}
+                    <div class="editable" onclick="startEditUser(this, '${escapeHtml(u.code)}')"><span class="user-badge">${escapeHtml(u.code)}</span></div>
+                  </div>
+                </td>
+                <td>
+                  ${u.hasGoogle ? '<span class="user-badge" title="Signs in with Google">G</span>' : ''}
+                  ${u.hasPassword ? '<span class="user-badge" title="Has a password">🔑</span>' : ''}
+                  ${!u.hasGoogle && !u.hasPassword ? '<span style="color: var(--accent-red);" title="No way to log in!">none</span>' : ''}
+                </td>
+                <td class="date">${escapeHtml(u.displayName || '')}${u.email ? ` · ${escapeHtml(u.email)}` : ''}</td>
                 <td>${u.recipeCount}</td>
                 <td class="date">${new Date(u.createdAt).toLocaleDateString()}</td>
-                <td><button class="btn-danger btn-small" onclick="openDeleteModal('user', '${escapeHtml(u.code)}', '${escapeHtml(u.code)}')">🗑️</button></td>
+                <td>
+                  <button class="btn-secondary btn-small" title="Set / reset password" onclick="resetPassword('${escapeHtml(u.code)}')">🔑</button>
+                  <button class="btn-secondary btn-small" title="Sign out everywhere" onclick="revokeSessions('${escapeHtml(u.code)}')">⏻</button>
+                  <button class="btn-danger btn-small" title="Delete user" onclick="openDeleteModal('user', '${escapeHtml(u.code)}', '${escapeHtml(u.code)}')">🗑️</button>
+                </td>
               </tr>
             `).join('')}
           </tbody>
@@ -1145,19 +1175,58 @@
 
     async function addUser() {
       const code = document.getElementById('newUserCode').value.trim();
-      if (!code) return showToast('Enter a user code', 'error');
+      const password = document.getElementById('newUserPassword').value;
+      if (!code) return showToast('Enter a chef name', 'error');
+      if (!password || password.length < 6) return showToast('Password must be 6+ characters', 'error');
 
       try {
         const response = await fetch(`${API_URL}/api/admin/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code })
+          body: JSON.stringify({ code, password })
         });
         if (response.status === 409) return showToast('User exists', 'error');
-        if (!response.ok) throw new Error('Failed');
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed');
+        }
         document.getElementById('newUserCode').value = '';
+        document.getElementById('newUserPassword').value = '';
         showToast('User created!', 'success');
         await loadUsers();
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
+    }
+
+    async function resetPassword(code) {
+      const password = prompt(`New password for "${code}" (6+ characters):`);
+      if (password === null) return;
+      if (password.length < 6) return showToast('Password must be 6+ characters', 'error');
+      try {
+        const response = await fetch(`${API_URL}/api/admin/users/${encodeURIComponent(code)}/password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed');
+        }
+        showToast(`Password set for ${code}`, 'success');
+        await loadUsers();
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
+    }
+
+    async function revokeSessions(code) {
+      if (!confirm(`Sign "${code}" out of all devices?`)) return;
+      try {
+        const response = await fetch(`${API_URL}/api/admin/users/${encodeURIComponent(code)}/logout`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed');
+        const data = await response.json();
+        showToast(`${code}: ${data.sessionsRevoked} session(s) revoked`, 'success');
       } catch (e) {
         showToast('Failed: ' + e.message, 'error');
       }

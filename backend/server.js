@@ -1582,16 +1582,24 @@ app.get('/api/admin/recipes', async (req, res) => {
 app.get('/api/admin/users', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT u.id, u.code, u.created_at, COUNT(r.id) as recipe_count
+      SELECT u.id, u.code, u.created_at, u.email, u.display_name, u.avatar_url,
+             (u.google_sub IS NOT NULL) as has_google,
+             (u.password_hash IS NOT NULL) as has_password,
+             COUNT(r.id) as recipe_count
       FROM users u
       LEFT JOIN recipes r ON LOWER(r.user_code) = LOWER(u.code)
-      GROUP BY u.id, u.code, u.created_at
+      GROUP BY u.id, u.code, u.created_at, u.email, u.display_name, u.avatar_url, u.google_sub, u.password_hash
       ORDER BY u.created_at DESC
     `);
 
     const users = result.rows.map(user => ({
       id: user.id,
       code: user.code,
+      email: user.email || null,
+      displayName: user.display_name || null,
+      avatarUrl: user.avatar_url || null,
+      hasGoogle: Boolean(user.has_google),
+      hasPassword: Boolean(user.has_password),
       recipeCount: parseInt(user.recipe_count),
       createdAt: user.created_at
     }));
@@ -1603,31 +1611,33 @@ app.get('/api/admin/users', async (req, res) => {
   }
 });
 
-// Admin endpoint: Create new user
+// Admin endpoint: Create new user (with an initial password so they can log in)
 app.post('/api/admin/users', async (req, res) => {
   try {
-    const { code } = req.body;
-    if (!code || !code.trim()) {
-      return res.status(400).json({ error: 'User code is required' });
+    const { code, password } = req.body;
+    const normalizedCode = String(code || '').trim().toLowerCase();
+    if (!USERNAME_RE.test(normalizedCode)) {
+      return res.status(400).json({ error: 'Name must be 3-20 characters: letters, numbers, - or _' });
     }
-    
-    const normalizedCode = code.trim().toLowerCase();
-    
+    if (!password || String(password).length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
     // Check if user already exists
     const existing = await pool.query(
       'SELECT code FROM users WHERE LOWER(code) = $1',
       [normalizedCode]
     );
-    
+
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'User code already exists' });
     }
-    
+
     const result = await pool.query(
-      'INSERT INTO users (code) VALUES ($1) RETURNING id, code, created_at',
-      [normalizedCode]
+      'INSERT INTO users (code, password_hash, created_at) VALUES ($1, $2, $3) RETURNING id, code, created_at',
+      [normalizedCode, hashPassword(String(password)), new Date()]
     );
-    
+
     res.status(201).json({
       id: result.rows[0].id,
       code: result.rows[0].code,
@@ -1637,6 +1647,42 @@ app.post('/api/admin/users', async (req, res) => {
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+// Admin endpoint: Set or reset a user's password (also gives a Google
+// account a password alternative)
+app.post('/api/admin/users/:code/password', async (req, res) => {
+  try {
+    const normalizedCode = req.params.code.toLowerCase();
+    const { password } = req.body;
+    if (!password || String(password).length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    const result = await pool.query(
+      'UPDATE users SET password_hash = $1 WHERE LOWER(code) = $2',
+      [hashPassword(String(password)), normalizedCode]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'User not found' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error setting password:', error);
+    res.status(500).json({ error: 'Failed to set password' });
+  }
+});
+
+// Admin endpoint: Sign a user out everywhere (revoke all their sessions)
+app.post('/api/admin/users/:code/logout', async (req, res) => {
+  try {
+    const normalizedCode = req.params.code.toLowerCase();
+    const result = await pool.query(
+      'DELETE FROM sessions WHERE LOWER(user_code) = $1',
+      [normalizedCode]
+    );
+    res.json({ ok: true, sessionsRevoked: result.rowCount || 0 });
+  } catch (error) {
+    console.error('Error revoking sessions:', error);
+    res.status(500).json({ error: 'Failed to revoke sessions' });
   }
 });
 
@@ -1686,11 +1732,17 @@ app.put('/api/admin/users/:code', async (req, res) => {
       'UPDATE recipes SET user_code = $1 WHERE LOWER(user_code) = $2',
       [normalizedNewCode, oldCode]
     );
-    
-    res.json({ 
-      success: true, 
-      oldCode: oldCode, 
-      newCode: normalizedNewCode 
+
+    // Keep their sessions working under the new name
+    await pool.query(
+      'UPDATE sessions SET user_code = $1 WHERE LOWER(user_code) = $2',
+      [normalizedNewCode, oldCode]
+    );
+
+    res.json({
+      success: true,
+      oldCode: oldCode,
+      newCode: normalizedNewCode
     });
   } catch (error) {
     console.error('Error updating user:', error);
@@ -1714,12 +1766,13 @@ app.delete('/api/admin/users/:code', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Delete user (recipes remain but user can't log in anymore)
+    // Delete user + their sessions (recipes remain but user can't log in anymore)
+    await pool.query('DELETE FROM sessions WHERE LOWER(user_code) = $1', [normalizedCode]);
     await pool.query(
       'DELETE FROM users WHERE LOWER(code) = $1',
       [normalizedCode]
     );
-    
+
     res.json({ deleted: true, code: normalizedCode });
   } catch (error) {
     console.error('Error deleting user:', error);
@@ -1859,12 +1912,14 @@ app.post('/api/admin/import', async (req, res) => {
     
     let imported = { users: 0, recipes: 0, variations: 0, ingredients: 0, steps: 0, tags: 0 };
     
-    // Import users
+    // Import users (incl. auth fields so restored accounts can still log in)
     if (data.users) {
       for (const user of data.users) {
         await client.query(
-          'INSERT INTO users (id, code, created_at) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET code = $2',
-          [user.id, user.code, user.created_at]
+          `INSERT INTO users (id, code, created_at, google_sub, email, display_name, avatar_url, password_hash)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (id) DO UPDATE SET code = $2, google_sub = $4, email = $5, display_name = $6, avatar_url = $7, password_hash = $8`,
+          [user.id, user.code, user.created_at, user.google_sub || null, user.email || null, user.display_name || null, user.avatar_url || null, user.password_hash || null]
         );
         imported.users++;
       }
@@ -2212,6 +2267,12 @@ app.post('/api/admin/storage/bulk-delete', async (req, res) => {
     console.error('Error bulk deleting storage files:', error);
     res.status(500).json({ error: 'Failed to delete files' });
   }
+});
+
+// Admin console page (its API calls all require the ADMIN_SECRET, so the
+// page itself is safe to serve)
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '../tools/admin.html'));
 });
 
 // Serve frontend in production
