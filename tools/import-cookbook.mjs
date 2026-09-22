@@ -219,10 +219,27 @@ function parseRecipeFile(filePath) {
 // Import via API
 // ---------------------------------------------------------------------------
 
+let authToken = null;
+
+// The API requires a session token - log in with the user's access code
+async function login() {
+  const res = await fetch(`${API_BASE}/auth/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: USER_CODE }),
+  });
+  if (!res.ok) throw new Error(`Login as "${USER_CODE}" failed: HTTP ${res.status}`);
+  authToken = (await res.json()).token;
+}
+
 async function api(method, path, body) {
+  if (!authToken) await login();
   const res = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {

@@ -27,7 +27,10 @@ if (hasPostgres) {
   // Node's built-in SQLite (node:sqlite) — no native module to build.
   // Requires --experimental-sqlite on Node 22 (unflagged from Node 23).
   const { DatabaseSync } = require('node:sqlite');
-  const dbPath = path.join(__dirname, 'cheffinator_local.db');
+  // DATA_DIR lets hosted deploys keep the DB on a mounted persistent volume
+  const dbPath = process.env.DATA_DIR
+    ? path.join(process.env.DATA_DIR, 'cheffinator.db')
+    : path.join(__dirname, 'cheffinator_local.db');
   const sqlite = new DatabaseSync(dbPath);
   sqlite.exec('PRAGMA journal_mode = WAL');
 

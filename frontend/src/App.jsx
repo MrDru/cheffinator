@@ -798,26 +798,14 @@ export default function App() {
     
     setLoginLoading(true);
     setLoginError('');
-    
-    // In local dev, allow any name without server validation
-    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
+
     try {
-      if (isDev) {
-        // Skip server validation in local dev
-        const normalizedCode = code.trim().toLowerCase().replace(/\s+/g, '');
-        api.setUserCode(normalizedCode);
-        api.setRememberedUsername(normalizedCode); // Remember for next time
-        setUserCode(normalizedCode);
-        setLoginInput('');
-      } else {
-        // Validate code with server in production
-        const result = await api.validateCode(code.trim());
-        api.setUserCode(result.code);
-        api.setRememberedUsername(result.code); // Remember for next time
-        setUserCode(result.code);
-        setLoginInput('');
-      }
+      // Validate the code with the server - it returns the session token
+      const result = await api.validateCode(code.trim());
+      api.setUserCode(result.code);
+      api.setRememberedUsername(result.code); // Remember for next time
+      setUserCode(result.code);
+      setLoginInput('');
     } catch (error) {
       setLoginError(error.message || 'Invalid access code');
     } finally {
@@ -825,9 +813,9 @@ export default function App() {
     }
   };
 
-  // Logout - clear both session and remembered username
+  // Logout - invalidate the server session and clear local credentials
   const handleLogout = () => {
-    api.clearUserCode();
+    api.logout(); // fire and forget - clears token + code
     localStorage.removeItem('cheffinator_remembered_user'); // Force re-type on next login
     setUserCode(null);
     setLoginInput(''); // Clear the input field too
@@ -1482,6 +1470,8 @@ export default function App() {
         xhr.onerror = () => reject(new Error('Upload failed'));
 
         xhr.open('POST', '/api/upload');
+        const token = api.getToken();
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.send(formData);
       });
       setUploadProgress(null);

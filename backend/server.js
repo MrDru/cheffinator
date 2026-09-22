@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
@@ -33,8 +34,11 @@ if (process.env.CHEFFINATOR_API) {
   console.warn('⚠️ CHEFFINATOR_API not set — AI nutrition estimation unavailable');
 }
 
-// Ensure uploads directory exists (fallback for local dev)
-const uploadsDir = path.join(__dirname, 'uploads');
+// Ensure uploads directory exists (local disk storage when Supabase is unset;
+// DATA_DIR keeps it on a mounted persistent volume in hosted deploys)
+const uploadsDir = process.env.DATA_DIR
+  ? path.join(process.env.DATA_DIR, 'uploads')
+  : path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -51,7 +55,10 @@ const storage = supabase
         cb(null, `${uuidv4()}${ext}`);
       }
     });
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB max per image
+});
 
 // Default tags from spec
 const DEFAULT_TAGS = [
@@ -72,20 +79,22 @@ const DEFAULT_USERS = [
   'tester4'
 ];
 
-// Validate required environment variables
-const requiredEnvVars = ['DATABASE_URL'];
-const recommendedEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'CHEFFINATOR_API'];
-
-for (const envVar of requiredEnvVars) {
+// Validate environment. Production needs either a Postgres URL or a
+// persistent data dir for SQLite - otherwise data dies with the instance.
+if (isProduction && !process.env.DATABASE_URL && !process.env.DATA_DIR) {
+  console.error('❌ Set DATABASE_URL (Postgres) or DATA_DIR (SQLite on a persistent volume) in production!');
+  process.exit(1);
+}
+if (isProduction && !process.env.ADMIN_SECRET) {
+  console.warn('⚠️ ADMIN_SECRET not set — the /api/admin endpoints are disabled');
+}
+for (const envVar of ['SUPABASE_URL', 'SUPABASE_ANON_KEY']) {
   if (!process.env[envVar]) {
-    console.error(`❌ ${envVar} environment variable is not set!`);
-    if (isProduction) process.exit(1);
+    console.warn(`⚠️ ${envVar} not set — image uploads will use local disk storage`);
   }
 }
-for (const envVar of recommendedEnvVars) {
-  if (!process.env[envVar]) {
-    console.warn(`⚠️ ${envVar} not set — image uploads will use local storage`);
-  }
+if (!process.env.CHEFFINATOR_API) {
+  console.warn('⚠️ CHEFFINATOR_API not set — AI nutrition estimation unavailable');
 }
 
 // db.js picks PostgreSQL when DATABASE_URL is set, SQLite otherwise (local dev)
@@ -305,6 +314,15 @@ async function initDatabase() {
     console.log('Creating indexes...');
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_user_code ON recipes(LOWER(user_code))`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_share_id ON recipes(share_id)`);
+    // Sessions table for token-based auth
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        user_code TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_is_published ON recipes(is_published)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_variations_recipe_id ON recipe_variations(recipe_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_ingredients_variation_id ON ingredients(variation_id)`);
@@ -356,6 +374,82 @@ app.use(cors({
 app.use(express.json({ limit: '5mb' })); // Reduced from 50mb to prevent memory crashes
 app.use('/uploads', express.static(uploadsDir));
 
+// ---------------------------------------------------------------------------
+// Auth: token sessions + ownership checks
+// ---------------------------------------------------------------------------
+
+const SESSION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+
+async function createSession(userCode) {
+  const token = crypto.randomBytes(24).toString('hex');
+  await pool.query(
+    'INSERT INTO sessions (token, user_code, created_at) VALUES ($1, $2, $3)',
+    [token, userCode, new Date()]
+  );
+  return token;
+}
+
+function bearerToken(req) {
+  return (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+}
+
+// Attaches req.userCode from a valid session token, else 401
+async function requireAuth(req, res, next) {
+  try {
+    const token = bearerToken(req);
+    if (!token) return res.status(401).json({ error: 'Authentication required' });
+    const result = await pool.query('SELECT user_code, created_at FROM sessions WHERE token = $1', [token]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid or expired session' });
+    }
+    const session = result.rows[0];
+    if (Date.now() - new Date(session.created_at).getTime() > SESSION_MAX_AGE_MS) {
+      await pool.query('DELETE FROM sessions WHERE token = $1', [token]);
+      return res.status(401).json({ error: 'Invalid or expired session' });
+    }
+    req.userCode = session.user_code.toLowerCase();
+    next();
+  } catch (error) {
+    console.error('Auth error:', error);
+    res.status(500).json({ error: 'Auth check failed' });
+  }
+}
+
+// After requireAuth: the recipe in :id must belong to the session's user
+async function requireRecipeOwner(req, res, next) {
+  try {
+    const result = await pool.query('SELECT user_code FROM recipes WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+    if ((result.rows[0].user_code || '').toLowerCase() !== req.userCode) {
+      return res.status(403).json({ error: 'Not your recipe' });
+    }
+    next();
+  } catch (error) {
+    console.error('Ownership check error:', error);
+    res.status(500).json({ error: 'Ownership check failed' });
+  }
+}
+
+// Admin endpoints need the ADMIN_SECRET env var; without it they are disabled
+function requireAdmin(req, res, next) {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret) {
+    return res.status(503).json({ error: 'Admin API disabled (ADMIN_SECRET not set)' });
+  }
+  const provided = req.headers['x-admin-secret'] || bearerToken(req);
+  const a = Buffer.from(String(provided || ''));
+  const b = Buffer.from(secret);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ error: 'Invalid admin secret' });
+  }
+  next();
+}
+
+// Every /api/admin/* route (they are all defined below) requires the secret
+app.use('/api/admin', requireAdmin);
+
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
@@ -381,7 +475,8 @@ app.post('/api/auth/validate', async (req, res) => {
     );
     
     if (result.rows.length > 0) {
-      res.json({ valid: true, code: normalizedCode });
+      const token = await createSession(normalizedCode);
+      res.json({ valid: true, code: normalizedCode, token });
     } else {
       res.status(401).json({ valid: false, error: 'Invalid access code' });
     }
@@ -391,11 +486,22 @@ app.post('/api/auth/validate', async (req, res) => {
   }
 });
 
+// Log out: invalidate the session token
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const token = bearerToken(req);
+    if (token) await pool.query('DELETE FROM sessions WHERE token = $1', [token]);
+    res.json({ ok: true });
+  } catch (error) {
+    res.json({ ok: true }); // logout never fails from the client's perspective
+  }
+});
+
 // Get all recipes (filtered by user_code, case-insensitive)
 // Optimized: uses batch queries instead of N+1 pattern
-app.get('/api/recipes', async (req, res) => {
+app.get('/api/recipes', requireAuth, async (req, res) => {
   try {
-    const userCode = (req.query.user || 'default').toLowerCase();
+    const userCode = req.userCode; // from the session, never from the query
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = parseInt(req.query.offset) || 0;
 
@@ -499,9 +605,9 @@ app.get('/api/recipes', async (req, res) => {
 
 // Get lightweight recipe list for dashboard (10x smaller payload)
 // Returns only: id, name, updated_at, tags, banner_image, variation_count
-app.get('/api/recipes/summary', async (req, res) => {
+app.get('/api/recipes/summary', requireAuth, async (req, res) => {
   try {
-    const userCode = (req.query.user || 'default').toLowerCase();
+    const userCode = req.userCode;
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = parseInt(req.query.offset) || 0;
 
@@ -649,16 +755,16 @@ app.get('/api/recipes/:id/export', async (req, res) => {
 });
 
 // Create recipe
-app.post('/api/recipes', async (req, res) => {
+app.post('/api/recipes', requireAuth, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
-    const { name, description, servings, tags, bannerImage, ingredients, stages, userCode } = req.body;
+
+    const { name, description, servings, tags, bannerImage, ingredients, stages } = req.body;
     const recipeId = uuidv4();
     const variationId = uuidv4();
     const now = new Date();
-    const normalizedUserCode = (userCode || 'default').toLowerCase();
+    const normalizedUserCode = req.userCode; // owner comes from the session
     
     // Save any custom tags
     await saveCustomTags(tags);
@@ -708,12 +814,12 @@ app.post('/api/recipes', async (req, res) => {
 });
 
 // Update recipe (and its variations)
-app.put('/api/recipes/:id', async (req, res) => {
+app.put('/api/recipes/:id', requireAuth, requireRecipeOwner, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
-    const { name, variations, newUserCode, expectedUpdatedAt } = req.body;
+
+    const { name, variations, expectedUpdatedAt } = req.body;
     const { id } = req.params;
 
     // Check if recipe exists
@@ -736,18 +842,12 @@ app.put('/api/recipes/:id', async (req, res) => {
 
     const now = new Date();
     
-    // Update recipe name, timestamp, and optionally user_code (for admin transfers)
-    if (newUserCode) {
-      await client.query(
-        `UPDATE recipes SET name = $1, user_code = $2, updated_at = $3 WHERE id = $4`,
-        [name, newUserCode.toLowerCase(), now, id]
-      );
-    } else {
-      await client.query(
-        `UPDATE recipes SET name = $1, updated_at = $2 WHERE id = $3`,
-        [name, now, id]
-      );
-    }
+    // Update recipe name and timestamp (owner transfers are admin-only,
+    // via POST /api/admin/recipes/:id/transfer)
+    await client.query(
+      `UPDATE recipes SET name = $1, updated_at = $2 WHERE id = $3`,
+      [name, now, id]
+    );
     
     // Collect the final server-side ID of each variation (in payload order) so
     // the client can sync its state - otherwise new variations churn on every save.
@@ -848,7 +948,7 @@ app.put('/api/recipes/:id', async (req, res) => {
 });
 
 // Delete recipe
-app.delete('/api/recipes/:id', async (req, res) => {
+app.delete('/api/recipes/:id', requireAuth, requireRecipeOwner, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -869,7 +969,7 @@ app.delete('/api/recipes/:id', async (req, res) => {
 });
 
 // Add variation to recipe (copies from an existing variation)
-app.post('/api/recipes/:id/variations', async (req, res) => {
+app.post('/api/recipes/:id/variations', requireAuth, requireRecipeOwner, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -955,26 +1055,24 @@ app.post('/api/recipes/:id/variations', async (req, res) => {
   }
 });
 
+// Returns the recipe's share id, creating one if needed (null if no recipe)
+async function getOrCreateShareId(id) {
+  const recipeResult = await pool.query('SELECT id, share_id FROM recipes WHERE id = $1', [id]);
+  if (recipeResult.rows.length === 0) return null;
+  let shareId = recipeResult.rows[0].share_id;
+  if (!shareId) {
+    // Generate a short, URL-friendly ID (8 characters)
+    shareId = uuidv4().replace(/-/g, '').substring(0, 8);
+    await pool.query('UPDATE recipes SET share_id = $1 WHERE id = $2', [shareId, id]);
+  }
+  return shareId;
+}
+
 // Generate or get share link for a recipe
-app.post('/api/recipes/:id/share', async (req, res) => {
+app.post('/api/recipes/:id/share', requireAuth, requireRecipeOwner, async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    // Check if recipe exists
-    const recipeResult = await pool.query('SELECT id, share_id FROM recipes WHERE id = $1', [id]);
-    if (recipeResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Recipe not found' });
-    }
-    
-    let shareId = recipeResult.rows[0].share_id;
-    
-    // Generate share_id if it doesn't exist
-    if (!shareId) {
-      // Generate a short, URL-friendly ID (8 characters)
-      shareId = uuidv4().replace(/-/g, '').substring(0, 8);
-      await pool.query('UPDATE recipes SET share_id = $1 WHERE id = $2', [shareId, id]);
-    }
-    
+    const shareId = await getOrCreateShareId(req.params.id);
+    if (!shareId) return res.status(404).json({ error: 'Recipe not found' });
     res.json({ shareId });
   } catch (error) {
     console.error('Error generating share link:', error);
@@ -982,8 +1080,37 @@ app.post('/api/recipes/:id/share', async (req, res) => {
   }
 });
 
+// Admin: share link for any recipe (the admin tool's preview)
+app.post('/api/admin/recipes/:id/share', async (req, res) => {
+  try {
+    const shareId = await getOrCreateShareId(req.params.id);
+    if (!shareId) return res.status(404).json({ error: 'Recipe not found' });
+    res.json({ shareId });
+  } catch (error) {
+    console.error('Error generating share link:', error);
+    res.status(500).json({ error: 'Failed to generate share link' });
+  }
+});
+
+// Admin: rename any recipe (inline edit in the admin tool)
+app.post('/api/admin/recipes/:id/rename', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+    const result = await pool.query(
+      'UPDATE recipes SET name = $1, updated_at = $2 WHERE id = $3',
+      [name.trim(), new Date(), req.params.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'Recipe not found' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error renaming recipe:', error);
+    res.status(500).json({ error: 'Failed to rename recipe' });
+  }
+});
+
 // Publish/unpublish a recipe (toggle visibility on discover page)
-app.post('/api/recipes/:id/publish', async (req, res) => {
+app.post('/api/recipes/:id/publish', requireAuth, requireRecipeOwner, async (req, res) => {
   try {
     const { id } = req.params;
     const { published } = req.body;
@@ -1005,7 +1132,7 @@ app.post('/api/recipes/:id/publish', async (req, res) => {
 });
 
 // Generate nutrition data for a variation using Claude Haiku
-app.post('/api/recipes/:id/variations/:variationId/nutrition', async (req, res) => {
+app.post('/api/recipes/:id/variations/:variationId/nutrition', requireAuth, requireRecipeOwner, async (req, res) => {
   try {
     if (!anthropic) {
       return res.status(503).json({ error: 'AI nutrition estimation is not configured (missing CHEFFINATOR_API)' });
@@ -1425,7 +1552,7 @@ app.delete('/api/admin/users/:code', async (req, res) => {
 });
 
 // Upload image endpoint
-app.post('/api/upload', upload.single('image'), async (req, res) => {
+app.post('/api/upload', requireAuth, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });

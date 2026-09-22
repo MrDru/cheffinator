@@ -7,6 +7,37 @@ export function getUserCode() {
   return localStorage.getItem('cheffinator_user_code');
 }
 
+// --- Session token ---
+export function getToken() {
+  return localStorage.getItem('cheffinator_token');
+}
+export function setToken(token) {
+  localStorage.setItem('cheffinator_token', token);
+}
+export function clearToken() {
+  localStorage.removeItem('cheffinator_token');
+}
+
+// Fetch with the session token attached. A 401 means the session is gone:
+// clear credentials and send the user back to the login screen.
+async function authFetch(url, options = {}) {
+  const token = getToken();
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    }
+  });
+  if (response.status === 401) {
+    clearToken();
+    clearUserCode();
+    window.location.reload();
+    throw new Error('Session expired');
+  }
+  return response;
+}
+
 // Set user code in localStorage
 export function setUserCode(code) {
   localStorage.setItem('cheffinator_user_code', code);
@@ -27,7 +58,7 @@ export function setRememberedUsername(username) {
   localStorage.setItem('cheffinator_remembered_user', username);
 }
 
-// Validate user code with the server
+// Validate user code with the server; stores the returned session token
 export async function validateCode(code) {
   const response = await fetch(`${API_BASE}/auth/validate`, {
     method: 'POST',
@@ -38,7 +69,17 @@ export async function validateCode(code) {
   if (!response.ok) {
     throw new Error(data.error || 'Invalid code');
   }
+  if (data.token) setToken(data.token);
   return data;
+}
+
+// Invalidate the session server-side and clear local credentials
+export async function logout() {
+  try {
+    await authFetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+  } catch (e) { /* logging out always succeeds locally */ }
+  clearToken();
+  clearUserCode();
 }
 
 export async function fetchRecipes(userCode, options = {}) {
@@ -49,7 +90,7 @@ export async function fetchRecipes(userCode, options = {}) {
     limit: String(limit),
     offset: String(offset)
   });
-  const response = await fetch(`${API_BASE}/recipes?${params}`);
+  const response = await authFetch(`${API_BASE}/recipes?${params}`);
   if (!response.ok) throw new Error('Failed to fetch recipes');
   return response.json();
 }
@@ -63,7 +104,7 @@ export async function fetchRecipesSummary(userCode, options = {}) {
     limit: String(limit),
     offset: String(offset)
   });
-  const response = await fetch(`${API_BASE}/recipes/summary?${params}`);
+  const response = await authFetch(`${API_BASE}/recipes/summary?${params}`);
   if (!response.ok) throw new Error('Failed to fetch recipe summaries');
   return response.json();
 }
@@ -76,7 +117,7 @@ export async function fetchRecipe(id) {
 
 export async function createRecipe(recipe, userCode) {
   const code = userCode || getUserCode() || 'default';
-  const response = await fetch(`${API_BASE}/recipes`, {
+  const response = await authFetch(`${API_BASE}/recipes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...recipe, userCode: code })
@@ -86,7 +127,7 @@ export async function createRecipe(recipe, userCode) {
 }
 
 export async function updateRecipe(id, recipe) {
-  const response = await fetch(`${API_BASE}/recipes/${id}`, {
+  const response = await authFetch(`${API_BASE}/recipes/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(recipe)
@@ -100,7 +141,7 @@ export async function updateRecipe(id, recipe) {
 }
 
 export async function deleteRecipe(id) {
-  const response = await fetch(`${API_BASE}/recipes/${id}`, {
+  const response = await authFetch(`${API_BASE}/recipes/${id}`, {
     method: 'DELETE'
   });
   if (!response.ok) throw new Error('Failed to delete recipe');
@@ -108,7 +149,7 @@ export async function deleteRecipe(id) {
 }
 
 export async function addVariation(recipeId, name, sourceVariationId) {
-  const response = await fetch(`${API_BASE}/recipes/${recipeId}/variations`, {
+  const response = await authFetch(`${API_BASE}/recipes/${recipeId}/variations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, sourceVariationId })
@@ -120,7 +161,7 @@ export async function addVariation(recipeId, name, sourceVariationId) {
 export async function uploadImage(file) {
   const formData = new FormData();
   formData.append('image', file);
-  const response = await fetch(`${API_BASE}/upload`, {
+  const response = await authFetch(`${API_BASE}/upload`, {
     method: 'POST',
     body: formData
   });
@@ -157,7 +198,7 @@ export async function fetchCustomTags() {
 
 // Generate or get share link for a recipe
 export async function generateShareLink(recipeId) {
-  const response = await fetch(`${API_BASE}/recipes/${recipeId}/share`, {
+  const response = await authFetch(`${API_BASE}/recipes/${recipeId}/share`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' }
   });
@@ -167,7 +208,7 @@ export async function generateShareLink(recipeId) {
 
 // Publish or unpublish a recipe (toggle visibility on discover page)
 export async function publishRecipe(recipeId, published) {
-  const response = await fetch(`${API_BASE}/recipes/${recipeId}/publish`, {
+  const response = await authFetch(`${API_BASE}/recipes/${recipeId}/publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ published })
@@ -192,7 +233,7 @@ export async function fetchPublicProfile(userCode) {
 
 // Generate nutrition data for a variation using AI
 export async function generateNutrition(recipeId, variationId) {
-  const response = await fetch(`${API_BASE}/recipes/${recipeId}/variations/${variationId}/nutrition`, {
+  const response = await authFetch(`${API_BASE}/recipes/${recipeId}/variations/${variationId}/nutrition`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' }
   });

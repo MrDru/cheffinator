@@ -115,7 +115,18 @@ ${entries.map(li).join('\n')}
 }
 
 async function main() {
-  const listRes = await fetch(`${API}/api/recipes?user=${encodeURIComponent(user)}&limit=100&offset=0`);
+  // The recipe list requires a session token - log in with the access code
+  const loginRes = await fetch(`${API}/api/auth/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: user })
+  });
+  if (!loginRes.ok) throw new Error(`Login as "${user}" failed: HTTP ${loginRes.status}`);
+  const { token } = await loginRes.json();
+
+  const listRes = await fetch(`${API}/api/recipes?limit=100&offset=0`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
   if (!listRes.ok) throw new Error(`Failed to list recipes: HTTP ${listRes.status}`);
   const recipes = await listRes.json();
   if (recipes.length === 0) {

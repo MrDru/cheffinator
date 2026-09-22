@@ -700,6 +700,22 @@
   </div>
 
   <script>
+    // Admin secret: asked once per browser session, sent on every request.
+    // The server requires it (x-admin-secret) for all /api/admin endpoints.
+    let ADMIN_SECRET = sessionStorage.getItem('cheffinator_admin_secret') || '';
+    if (!ADMIN_SECRET) {
+      ADMIN_SECRET = prompt('Admin secret (ADMIN_SECRET on the server):') || '';
+      sessionStorage.setItem('cheffinator_admin_secret', ADMIN_SECRET);
+    }
+    const _origFetch = window.fetch.bind(window);
+    window.fetch = (url, opts = {}) => {
+      opts.headers = { ...(opts.headers || {}), 'x-admin-secret': ADMIN_SECRET };
+      return _origFetch(url, opts).then(res => {
+        if (res.status === 401) sessionStorage.removeItem('cheffinator_admin_secret');
+        return res;
+      });
+    };
+
     let API_URL = '';
     let allRecipes = [];
     let allUsers = [];
@@ -1039,7 +1055,7 @@
     async function openRecipeInApp() {
       if (!previewRecipeId) return;
       try {
-        const response = await fetch(`${API_URL}/api/recipes/${previewRecipeId}/share`, { method: 'POST' });
+        const response = await fetch(`${API_URL}/api/admin/recipes/${previewRecipeId}/share`, { method: 'POST' });
         const data = await response.json();
         window.open(`${API_URL}/r/${data.shareId}`, '_blank');
       } catch { showToast('Could not open', 'error'); }
@@ -1071,11 +1087,17 @@
       parent.innerHTML = '<span style="color: var(--text-muted);">Saving...</span>';
 
       try {
-        const response = await fetch(`${API_URL}/api/recipes/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: field === 'name' ? newValue : recipe.name, newUserCode: field === 'user_code' ? newValue : undefined, variations: recipe.variations || [] })
-        });
+        const response = field === 'user_code'
+          ? await fetch(`${API_URL}/api/admin/recipes/bulk-transfer`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids: [id], newUserCode: newValue })
+            })
+          : await fetch(`${API_URL}/api/admin/recipes/${id}/rename`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: newValue })
+            });
         if (!response.ok) throw new Error('Failed');
         recipe[field] = newValue;
         showToast('Updated!', 'success');
