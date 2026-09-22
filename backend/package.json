@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "NODE_ENV=production node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --experimental-sqlite --watch server.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

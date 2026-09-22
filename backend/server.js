@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { Pool } = require('pg');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
@@ -89,10 +88,15 @@ for (const envVar of recommendedEnvVars) {
   }
 }
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/cheffinator',
-  ssl: isProduction ? { rejectUnauthorized: false } : false
-});
+// db.js picks PostgreSQL when DATABASE_URL is set, SQLite otherwise (local dev)
+const pool = require('./db').db;
+
+// DB TEXT columns hold JSON; never let one bad row 500 a whole endpoint
+function safeParse(text, fallback) {
+  if (!text) return fallback;
+  if (typeof text === 'object') return text;
+  try { return JSON.parse(text); } catch { return fallback; }
+}
 
 console.log('📦 Connecting to database...');
 
@@ -455,10 +459,10 @@ app.get('/api/recipes', async (req, res) => {
         name: v.name,
         description: v.description || '',
         servings: v.servings,
-        tags: v.tags ? JSON.parse(v.tags) : [],
+        tags: safeParse(v.tags, []),
         bannerImage: v.banner_image,
-        translation: v.translation ? JSON.parse(v.translation) : null,
-        nutrition: v.nutrition ? JSON.parse(v.nutrition) : null,
+        translation: safeParse(v.translation, null),
+        nutrition: safeParse(v.nutrition, null),
         ingredients: ingredientsByVariation[v.id] || [],
         stages: stepsByVariation[v.id] || []
       });
@@ -474,7 +478,7 @@ app.get('/api/recipes', async (req, res) => {
         name: recipe.name,
         description: firstVariation.description || recipe.description || '',
         servings: firstVariation.servings || recipe.servings,
-        tags: firstVariation.tags || (recipe.tags ? JSON.parse(recipe.tags) : []),
+        tags: firstVariation.tags || (safeParse(recipe.tags, [])),
         bannerImage: firstVariation.bannerImage || recipe.banner_image,
         updated: timeAgo(recipe.updated_at),
         variations: variations,
@@ -502,16 +506,10 @@ app.get('/api/recipes/summary', async (req, res) => {
     const result = await pool.query(`
       SELECT
         r.id, r.name, r.updated_at, r.is_published,
-        rv.banner_image, rv.tags,
+        (SELECT banner_image FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as banner_image,
+        (SELECT tags FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as tags,
         (SELECT COUNT(*) FROM recipe_variations WHERE recipe_id = r.id) as variation_count
       FROM recipes r
-      LEFT JOIN LATERAL (
-        SELECT banner_image, tags
-        FROM recipe_variations
-        WHERE recipe_id = r.id
-        ORDER BY sort_order
-        LIMIT 1
-      ) rv ON true
       WHERE LOWER(r.user_code) = $1
       ORDER BY r.updated_at DESC
       LIMIT $2 OFFSET $3
@@ -521,7 +519,7 @@ app.get('/api/recipes/summary', async (req, res) => {
       id: recipe.id,
       name: recipe.name,
       updated: timeAgo(recipe.updated_at),
-      tags: recipe.tags ? JSON.parse(recipe.tags) : [],
+      tags: safeParse(recipe.tags, []),
       bannerImage: recipe.banner_image,
       variationCount: parseInt(recipe.variation_count),
       isPublished: recipe.is_published || false
@@ -596,10 +594,10 @@ app.get('/api/recipes/:id', async (req, res) => {
       name: v.name,
       description: v.description || '',
       servings: v.servings,
-      tags: v.tags ? JSON.parse(v.tags) : [],
+      tags: safeParse(v.tags, []),
       bannerImage: v.banner_image,
-      translation: v.translation ? JSON.parse(v.translation) : null,
-      nutrition: v.nutrition ? JSON.parse(v.nutrition) : null,
+      translation: safeParse(v.translation, null),
+      nutrition: safeParse(v.nutrition, null),
       ingredients: ingredientsByVariation[v.id] || [],
       stages: stepsByVariation[v.id] || []
     }));
@@ -611,7 +609,7 @@ app.get('/api/recipes/:id', async (req, res) => {
       name: recipe.name,
       description: firstVariation.description || recipe.description || '',
       servings: firstVariation.servings || recipe.servings,
-      tags: firstVariation.tags || (recipe.tags ? JSON.parse(recipe.tags) : []),
+      tags: firstVariation.tags || (safeParse(recipe.tags, [])),
       bannerImage: firstVariation.bannerImage || recipe.banner_image,
       updated: timeAgo(recipe.updated_at),
       variations: variations,
@@ -689,16 +687,27 @@ app.put('/api/recipes/:id', async (req, res) => {
   try {
     await client.query('BEGIN');
     
-    const { name, variations, newUserCode } = req.body;
+    const { name, variations, newUserCode, expectedUpdatedAt } = req.body;
     const { id } = req.params;
-    
+
     // Check if recipe exists
-    const existing = await client.query('SELECT id FROM recipes WHERE id = $1', [id]);
+    const existing = await client.query('SELECT id, updated_at FROM recipes WHERE id = $1', [id]);
     if (existing.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Recipe not found' });
     }
-    
+
+    // Optimistic concurrency: reject stale saves so one device can't silently
+    // overwrite another's newer edits. Client sends the updated_at it last saw.
+    const currentUpdatedAt = new Date(existing.rows[0].updated_at).toISOString();
+    if (expectedUpdatedAt && new Date(expectedUpdatedAt).toISOString() !== currentUpdatedAt) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'Recipe was modified elsewhere',
+        currentUpdatedAt
+      });
+    }
+
     const now = new Date();
     
     // Update recipe name, timestamp, and optionally user_code (for admin transfers)
@@ -714,6 +723,10 @@ app.put('/api/recipes/:id', async (req, res) => {
       );
     }
     
+    // Collect the final server-side ID of each variation (in payload order) so
+    // the client can sync its state - otherwise new variations churn on every save.
+    const savedVariationIds = [];
+
     // Handle variations
     if (variations && variations.length > 0) {
       // Get existing variation IDs
@@ -787,11 +800,18 @@ app.put('/api/recipes/:id', async (req, res) => {
         
         // Run all inserts in parallel
         await Promise.all([...ingredientPromises, ...stepPromises]);
+
+        savedVariationIds.push(variationId);
       }
     }
-    
+
     await client.query('COMMIT');
-    res.json({ id, message: 'Recipe updated successfully' });
+    res.json({
+      id,
+      updatedAt: now.toISOString(),
+      variationIds: savedVariationIds,
+      message: 'Recipe updated successfully'
+    });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error updating recipe:', error);
@@ -805,10 +825,16 @@ app.put('/api/recipes/:id', async (req, res) => {
 app.delete('/api/recipes/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Delete recipe (cascade will handle ingredients and steps)
-    await pool.query('DELETE FROM recipes WHERE id = $1', [id]);
-    
+
+    // Delete children explicitly (no FK cascade is defined in the schema)
+    await pool.query('DELETE FROM ingredients WHERE recipe_id = $1', [id]);
+    await pool.query('DELETE FROM cooking_steps WHERE recipe_id = $1', [id]);
+    await pool.query('DELETE FROM recipe_variations WHERE recipe_id = $1', [id]);
+    const result = await pool.query('DELETE FROM recipes WHERE id = $1', [id]);
+
+    if (!result.rowCount) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
     res.json({ message: 'Recipe deleted successfully' });
   } catch (error) {
     console.error('Error deleting recipe:', error);
@@ -1127,15 +1153,10 @@ app.get('/api/public/users/:userCode', async (req, res) => {
     // Get all recipes for this user with first variation in a single query
     const recipesResult = await pool.query(`
       SELECT r.id, r.name, r.updated_at,
-             rv.banner_image, rv.description, rv.tags
+             (SELECT banner_image FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as banner_image,
+             (SELECT description FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as description,
+             (SELECT tags FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as tags
       FROM recipes r
-      LEFT JOIN LATERAL (
-        SELECT banner_image, description, tags
-        FROM recipe_variations
-        WHERE recipe_id = r.id
-        ORDER BY sort_order
-        LIMIT 1
-      ) rv ON true
       WHERE LOWER(r.user_code) = $1
       ORDER BY r.updated_at DESC
     `, [userCode]);
@@ -1145,7 +1166,7 @@ app.get('/api/public/users/:userCode', async (req, res) => {
       name: row.name,
       bannerImage: row.banner_image || '',
       description: row.description || '',
-      tags: row.tags ? JSON.parse(row.tags) : [],
+      tags: safeParse(row.tags, []),
       updatedAt: row.updated_at
     }));
 
@@ -1169,15 +1190,11 @@ app.get('/api/public/discover', async (req, res) => {
     // Get random PUBLISHED recipes with their first variation details
     const recipesResult = await pool.query(`
       SELECT r.id, r.name, r.share_id, r.updated_at,
-             rv.banner_image, rv.description, rv.tags, r.user_code
+             (SELECT banner_image FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as banner_image,
+             (SELECT description FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as description,
+             (SELECT tags FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as tags,
+             r.user_code
       FROM recipes r
-      LEFT JOIN LATERAL (
-        SELECT banner_image, description, tags
-        FROM recipe_variations
-        WHERE recipe_id = r.id
-        ORDER BY sort_order
-        LIMIT 1
-      ) rv ON true
       WHERE r.is_published = TRUE
       ORDER BY RANDOM()
       LIMIT $1 OFFSET $2
@@ -1189,7 +1206,7 @@ app.get('/api/public/discover', async (req, res) => {
       shareId: recipe.share_id,
       bannerImage: recipe.banner_image,
       description: recipe.description || '',
-      tags: recipe.tags ? JSON.parse(recipe.tags) : [],
+      tags: safeParse(recipe.tags, []),
       userCode: recipe.user_code,
       updatedAt: recipe.updated_at
     }));
@@ -1206,15 +1223,10 @@ app.get('/api/admin/recipes', async (req, res) => {
   try {
     const recipesResult = await pool.query(`
       SELECT r.id, r.name, r.user_code, r.share_id, r.updated_at,
-             rv.banner_image, rv.description, rv.tags
+             (SELECT banner_image FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as banner_image,
+             (SELECT description FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as description,
+             (SELECT tags FROM recipe_variations WHERE recipe_id = r.id ORDER BY sort_order LIMIT 1) as tags
       FROM recipes r
-      LEFT JOIN LATERAL (
-        SELECT banner_image, description, tags 
-        FROM recipe_variations 
-        WHERE recipe_id = r.id 
-        ORDER BY sort_order 
-        LIMIT 1
-      ) rv ON true
       ORDER BY r.updated_at DESC
     `);
     
@@ -1225,7 +1237,7 @@ app.get('/api/admin/recipes', async (req, res) => {
       shareId: recipe.share_id,
       bannerImage: recipe.banner_image,
       description: recipe.description || '',
-      tags: recipe.tags ? JSON.parse(recipe.tags) : [],
+      tags: safeParse(recipe.tags, []),
       updated: timeAgo(recipe.updated_at)
     }));
     
@@ -1882,6 +1894,9 @@ if (isProduction) {
   app.get('*', (req, res) => {
     if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
       res.sendFile(path.join(frontendPath, 'index.html'));
+    } else {
+      // Unknown API/uploads route: answer instead of hanging the request
+      res.status(404).json({ error: 'Not found' });
     }
   });
 }
