@@ -65,12 +65,18 @@ export async function validateCode(code) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code })
   });
-  const data = await response.json();
+  const data = await parseJson(response);
   if (!response.ok) {
-    throw new Error(data.error || 'Invalid code');
+    throw new Error(data.error || 'Server unavailable — please try again');
   }
   if (data.token) setToken(data.token);
   return data;
+}
+
+// Parse a JSON body, tolerating empty/non-JSON responses (e.g. the dev
+// proxy answering while the backend restarts)
+async function parseJson(response) {
+  try { return await response.json(); } catch { return {}; }
 }
 
 // --- Google sign-in ---
@@ -89,8 +95,8 @@ export async function googleLogin(credential) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ credential })
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Google sign-in failed');
+  const data = await parseJson(response);
+  if (!response.ok) throw new Error(data.error || 'Server unavailable — please try again');
   if (data.token) setToken(data.token);
   return data;
 }
@@ -102,8 +108,8 @@ export async function googleRegister(credential, username) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ credential, username })
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Google sign-up failed');
+  const data = await parseJson(response);
+  if (!response.ok) throw new Error(data.error || 'Server unavailable — please try again');
   if (data.token) setToken(data.token);
   return data;
 }
