@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as api from './api';
 import ImageCapture from './ImageCapture';
-import { MOCK_RECIPES, MOCK_DISCOVER_RECIPES } from './data/mockRecipes';
 
 // App version - update this single place when releasing new versions
 const APP_VERSION = 'v0.0.27';
@@ -78,6 +77,8 @@ const TRANSLATIONS = {
     saving: 'Saving...',
     saved: '✓ Saved',
     unsavedChanges: 'Unsaved changes',
+    saveError: '⚠ Not saved — retrying',
+    saveConflict: '⚠ Changed elsewhere — reload to continue',
     pleaseEnterName: 'Please enter a name',
     
     // Variation
@@ -93,6 +94,8 @@ const TRANSLATIONS = {
     recipes: 'Recipes',
     recipe: 'recipe',
     noRecipesYet: 'No recipes yet',
+    loadFailed: "Couldn't load — check that the server is running",
+    retry: 'Retry',
     backToCheffinator: 'Back to Cheffinator',
     
     // Delete/Share modals
@@ -201,6 +204,8 @@ const TRANSLATIONS = {
     saving: 'שומר...',
     saved: '✓ נשמר',
     unsavedChanges: 'שינויים לא נשמרו',
+    saveError: '⚠ לא נשמר — מנסה שוב',
+    saveConflict: '⚠ שונה במקום אחר — רענן כדי להמשיך',
     pleaseEnterName: 'נא להזין שם',
     
     // Variation
@@ -216,6 +221,8 @@ const TRANSLATIONS = {
     recipes: 'מתכונים',
     recipe: 'מתכון',
     noRecipesYet: 'אין עדיין מתכונים',
+    loadFailed: 'הטעינה נכשלה — ודאו שהשרת פועל',
+    retry: 'נסו שוב',
     backToCheffinator: 'חזרה לשפינטור',
     
     // Delete/Share modals
@@ -459,18 +466,8 @@ export default function App() {
     };
   });
   
-  // User authentication state
-  // In local dev, auto-login as 'designer' if no existing user code
-  const [userCode, setUserCode] = useState(() => {
-    const existingCode = api.getUserCode();
-    if (existingCode) return existingCode;
-    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isDev) {
-      api.setUserCode('designer');
-      return 'designer';
-    }
-    return null;
-  });
+  // User authentication state (persisted code, or the login screen)
+  const [userCode, setUserCode] = useState(() => api.getUserCode() || null);
   const [loginInput, setLoginInput] = useState(() => api.getRememberedUsername());
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
@@ -484,6 +481,8 @@ export default function App() {
   // Discover/homepage state
   const [discoverRecipes, setDiscoverRecipes] = useState([]);
   const [discoverLoading, setDiscoverLoading] = useState(true); // Start with loading true
+  const [discoverError, setDiscoverError] = useState(false);
+  const [recipesError, setRecipesError] = useState(false);
   
   // Public/shared recipe state
   const [isPublicView, setIsPublicView] = useState(false);
@@ -510,6 +509,9 @@ export default function App() {
   const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saved', 'unsaved', 'saving'
   const autoSaveTimeoutRef = React.useRef(null);
   const lastSavedDataRef = React.useRef(null);
+  const lastSavedUpdatedAtRef = React.useRef(null); // server updated_at for optimistic concurrency
+  const isSavingRef = React.useRef(false); // ref twin of isSaving (readable after awaits)
+  const [saveTick, setSaveTick] = useState(0); // bumped after each save so the effect re-checks for missed edits
   const [uploadProgress, setUploadProgress] = useState(null); // null = hidden, 0-100 = progress
   const [cookingSlide, setCookingSlide] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -659,12 +661,12 @@ export default function App() {
   const loadDiscoverRecipes = async () => {
     try {
       setDiscoverLoading(true);
+      setDiscoverError(false);
       const data = await api.fetchDiscoverRecipes(5);
       setDiscoverRecipes(data);
     } catch (error) {
       console.error('Failed to load discover recipes:', error);
-      // Use mock data for local development when backend is unavailable
-      setDiscoverRecipes(MOCK_DISCOVER_RECIPES);
+      setDiscoverError(true);
     } finally {
       setDiscoverLoading(false);
     }
@@ -766,21 +768,12 @@ export default function App() {
     if (!userCode) return;
     try {
       setLoading(true);
+      setRecipesError(false);
       const data = await api.fetchRecipes(userCode);
-      // In development, always include mock recipes for demo purposes
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      if (isDev) {
-        setRecipes([...data, ...MOCK_RECIPES]);
-      } else {
-        setRecipes(data);
-      }
+      setRecipes(data);
     } catch (error) {
       console.error('Failed to load recipes:', error);
-      // If API fails in dev, still show mock recipes
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      if (isDev) {
-        setRecipes(MOCK_RECIPES);
-      }
+      setRecipesError(true);
     } finally {
       setLoading(false);
     }
@@ -876,18 +869,6 @@ export default function App() {
     }
   };
 
-  // Listen for fullscreen changes
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-    };
-  }, []);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -1026,125 +1007,47 @@ export default function App() {
     setIsPublished(false);
   };
 
-  const openNew = async () => { 
+  const openNew = () => {
     resetForm();
-    
-    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
-    // In dev mode, create a mock recipe locally without API
-    if (isDev) {
-      const mockId = `mock-new-${Date.now()}`;
-      setEditingId(mockId);
-      setRecipeName('Untitled Recipe');
-      setVariations([{
+
+    // The recipe is only created on the first real edit (first auto-save), so
+    // backing out of an untouched editor leaves nothing behind on the dashboard.
+    setEditingId(null);
+    setRecipeName('Untitled Recipe');
+    setVariations([{
+      id: null,
+      name: 'Original',
+      description: '',
+      servings: 4,
+      tags: [],
+      bannerImage: null,
+      ingredients: [{ id: 1, name: '', image: null }],
+      stages: [{ id: 1, text: '', image: null }]
+    }]);
+    setCurrentVariationIndex(0);
+
+    // Baseline mirrors the auto-save snapshot (empty rows are filtered there),
+    // so an untouched editor doesn't trigger a spurious first save.
+    lastSavedDataRef.current = JSON.stringify({
+      name: 'Untitled Recipe',
+      variations: [{
         id: null,
         name: 'Original',
-        description: '',
-        servings: 4,
-        tags: [],
-        bannerImage: null,
-        ingredients: [{ id: 1, name: '', image: null }],
-        stages: [{ id: 1, text: '', image: null }]
-      }]);
-      setCurrentVariationIndex(0);
-      setDescription('');
-      setServings('4');
-      setTags([]);
-      setBannerImage(null);
-      setIngredients([{ id: 1, name: '', image: null }]);
-      setStages([{ id: 1, text: '', image: null }]);
-      
-      // Initialize lastSavedDataRef for auto-save
-      lastSavedDataRef.current = JSON.stringify({
-        name: 'Untitled Recipe',
-        variations: [{
-          name: 'Original',
-          description: '',
-          servings: 4,
-          tags: [],
-          bannerImage: null,
-          ingredients: [{ id: 1, name: '', image: null }],
-          stages: [{ id: 1, text: '', image: null }]
-        }]
-      });
-      setAutoSaveStatus('saved');
-      
-      // Add to local state
-      setRecipes(prev => [{
-        id: mockId,
-        name: 'Untitled Recipe',
-        variations: [{
-          id: `${mockId}-v1`,
-          name: 'Original',
-          description: '',
-          servings: 4,
-          tags: [],
-          bannerImage: null,
-          ingredients: [{ id: 1, name: '', image: null }],
-          stages: [{ id: 1, text: '', image: null }]
-        }],
-        updated: 'just now',
-        isMock: true
-      }, ...prev]);
-      
-      window.history.pushState({ view: 'edit' }, '', window.location.pathname);
-      setCurrentView('edit');
-      return;
-    }
-    
-    // Create a blank recipe immediately so auto-save works
-    try {
-      const result = await api.createRecipe({
-        name: 'Untitled Recipe',
         description: '',
         servings: 4,
         tags: [],
         bannerImage: null,
         ingredients: [],
-        stages: []
-      }, userCode);
-      
-      setEditingId(result.id);
-      setRecipeName('Untitled Recipe');
-      setVariations([{
-        id: null,
-        name: 'Original',
-        description: '',
-        servings: 4,
-        tags: [],
-        bannerImage: null,
-        ingredients: [{ id: 1, name: '', image: null }],
-        stages: [{ id: 1, text: '', image: null }]
-      }]);
-      
-      // Initialize lastSavedDataRef for auto-save
-      lastSavedDataRef.current = JSON.stringify({
-        name: 'Untitled Recipe',
-        variations: [{
-          name: 'Original',
-          description: '',
-          servings: 4,
-          tags: [],
-          bannerImage: null,
-          ingredients: [{ id: 1, name: '', image: null }],
-          stages: [{ id: 1, text: '', image: null }]
-        }]
-      });
-      setAutoSaveStatus('saved');
-      
-      // Add to local state
-      setRecipes(prev => [{
-        id: result.id,
-        name: 'Untitled Recipe',
-        variations: [],
-        updated: 'just now'
-      }, ...prev]);
-      
-      window.history.pushState({ view: 'edit' }, '', window.location.pathname);
-      setCurrentView('edit');
-    } catch (error) {
-      console.error('Failed to create recipe:', error);
-    }
+        stages: [],
+        translation: null,
+        nutrition: null
+      }]
+    });
+    lastSavedUpdatedAtRef.current = null;
+    setAutoSaveStatus('saved');
+
+    window.history.pushState({ view: 'edit' }, '', window.location.pathname);
+    setCurrentView('edit');
   };
 
   // Load a specific variation's data into the form fields
@@ -1170,6 +1073,7 @@ export default function App() {
   const openExisting = (r, variationIndex = 0) => {
     setEditingId(r.id);
     setRecipeName(r.name);
+    lastSavedUpdatedAtRef.current = r.updatedAt || null;
     setIsPublished(r.isPublished || false);
     setViewTranslationIndex(null);
 
@@ -1247,7 +1151,9 @@ export default function App() {
         return await api.uploadBase64Image(imageData);
       } catch (err) {
         console.error('Failed to upload image:', err);
-        return null; // Don't keep base64 - it causes memory crashes
+        // Keep the base64 so the image isn't silently lost; the next save
+        // retries the upload (isBase64Image still matches)
+        return imageData;
       }
     }
     return imageData; // Already a URL, keep it
@@ -1279,17 +1185,20 @@ export default function App() {
   };
 
   const saveRecipe = async (isAutoSave = false) => {
-    if (isSaving) return; // Prevent double-save
-    if (!editingId) return; // Must have a recipe ID
-    
-    if (!recipeName.trim()) { 
+    // A save is already in flight: skip, but the finished save bumps saveTick,
+    // which makes the auto-save effect re-check and reschedule - edits made
+    // during a save are never dropped.
+    if (isSavingRef.current) return;
+
+    if (!recipeName.trim()) {
       if (!isAutoSave) {
-        setSaveMessage('Please enter a name'); 
-        setTimeout(() => setSaveMessage(''), 2000); 
+        setSaveMessage('Please enter a name');
+        setTimeout(() => setSaveMessage(''), 2000);
       }
-      return; 
+      return;
     }
-    
+
+    isSavingRef.current = true;
     setIsSaving(true);
     setAutoSaveStatus('saving');
     
@@ -1322,78 +1231,142 @@ export default function App() {
     }];
     
     try {
-      // In dev mode with mock recipes, skip API call
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const isMockRecipe = editingId && editingId.toString().startsWith('mock-');
-      
-      let processedVariations = variationsToSave;
-      
-      // Only process images when saving to real API (not mock)
-      if (!isDev || !isMockRecipe) {
-        // Upload any base64 images and replace with URLs before saving
-        // This prevents huge payloads that cause memory crashes
-        processedVariations = await Promise.all(
-          variationsToSave.map(v => processVariationImages(v))
-        );
-      }
-      
-      const data = { 
+      // Upload any base64 images and replace with URLs before saving
+      // This prevents huge payloads that cause memory crashes
+      const processedVariations = await Promise.all(
+        variationsToSave.map(v => processVariationImages(v))
+      );
+
+      const data = {
         name: recipeName.trim(),
-        variations: processedVariations
+        variations: processedVariations,
+        expectedUpdatedAt: lastSavedUpdatedAtRef.current || undefined
       };
-      
+
       let recipeId = editingId;
-      
-      if (!isDev || !isMockRecipe) {
-        // Save to database with processed (URL-only) images
-        await api.updateRecipe(editingId, data);
+      let result;
+
+      if (!recipeId) {
+        // First real edit of a new recipe: create it now
+        const first = processedVariations[0] || {};
+        const created = await api.createRecipe({
+          name: recipeName.trim(),
+          description: first.description || '',
+          servings: first.servings || 4,
+          tags: first.tags || [],
+          bannerImage: first.bannerImage || null,
+          ingredients: first.ingredients || [],
+          stages: first.stages || []
+        }, userCode);
+        recipeId = created.id;
+        setEditingId(recipeId);
+        // Follow up with a full PUT so translations/extra variations persist
+        // and we learn the server-assigned variation ids
+        result = await api.updateRecipe(recipeId, { ...data, expectedUpdatedAt: undefined });
+        setRecipes(prev => [
+          { id: recipeId, name: recipeName.trim(), variations: processedVariations, updated: 'just now' },
+          ...prev
+        ]);
+      } else {
+        result = await api.updateRecipe(recipeId, data);
+        setRecipes(prev => prev.map(r =>
+          r.id === recipeId
+            ? { ...r, name: recipeName.trim(), variations: processedVariations, updated: 'just now' }
+            : r
+        ));
       }
-      
-      // Update local state with processed variations (URLs instead of base64)
-      setRecipes(prev => prev.map(r => 
-        r.id === editingId 
-          ? { ...r, name: recipeName.trim(), variations: processedVariations, updated: 'just now' }
-          : r
-      ));
-      setVariations(processedVariations);
-      
+
+      if (result?.updatedAt) lastSavedUpdatedAtRef.current = result.updatedAt;
+      const savedIds = result?.variationIds || [];
+
+      // Sync server state back WITHOUT clobbering edits made during the save:
+      // a variation untouched since the save started adopts the processed copy
+      // (uploaded image URLs); a touched one keeps the user's newer version and
+      // only gets its server-assigned id.
+      setVariations(prev => prev.map((v, i) => {
+        const sent = variationsToSave[i];
+        const proc = processedVariations[i];
+        if (!sent || !proc) return v;
+        const untouched = JSON.stringify(v) === JSON.stringify(sent);
+        const base = untouched ? proc : v;
+        return savedIds[i] ? { ...base, id: savedIds[i] } : base;
+      }));
+
+      // Adopt uploaded image URLs into the live form fields (functional
+      // updaters read the CURRENT value, so a field changed during the save
+      // keeps the user's newer image)
+      const sentCur = variationsToSave[currentVariationIndex];
+      const procCur = processedVariations[currentVariationIndex];
+      if (sentCur && procCur) {
+        setBannerImage(prev => prev === sentCur.bannerImage ? procCur.bannerImage : prev);
+        setIngredients(prev => prev.map(ing => {
+          const idx = (sentCur.ingredients || []).findIndex(s => s.id === ing.id);
+          if (idx >= 0 && ing.image === sentCur.ingredients[idx].image) {
+            return { ...ing, image: procCur.ingredients[idx]?.image ?? ing.image };
+          }
+          return ing;
+        }));
+        setStages(prev => prev.map(st => {
+          const idx = (sentCur.stages || []).findIndex(s => s.id === st.id);
+          if (idx >= 0 && st.image === sentCur.stages[idx].image) {
+            return { ...st, image: procCur.stages[idx]?.image ?? st.image };
+          }
+          return st;
+        }));
+      }
+
       // Reload custom tags in background (fire and forget - small payload)
-      if (!isDev || !isMockRecipe) {
-        loadCustomTags();
-      }
-      
+      loadCustomTags();
+
       // Store last saved data for change detection (with processed URLs)
       lastSavedDataRef.current = JSON.stringify({
         name: recipeName.trim(),
         variations: processedVariations
       });
-      
-      setIsSaving(false);
+
       setAutoSaveStatus('saved');
-      
+
       if (!isAutoSave) {
-        setSaveMessage('Saved!'); 
-        setTimeout(() => { 
-          setSaveMessage(''); 
-          setCurrentView('view'); 
+        setSaveMessage('Saved!');
+        setTimeout(() => {
+          setSaveMessage('');
+          setCurrentView('view');
         }, 800);
       }
     } catch (error) {
       console.error('Failed to save recipe:', error);
-      setIsSaving(false);
-      setAutoSaveStatus('unsaved');
-      if (!isAutoSave) {
-        setSaveMessage('Error saving');
-        setTimeout(() => setSaveMessage(''), 2000);
+      if (error.status === 409) {
+        // Someone else (another device/tab) saved a newer version - stop
+        // auto-saving over it and tell the user instead of silently clobbering
+        setAutoSaveStatus('conflict');
+        if (!isAutoSave) {
+          setSaveMessage('Changed elsewhere - reload before saving');
+          setTimeout(() => setSaveMessage(''), 3000);
+        }
+      } else {
+        setAutoSaveStatus('error');
+        if (!isAutoSave) {
+          setSaveMessage('Error saving');
+          setTimeout(() => setSaveMessage(''), 2000);
+        }
       }
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
+      // Re-check for edits that arrived while this save was in flight
+      setSaveTick(t => t + 1);
     }
   };
 
-  // Auto-save effect: debounced save when data changes in edit mode
+  // Auto-save effect: debounced save when data changes in edit mode.
+  // Also fires for a brand-new recipe (editingId null) - the first save creates it.
   React.useEffect(() => {
-    // Only auto-save when editing an existing recipe
-    if (currentView !== 'edit' || !editingId) return;
-    
+    if (currentView !== 'edit') return;
+
+    // A stale save was rejected (edited elsewhere) - never auto-overwrite;
+    // the user reloads to continue
+    if (autoSaveStatus === 'conflict') return;
+
     // Build current data snapshot
     const currentData = JSON.stringify({
       name: recipeName.trim(),
@@ -1409,36 +1382,48 @@ export default function App() {
         nutrition
       } : v)
     });
-    
+
     // Skip if no changes or no data yet
     if (!lastSavedDataRef.current || currentData === lastSavedDataRef.current) {
       return;
     }
-    
-    // Mark as unsaved
-    setAutoSaveStatus('unsaved');
-    
+
+    // Mark as unsaved (unless a save is already running for older edits)
+    if (!isSavingRef.current) setAutoSaveStatus('unsaved');
+
     // Clear existing timeout
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
-    
-    // Set new debounced save (300ms after last change - nearly instant)
+
+    // Debounced save: 300ms after the last change; back off after a failure
+    const delay = autoSaveStatus === 'error' ? 3000 : 300;
     autoSaveTimeoutRef.current = setTimeout(() => {
       saveRecipe(true); // Auto-save
-    }, 300);
-    
+    }, delay);
+
     return () => {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [recipeName, description, servings, tags, bannerImage, ingredients, stages, currentView, editingId, variations, currentVariationIndex, translations, nutrition]);
+  }, [recipeName, description, servings, tags, bannerImage, ingredients, stages, currentView, editingId, variations, currentVariationIndex, translations, nutrition, saveTick, autoSaveStatus]);
+
+  // Warn before closing the tab while edits are unsaved or still saving
+  React.useEffect(() => {
+    if (currentView !== 'edit') return;
+    if (autoSaveStatus === 'saved') return;
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = ''; // required by Chrome to show the prompt
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentView, autoSaveStatus]);
 
   // Initialize lastSavedDataRef when entering edit mode
   React.useEffect(() => {
     if (currentView === 'edit' && editingId && variations.length > 0) {
-      const currentVar = variations[currentVariationIndex];
       lastSavedDataRef.current = JSON.stringify({
         name: recipeName.trim(),
         variations: variations.map((v, i) => i === currentVariationIndex ? {
@@ -1449,6 +1434,7 @@ export default function App() {
           bannerImage,
           ingredients: filteredIngredients,
           stages: filteredStages,
+          translation: translations.length > 0 ? translations : null,
           nutrition
         } : v)
       });
@@ -1596,21 +1582,8 @@ export default function App() {
       try {
         setIsDeleting(true);
         
-        const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const isMockRecipe = deleteModal.isMock || (deleteModal.id && deleteModal.id.toString().startsWith('mock-'));
-        
-        if (isDev && isMockRecipe) {
-          // For mock recipes in dev mode, just remove from local state
-          setRecipes(prev => prev.filter(r => r.id !== deleteModal.id));
-        } else if (isDev) {
-          // In dev mode, just remove from local state (API might not be available)
-          setRecipes(prev => prev.filter(r => r.id !== deleteModal.id));
-        } else {
-          // For real recipes in production, call the API
-          await api.deleteRecipe(deleteModal.id);
-          await loadRecipes();
-        }
-        
+        await api.deleteRecipe(deleteModal.id);
+        setRecipes(prev => prev.filter(r => r.id !== deleteModal.id));
         setDeleteModal(null);
       } catch (error) {
         console.error('Failed to delete recipe:', error);
@@ -2274,6 +2247,12 @@ export default function App() {
           
           {discoverLoading ? (
             <CheffinatorLoader text={t('loadingDelicious')} />
+          ) : discoverError ? (
+            <div style={{ ...styles.surface, textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+              <p>{t('loadFailed')}</p>
+              <button style={{ ...styles.btn, marginTop: 16 }} onClick={loadDiscoverRecipes}>{t('retry')}</button>
+            </div>
           ) : discoverRecipes.length === 0 ? (
             <div style={{ ...styles.surface, textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🍽️</div>
@@ -2617,6 +2596,12 @@ export default function App() {
           
           {loading ? (
             <CheffinatorLoader text={t('loadingRecipes')} />
+          ) : recipesError ? (
+            <div style={{ ...styles.surface, textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+              <p>{t('loadFailed')}</p>
+              <button style={{ ...styles.btn, marginTop: 16 }} onClick={loadRecipes}>{t('retry')}</button>
+            </div>
           ) : (
             <div style={isDesktop ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 } : { display: 'flex', flexDirection: 'column', gap: 0 }}>
               <button
@@ -3712,7 +3697,7 @@ export default function App() {
               clearTimeout(autoSaveTimeoutRef.current);
             }
             // If there are unsaved changes, save before leaving
-            if (autoSaveStatus === 'unsaved') {
+            if (autoSaveStatus === 'unsaved' || autoSaveStatus === 'error') {
               saveRecipe(true).then(() => setCurrentView('view'));
             } else {
               setCurrentView('view');
@@ -3734,9 +3719,9 @@ export default function App() {
               gap: 6,
               opacity: isPublishing ? 0.7 : 1
             }}
-            disabled={isPublishing || !editingId || editingId.startsWith('mock-')}
+            disabled={isPublishing || !editingId}
             onClick={async () => {
-              if (isPublishing || !editingId || editingId.startsWith('mock-')) return;
+              if (isPublishing || !editingId) return;
               try {
                 setIsPublishing(true);
                 const result = await api.publishRecipe(editingId, !isPublished);
@@ -3790,10 +3775,12 @@ export default function App() {
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              color: autoSaveStatus === 'saving' ? 'var(--text-secondary)' : 
-                     autoSaveStatus === 'saved' ? 'var(--accent-green)' : 'var(--text-muted)',
-              background: autoSaveStatus === 'saving' ? 'rgba(255,255,255,0.05)' : 
-                          autoSaveStatus === 'saved' ? 'rgba(74,222,128,0.1)' : 'transparent'
+              color: autoSaveStatus === 'saving' ? 'var(--text-secondary)' :
+                     autoSaveStatus === 'saved' ? 'var(--accent-green)' :
+                     (autoSaveStatus === 'error' || autoSaveStatus === 'conflict') ? 'var(--accent-red)' : 'var(--text-muted)',
+              background: autoSaveStatus === 'saving' ? 'rgba(255,255,255,0.05)' :
+                          autoSaveStatus === 'saved' ? 'rgba(74,222,128,0.1)' :
+                          (autoSaveStatus === 'error' || autoSaveStatus === 'conflict') ? 'rgba(239,68,68,0.15)' : 'transparent'
             }}>
               {autoSaveStatus === 'saving' && (
                 <span style={{
@@ -3805,8 +3792,10 @@ export default function App() {
                   animation: 'spin 0.8s linear infinite'
                 }} />
               )}
-              {autoSaveStatus === 'saving' ? t('saving') : 
-               autoSaveStatus === 'saved' ? t('saved') : t('unsavedChanges')}
+              {autoSaveStatus === 'saving' ? t('saving') :
+               autoSaveStatus === 'saved' ? t('saved') :
+               autoSaveStatus === 'error' ? t('saveError') :
+               autoSaveStatus === 'conflict' ? t('saveConflict') : t('unsavedChanges')}
             </span>
           )}
         </div>

@@ -28,6 +28,7 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
   const canvasRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
+  const streamRef = useRef(null); // ref twin of stream - stable callbacks/cleanup read this, not the state closure
   const timerRef = useRef(null);
   const framesRef = useRef([]);
   const frameIntervalRef = useRef(null);
@@ -66,8 +67,9 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('Camera access granted, tracks:', mediaStream.getVideoTracks().length);
       
+      streamRef.current = mediaStream;
       setStream(mediaStream);
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         
@@ -92,8 +94,9 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
   };
 
   const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
       setStream(null);
     }
     if (videoRef.current) {
@@ -339,7 +342,7 @@ const ImageCapture = ({ onCapture, onClose, currentImage }) => {
                 <span style={{ fontSize: 24 }}>🎬</span>
                 <div>
                   <div style={{ fontWeight: 500 }}>Record GIF</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>5 sec video → animated GIF</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{MAX_RECORDING_TIME} sec video → animated GIF</div>
                 </div>
               </button>
             </>

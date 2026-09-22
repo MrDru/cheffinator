@@ -91,7 +91,11 @@ export async function updateRecipe(id, recipe) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(recipe)
   });
-  if (!response.ok) throw new Error('Failed to update recipe');
+  if (!response.ok) {
+    const err = new Error('Failed to update recipe');
+    err.status = response.status;
+    throw err;
+  }
   return response.json();
 }
 
